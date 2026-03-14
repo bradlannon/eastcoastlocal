@@ -15,9 +15,9 @@ Requirements for event discovery and categorization. Each maps to roadmap phases
 
 ### Filtering
 
-- [ ] **FILT-01**: User can filter events by category using horizontal chip buttons
-- [ ] **FILT-02**: Category filter applies to heatmap mode (heatmap only shows selected categories)
-- [ ] **FILT-03**: Category filter selection is persisted in the URL and shareable
+- [x] **FILT-01**: User can filter events by category using horizontal chip buttons
+- [x] **FILT-02**: Category filter applies to heatmap mode (heatmap only shows selected categories)
+- [x] **FILT-03**: Category filter selection is persisted in the URL and shareable
 
 ### Discovery
 
@@ -57,9 +57,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CAT-01 | Phase 7 | Complete |
 | CAT-02 | Phase 7 | Complete |
 | CAT-03 | Phase 6 | Complete (2026-03-14) |
-| FILT-01 | Phase 8 | Pending |
-| FILT-02 | Phase 8 | Pending |
-| FILT-03 | Phase 8 | Pending |
+| FILT-01 | Phase 8 | Complete |
+| FILT-02 | Phase 8 | Complete |
+| FILT-03 | Phase 8 | Complete |
 | DISC-01 | Phase 9 | Pending |
 | DISC-02 | Phase 9 | Pending |
 | DISC-03 | Phase 9 | Pending |

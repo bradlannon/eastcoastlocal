@@ -31,7 +31,7 @@
 
 - [ ] **Phase 6: Category Schema** - DB migration that gates all v1.2 work
 - [x] **Phase 7: AI Categorization** - Extend extraction to classify events; backfill existing data (completed 2026-03-14)
-- [ ] **Phase 8: Category Filter UI** - Let users filter map and list by event category
+- [x] **Phase 8: Category Filter UI** - Let users filter map and list by event category (completed 2026-03-14)
 - [ ] **Phase 9: Source Discovery** - Automatically find and stage new event venues
 
 ## Phase Details
@@ -72,7 +72,7 @@ Plans:
   2. Switching to heatmap mode with a category selected shows only events of that category in the heatmap intensity
   3. The selected category is preserved in the URL as a `?category=` parameter — copying and sharing the URL reproduces the same filtered view
   4. A category badge is visible on event cards and event detail pages
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 08-01-PLAN.md — Filter function + chip UI + category badges + URL persistence
 
@@ -98,5 +98,5 @@ Plans:
 | 5. Click-Through | v1.1 | 2/2 | Complete | 2026-03-14 |
 | 6. Category Schema | v1.2 | 0/1 | In Progress (checkpoint) | - |
 | 7. AI Categorization | 2/2 | Complete   | 2026-03-14 | - |
-| 8. Category Filter UI | v1.2 | 0/1 | Not started | - |
+| 8. Category Filter UI | 1/1 | Complete   | 2026-03-14 | - |
 | 9. Source Discovery | v1.2 | 0/TBD | Not started | - |

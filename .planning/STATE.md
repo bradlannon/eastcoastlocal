@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Event Discovery
 status: executing
-stopped_at: 07-02 complete — backfill verified by human via Drizzle Studio; Phase 7 fully done
-last_updated: "2026-03-14T23:12:14.759Z"
-last_activity: 2026-03-14 — Phase 7 Plan 01 complete; extraction pipeline now produces categorized events
+stopped_at: 08-01 complete — category filter UI with chip row, URL persistence, and category badges
+last_updated: "2026-03-14T23:28:14.021Z"
+last_activity: 2026-03-14 — Phase 8 Plan 01 complete; category filter UI with chip row, URL persistence, and badges
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
-  percent: 62
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Phase 7 — AI Categorization
+**Current focus:** Phase 8 — Category Filter UI
 
 ## Current Position
 
-Phase: 7 of 9 (AI Categorization)
+Phase: 8 of 9 (Category Filter UI)
 Plan: 1 of 1 in current phase (complete)
-Status: In Progress — Phase 7 Plan 01 done; ready for Phase 7 Plan 02 or Phase 8
-Last activity: 2026-03-14 — Phase 7 Plan 01 complete; extraction pipeline now produces categorized events
+Status: In Progress — Phase 8 Plan 01 done; category filter UI complete; ready for Phase 9
+Last activity: 2026-03-14 — Phase 8 Plan 01 complete; category chip row, URL persistence, badges on cards and detail page
 
-Progress: [██████░░░░] ~62% (Phase 7 Plan 01 done)
+Progress: [██████████] 100% (Phase 8 Plan 01 done)
 
 ## Accumulated Context
 
@@ -46,6 +46,7 @@ Recent decisions affecting current work:
 - Backfill: Run immediately after Phase 7 deploys — not a deferred task
 - [Phase 07-ai-categorization]: Backfill reported 0 rows updated — DB default 'community' applied at insert time; no historical null event_category values existed
 - [Phase 07-ai-categorization]: Human verified zero NULLs in events.event_category via Drizzle Studio before proceeding to Phase 8
+- [Phase 08-category-filter-ui]: Category chip row uses overflow-x-auto for mobile horizontal scroll; filterByCategory uses strict equality on event_category
 
 ### Decisions from 06-01
 
@@ -73,6 +74,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-14T21:56:18.421Z
-Stopped at: 07-02 complete — backfill verified by human via Drizzle Studio; Phase 7 fully done
+Last session: 2026-03-14T23:28:14.017Z
+Stopped at: 08-01 complete — category filter UI with chip row, URL persistence, and category badges
 Resume file: None
