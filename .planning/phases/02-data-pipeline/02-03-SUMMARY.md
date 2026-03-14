@@ -56,10 +56,10 @@ completed: 2026-03-14
 
 ## Performance
 
-- **Duration:** ~6 min
+- **Duration:** ~6 min (automated tasks) + human verification
 - **Started:** 2026-03-14T02:37:25Z
 - **Completed:** 2026-03-14T02:43:00Z
-- **Tasks:** 2 automated (Task 3 is human-verify checkpoint)
+- **Tasks:** 3 (Tasks 1-2 automated, Task 3 human-verify — all complete)
 - **Files modified:** 4
 
 ## Accomplishments
@@ -68,6 +68,7 @@ completed: 2026-03-14
 - vercel.json configures daily 6:00 AM UTC cron targeting /api/cron/scrape
 - 5 new route unit tests; 57 total tests passing across 9 suites
 - Next.js build succeeds with `/api/cron/scrape` registered as dynamic route
+- End-to-end pipeline verified live: real Atlantic Canada events scraped and stored in Neon DB, dedup confirmed on second run (no duplicate events), deployed to Vercel with CRON_SECRET/GOOGLE_GENERATIVE_AI_API_KEY/GOOGLE_MAPS_API_KEY env vars set
 
 ## Task Commits
 
@@ -76,8 +77,9 @@ Each task was committed atomically:
 1. **Task 1 (RED): Failing tests for cron route** - `6510a22` (test)
 2. **Task 1 (GREEN): Orchestrator + cron route implementation** - `ec9cee4` (feat)
 3. **Task 2: vercel.json + full build verification** - `e59dbaf` (chore)
+4. **Task 3: Human verification complete** - pipeline confirmed working end-to-end with live data
 
-_Note: TDD task has two commits (test -> feat)_
+_Note: TDD task has two commits (test -> feat). Task 3 is a human-verify checkpoint — no code commit._
 
 ## Files Created/Modified
 - `src/lib/scraper/orchestrator.ts` - Sequential pipeline orchestrator, exports `runScrapeJob()`
@@ -100,17 +102,16 @@ None.
 
 ## User Setup Required
 
-**External service requires manual configuration before production use:**
-
-- **CRON_SECRET**: Set in Vercel Dashboard -> Project Settings -> Environment Variables
-  - Generate with: `openssl rand -hex 32`
-  - Required for cron endpoint to be callable by Vercel's cron system
+All required env vars confirmed set in Vercel:
+- **CRON_SECRET** — Cron endpoint auth (set in Vercel Dashboard)
+- **GOOGLE_GENERATIVE_AI_API_KEY** — Gemini API key for LLM event extraction (set in Vercel Dashboard)
+- **GOOGLE_MAPS_API_KEY** — Google Maps Geocoding API key for venue coordinates (set in Vercel Dashboard)
 
 ## Next Phase Readiness
-- Complete pipeline is wired end-to-end: URL -> HTML -> LLM extraction -> normalization -> geocoding -> upsert dedup
-- Task 3 (human-verify checkpoint) requires user to test the cron endpoint locally and deploy to Vercel
-- After Vercel deploy with CRON_SECRET set, cron will appear in Vercel Dashboard -> Cron Jobs
-- Phase 3 (UI) can begin once data is flowing into the database
+- Complete pipeline operational: daily 6:00 AM UTC cron runs automatically via Vercel, scraping Atlantic Canada venues into Neon DB
+- Real events confirmed in database from live scrape run
+- Deduplication verified — running twice produces no duplicate events
+- Phase 3 (UI) can begin immediately — events table has real data with coordinates
 
 ## Self-Check: PASSED
 
@@ -124,6 +125,7 @@ None.
 - Tests: 57 passed, 0 failed
 - TypeScript: no errors
 - Next.js build: success
+- Human verification (Task 3): CONFIRMED — pipeline returns success, real events scraped, dedup verified, deployed with all env vars
 
 ---
 *Phase: 02-data-pipeline*
