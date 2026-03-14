@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.1 Heatmap Timelapse (Shipped: 2026-03-14)
+
+**Phases completed:** 2 phases, 6 plans
+**Timeline:** 1 day (2026-03-14)
+**Stats:** 5,108 LOC TypeScript, 48 tests, 10 new/modified files, 1,179 lines added
+
+**Key accomplishments:**
+- Pure timelapse utility functions with 48 unit tests (time windowing, venue heat points, 6-hour block naming, Haversine spatial proximity)
+- HeatmapLayer component with leaflet.heat integration, dynamic intensity scaling for sparse data, and blue-to-red gradient
+- TimelineBar scrubber with frosted glass overlay, play/pause animation at ~1s/step, 24-hour rolling window across 30 days
+- Mode toggle between pin clusters and heatmap timelapse with viewport preservation and province filter support
+- Click-through from heatmap hotspots with multi-venue grouped popups filtered to current time window
+- Toggleable venue pins in heatmap mode synced to current 24-hour time window
+
+---
+
 ## v1.0 MVP (Shipped: 2026-03-14)
 
 **Phases completed:** 3 phases, 8 plans

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A public-facing web app that helps people discover live music across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping to automatically extract event data from venue websites and event platforms, then displays upcoming gigs on an interactive map with pin clusters that users can zoom into to find what's playing near them.
+A public-facing web app that helps people discover live music across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping to automatically extract event data from venue websites and event platforms, then displays upcoming gigs on an interactive map with pin clusters and a heatmap timelapse mode that lets users scrub through 30 days of events to see when and where music is happening.
 
 ## Core Value
 
@@ -24,43 +24,47 @@ Users can instantly see what live music is happening near them on a map — wher
 - ✓ Clean, intuitive public-facing UI for discovering upcoming live music — v1.0
 - ✓ Scheduled/periodic rescanning of sources (hands-off operation) — v1.0
 - ✓ Cloud deployment (Vercel) — v1.0
+- ✓ Heatmap overlay showing event density by location — v1.1
+- ✓ Heatmap intensity reflects number of events at each venue within time window — v1.1
+- ✓ Click-through from heatmap hotspots to specific events — v1.1
+- ✓ Heatmap updates smoothly as time position changes — v1.1
+- ✓ Draggable timeline scrubber across 30-day window — v1.1
+- ✓ 24-hour rolling window per scrubber position — v1.1
+- ✓ Date/time label showing current window — v1.1
+- ✓ Play/pause auto-advance animation — v1.1
+- ✓ Toggle between pin/cluster view and heatmap timelapse mode — v1.1
+- ✓ Event list sidebar syncs with current time window — v1.1
+- ✓ Map viewport preserved when switching modes — v1.1
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-## Current Milestone: v1.1 Heatmap Timelapse
-
-**Goal:** Add a dynamic time dimension to the map with a heatmap timelapse mode inspired by windy.tv
-
-**Target features:**
-- Heatmap overlay showing event density across the map
-- Timeline scrubber bar with 24-hour rolling window across 30 days
-- Play/pause auto-advance animation
-- Click-through from heatmap hotspots to specific events
-- Event list sidebar syncs with current time position
-- Toggle between existing pin/cluster view and heatmap timelapse mode
+(None — plan next milestone)
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Non-music events (festivals, community events, markets) — focused on live music discovery only for v1
-- AI-powered source discovery (finding new venues automatically) — too ambitious for v1, configure sources manually
+- Non-music events (festivals, community events, markets) — focused on live music discovery only
+- AI-powered source discovery (finding new venues automatically) — configure sources manually
 - User accounts/authentication — public read-only app, no login needed
 - Mobile native app — web-first, responsive design covers mobile
-- Event submission by venues — scraping-only for v1
+- Event submission by venues — scraping-only
 - Ticket purchasing/booking — link out to source if available
+- Server-side heatmap aggregation — client-side filtering sufficient at Atlantic Canada data scale
+- URL persistence of time position — animation state through nuqs causes History API rate-limit issues
 
 ## Context
 
 - Geographic scope: All four Atlantic Canadian provinces (NB, NS, PEI, NL)
-- Event sources: Mix of individual venue websites and event platforms (Eventbrite, Bandsintown, etc.)
+- Event sources: 26 configured venues across all 4 provinces (pubs, bars, breweries, theatres)
 - Scraping approach: AI-powered extraction using Gemini LLM to parse event data from arbitrary page formats — no brittle CSS selectors
 - The app is hands-off once configured — daily cron rescans happen automatically via Vercel
 - Public app accessible to anyone in the region
-- Map uses pin clustering: one pin per venue, clusters when zoomed out, expand to individual venues when zoomed in
-- v1.0 shipped: 3,521 LOC TypeScript, 77 tests, Next.js 16 + Neon Postgres + Drizzle ORM
+- Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
+- v1.1 shipped: 5,108 LOC TypeScript, 48 tests, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- Deployed at eastcoastlocal.bradlannon.ca
 
 ## Constraints
 
@@ -85,6 +89,11 @@ Users can instantly see what live music is happening near them on a map — wher
 | react-leaflet 5.x + react-leaflet-cluster 4.0 | React 19 compatible, stable releases | ✓ Good — SSR bypass via dynamic import works |
 | nuqs for URL filter state | Type-safe URL params, useState-like API | ✓ Good — shareable filtered views, back-nav preserves state |
 | Light theme + CartoDB Positron tiles | User chose light tiles; consistent light UI throughout | ✓ Good — clean, readable design |
+| leaflet.heat via custom useMap() component | No wrapper libs compatible with react-leaflet 5.x | ✓ Good — setLatLngs for smooth updates, SSR safe |
+| Time position in useState, not nuqs | Animation fires 5 updates/sec — History API rate-limits | ✓ Good — no URL thrashing during playback |
+| 6-hour blocks over hourly steps | Matches event scheduling patterns, 120 steps for 30 days | ✓ Good — readable labels (Morning/Afternoon/Evening/Night) |
+| Dynamic heatmap max scaling | Sparse data (few venues) invisible with default max:1.0 | ✓ Good — single events always visible |
+| Map-level click handler over per-marker | One listener regardless of venue count, handles overlap | ✓ Good — clean spatial proximity query with Haversine |
 
 ---
-*Last updated: 2026-03-14 after v1.1 milestone started*
+*Last updated: 2026-03-14 after v1.1 milestone*
