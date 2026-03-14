@@ -1,12 +1,12 @@
 # Pitfalls Research
 
 **Domain:** Local events discovery app with AI-powered web scraping (Atlantic Canada live music)
-**Researched:** 2026-03-13
-**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance)
+**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added)
+**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research)
 
 ---
 
-## Critical Pitfalls
+## v1.0 — Scraping & Map Pitfalls
 
 ### Pitfall 1: Chromium Binary Blows Vercel's Function Size Limit
 
@@ -189,17 +189,190 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 ---
 
+## v1.1 — Heatmap Timelapse Pitfalls
+
+### Pitfall 8: Leaflet.heat Has No Built-in Click-Through Support
+
+**What goes wrong:**
+The "click-through from heatmap hotspots to events" feature gets built by attaching click handlers to the HeatLayer — which silently does nothing. Leaflet.heat renders all points onto a flat canvas and has no spatial index of what was drawn where. There is no way to ask it "what points are under this click?" The canvas pixels carry no metadata.
+
+**Why it happens:**
+Developers assume the heatmap layer behaves like a marker layer where each rendered element is a Leaflet object with event support. The API looks similar (you add lat/lng points), so the assumption feels reasonable. The limitation is not prominently documented — it only surfaces in GitHub issue #61 on the Leaflet/Leaflet.heat repo titled "Clickable/hoverable points?" which has been open and unresolved since the project began.
+
+**How to avoid:**
+Implement click-through via a parallel spatial lookup, not via the heatmap layer itself. On map click: take the click lat/lng, query the same event dataset that feeds the current time window, filter events within a radius threshold (e.g., ~20km), and show results. A simple distance calculation over the already-filtered time-windowed point set is sufficient for the Atlantic Canada dataset size. Do not attach any `on('click', ...)` handler to the HeatLayer.
+
+**Warning signs:**
+- A `heatLayer.on('click', handler)` call exists in the codebase — this will never fire
+- Click on the map in heatmap mode produces no response
+
+**Phase to address:**
+Phase implementing heatmap interaction and hotspot click-through. Design the click data flow (spatial lookup, not layer event) before writing any click handler code.
+
+---
+
+### Pitfall 9: Animation Loop Memory Leak on Mode Toggle or Unmount
+
+**What goes wrong:**
+When the user toggles back to pin/cluster view (or navigates away), the `requestAnimationFrame` loop driving the timelapse continues running in the background, calling `setLatLngs()` on a layer that may have been removed. Over repeated toggle cycles, memory climbs and the CPU stays busy. If the user re-enters heatmap mode, two competing loops run simultaneously — the heatmap flickers or advances at double speed.
+
+**Why it happens:**
+The rAF frame ID is stored in a local `useEffect` closure variable. Because `useEffect` cleanup runs asynchronously, the next rAF frame is scheduled before cleanup executes. The frame ID captured at cleanup time may already be stale. An empirical study of 500 React repos found 86% had at least one missing-cleanup pattern; rAF loops leaked ~8 KB per mount/unmount cycle.
+
+**How to avoid:**
+- Store the frame ID in a `useRef`, never in a local variable, so the cleanup function always cancels the correct ID.
+- Use `useLayoutEffect` (not `useEffect`) for continuous animation loops — it runs cleanup synchronously before the next effect.
+- Gate the recursive rAF call behind a cancelled ref: `if (!cancelledRef.current) frameId.current = requestAnimationFrame(tick)`.
+- Verify cleanup works: open DevTools Memory, take a heap snapshot, toggle modes 10 times, take another snapshot. Heap should not climb.
+
+**Warning signs:**
+- CPU remains elevated after switching to cluster view
+- Memory climbs across repeated mode toggles
+- `Cannot read properties of undefined (reading 'setLatLngs')` errors in console after toggling — the loop ran after the layer was removed
+
+**Phase to address:**
+Phase implementing the play/pause animation loop. Write the cleanup before writing the animation body.
+
+---
+
+### Pitfall 10: Leaflet.heat Plugin Breaks SSR — Even With Existing `dynamic()` Bypass
+
+**What goes wrong:**
+The project already bypasses SSR for the map component using `dynamic(() => import('./Map'), { ssr: false })`. Adding Leaflet.heat inside a child component of that dynamic import — without its own import guard — can still throw `window is not defined` at `next build` time. Next.js statically analyzes imports during bundling; if `leaflet.heat` is imported at module top level anywhere in the tree, it evaluates before the SSR guard applies.
+
+**Why it happens:**
+The `ssr: false` guard applies to the component render boundary, not to static module evaluation. Leaflet plugins call `window`, `document`, and the `L` global at module evaluation time. In `next dev`, the server is more forgiving; in `next build`, static analysis touches these imports and throws. This means a feature that "works in dev" fails in production build.
+
+**How to avoid:**
+- Never `import 'leaflet.heat'` at the top of any file. Import it inside a `useEffect` with `await import('leaflet.heat')`, or keep the entire HeatLayer component in its own file loaded via a second `dynamic(() => import('./HeatLayer'), { ssr: false })` boundary nested inside the already-dynamic Map component.
+- Test with `next build && next start` immediately after setting up the HeatLayer component — before writing any animation logic.
+
+**Warning signs:**
+- `ReferenceError: window is not defined` during `next build`
+- Error stack traces into a Leaflet plugin file
+- Feature works in `next dev` but build fails — classic dev/prod SSR gap
+
+**Phase to address:**
+First task of the HeatLayer component setup phase. Gate all subsequent heatmap work on a passing `next build`.
+
+---
+
+### Pitfall 11: `setLatLngs()` Redraws Block the Main Thread During Animation
+
+**What goes wrong:**
+Calling `heatLayer.setLatLngs(points)` on every animation tick redraws the entire canvas on the main thread. With per-frame array filtering (scanning all events to find those in the current time window), the main thread is doing O(n) work every 16 ms. On mobile, where the JS thread also handles touch events, the scrubber stutters and map panning becomes unresponsive during playback.
+
+**Why it happens:**
+- Developers drive animation with `setInterval` instead of `requestAnimationFrame`. `setInterval` fires on its own clock without coordinating with the browser's paint cycle, causing redraws at arbitrary mid-paint times.
+- Per-frame filtering is the obvious implementation: `events.filter(e => e.timestamp >= windowStart && e.timestamp < windowEnd)` inside the animation tick. Simple, but O(n) every frame.
+
+**How to avoid:**
+- Drive animation from a single top-level `requestAnimationFrame` loop. Never use `setInterval` for animation.
+- Pre-bucket events by time window at data load time (e.g., a `Map<hourIndex, LatLng[]>` keyed by hour). The per-frame operation becomes an O(1) lookup: `buckets.get(currentHour)`.
+- On scrubber drag, debounce the `setLatLngs` call — update the time label and position instantly but defer the canvas redraw 16–32 ms.
+- Verify: Chrome DevTools Performance panel should show rAF callbacks completing in under 16 ms. If they exceed that, the scrubber will lag.
+
+**Warning signs:**
+- `setInterval` appears anywhere in animation code
+- Scrubber thumb lags behind finger/cursor during drag
+- DevTools Performance shows long rAF tasks (yellow bars > 16 ms)
+
+**Phase to address:**
+Phase implementing timeline scrubber and play/pause logic. Benchmark redraw time in isolation before wiring to any UI.
+
+---
+
+### Pitfall 12: Timeline Scrubber Inaccessible to Keyboard and Screen Readers
+
+**What goes wrong:**
+A custom `<div>`-based scrubber with drag handlers is built. It looks complete and passes visual review. It fails entirely for keyboard users (no Tab stop, no arrow key stepping) and screen reader users (no announced current time value, no role). WCAG 2.2 SC 2.5.7 (Dragging Movements, Level AA, current standard since October 2023) explicitly requires that any drag interaction have a single-pointer non-drag alternative — a click-to-seek or numeric input.
+
+**Why it happens:**
+Drag interactions feel naturally implemented as custom pointer event handlers on `div` elements. The keyboard and screen reader requirements are not visible during mouse-only testing and are commonly deferred as "polish." They are not polish — they are architecture.
+
+**How to avoid:**
+- Build the scrubber on an HTML `<input type="range">` element. It ships with full keyboard support (arrow keys, Home, End, PageUp/PageDown), Tab stop, and screen reader announcements for free.
+- Style the native range input with CSS to match the windy.tv-inspired aesthetic rather than replacing it with a `div`.
+- Add `aria-label="Timeline position"` and update `aria-valuetext` with a human-readable string (e.g., "March 14, 8:00 PM").
+- The Play/Pause button must be a `<button>` with an `aria-label` that updates dynamically: "Play timelapse" / "Pause timelapse".
+- Test keyboard-only: Tab reaches the scrubber, arrow keys advance/retreat time, Space toggles play.
+
+**Warning signs:**
+- Scrubber is a `div` or `span` with `onMouseDown`/`onTouchStart` handlers
+- No `role="slider"`, `aria-valuenow`, or `aria-valuetext` in the DOM
+- Keyboard Tab key skips over the scrubber entirely
+
+**Phase to address:**
+Phase building the timeline scrubber UI component. Accessibility is not a post-launch fix — build it right the first time.
+
+---
+
+### Pitfall 13: State Desync Between Heatmap Time Window and Event Sidebar
+
+**What goes wrong:**
+The heatmap shows events for time window T, but the sidebar still lists events from the previous nuqs-persisted filter state. The user sees a hotspot on the map but finds no matching events in the sidebar. Or the sidebar shows events that are not visible in the current heatmap window. The two data sources diverge because animation time is local state that changes multiple times per second, while the sidebar reads URL-persisted state.
+
+**Why it happens:**
+The project uses nuqs for URL state (date filter, location filter). The natural instinct is to write the current heatmap time to nuqs — it's the existing pattern. But nuqs is rate-limited by the browser (URL updates are throttled), and nuqs itself applies debouncing. During playback, the animation advances faster than URL state can keep up. The sidebar, reading from nuqs, lags behind.
+
+**How to avoid:**
+- Treat heatmap time position as transient local state: a `useRef` for the raw animation position, a `useState` for the committed displayed value.
+- Lift the current time window into a shared context or lightweight atom (Zustand or React context) that both the HeatLayer and the sidebar read from synchronously. Do not use nuqs for this.
+- Throttle sidebar re-renders during playback: update sidebar event list at most every 250 ms, not every animation frame.
+- Only write to nuqs (URL) when the user pauses or finishes dragging the scrubber. This preserves shareability without rate-limit issues.
+- Never replace nuqs for the existing date/location filter state — add the time window atom alongside it.
+
+**Warning signs:**
+- Sidebar event count stays constant while heatmap changes during playback
+- URL query string flickering visibly during playback
+- nuqs console warnings about excessive URL update frequency
+
+**Phase to address:**
+Phase wiring the sidebar to the heatmap time window. Define state ownership (nuqs vs. local atom) before writing any sidebar data fetching.
+
+---
+
+### Pitfall 14: Heatmap Layer Not Removed on Mode Toggle, Leaving a Ghost Layer
+
+**What goes wrong:**
+When the user switches back to pin/cluster view, the heatmap canvas remains registered in Leaflet's internal layer registry. The cluster pins render on top visually, but the heat layer still receives map events. Click handlers fire from both layers. On repeated toggles, multiple ghost heat layers accumulate. Leaflet holds references to all of them, preventing garbage collection.
+
+**Why it happens:**
+Leaflet layers added imperatively via `map.addLayer()` must be removed imperatively via `map.removeLayer()`. React's reconciliation does not interact with Leaflet's internal `_layers` registry. If the HeatLayer component unmounts but the `useEffect` cleanup does not explicitly call `map.removeLayer(heatLayerInstance)`, the layer stays registered indefinitely. This is a documented issue in react-leaflet (GitHub issue #941).
+
+**How to avoid:**
+- In the HeatLayer component's `useEffect`, always return a cleanup function that calls `map.removeLayer(heatLayerRef.current)` followed by `heatLayerRef.current = null`.
+- Alternatively, wrap the HeatLayer using react-leaflet's `useLayerLifecycle` hook from the core API — it handles `addLayer`/`removeLayer` automatically tied to the React component lifecycle.
+- After toggles, inspect Leaflet's internal state in DevTools: `window.__leafletMap._layers` (attach the map instance to a window property in dev mode). Layer count should not grow with each toggle.
+
+**Warning signs:**
+- Heatmap canvas still partially visible after switching to cluster view
+- Click events on the map fire handlers from both layers simultaneously
+- DevTools Elements panel shows multiple canvas children under the map container after repeated toggles
+- Memory does not stabilize after repeated mode switches
+
+**Phase to address:**
+Phase implementing the mode toggle between heatmap and pin/cluster view. Write and test cleanup before integrating the toggle UI.
+
+---
+
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
 |----------|-------------------|----------------|-----------------|
-| Send raw HTML to LLM without preprocessing | Simpler pipeline, no preprocessing code | Token costs 10–25× higher; slower extraction | Never — always strip HTML before sending |
+| Send raw HTML to LLM without preprocessing | Simpler pipeline | Token costs 10–25× higher; slower extraction | Never — always strip HTML before sending |
 | Skip deduplication for first source | Faster to ship | Retroactively deduplicating a dirty DB is painful | Only for single-source MVP with explicit plan to add before source #2 |
-| Use Nominatim public API for geocoding | Free, no API key | No uptime guarantee; will get rate-limited in production | Never in production — use a real geocoding service |
-| Hardcode scraping to fixed intervals | Simple to implement | Thrashes sources unnecessarily; blind to scrape failures | Acceptable for MVP; add adaptive scheduling later |
+| Use Nominatim public API for geocoding | Free, no API key | No uptime guarantee; will get rate-limited in production | Never in production |
+| Hardcode scraping to fixed intervals | Simple to implement | Thrashes sources unnecessarily; blind to failures | Acceptable for MVP; add adaptive scheduling later |
 | Store all events, never delete | No cleanup logic needed | DB bloat, slow queries, stale pins on map | Never — date expiry is mandatory |
-| Run headless Chromium on Vercel | All infrastructure in one place | Hits 50MB bundle limit; fragile across Vercel updates | Never — decouple scraping from Vercel |
-| Skip source health monitoring | Faster initial build | Silent failures — scraper "runs" but returns nothing | MVP-acceptable with manual monitoring; automate before scale |
+| Run headless Chromium on Vercel | All infrastructure in one place | Hits 50MB bundle limit; fragile | Never — decouple scraping from Vercel |
+| Skip source health monitoring | Faster initial build | Silent failures | MVP-acceptable with manual monitoring |
+| Drive animation with `setInterval` instead of rAF | Simpler code | Frame drops, over-firing redraws, battery drain on mobile | Never — rAF is not harder |
+| Use nuqs for animation time position | Consistent with existing state | Browser rate-limit errors, URL thrashing, sidebar lag | Never for high-frequency animation state |
+| Build scrubber as a custom `div` slider | Full visual control | Keyboard inaccessible, fails WCAG 2.5.7 | Never — style a native `<input type="range">` |
+| Top-level `import 'leaflet.heat'` instead of dynamic import | One fewer dynamic() call | SSR build failures in production | Never in Next.js |
+| Filter events per-frame with `Array.filter` | Simple to read | O(n) work every 16 ms, grows with dataset | Never — pre-bucket at load time |
+| Skip `map.removeLayer()` cleanup on HeatLayer unmount | Less boilerplate | Ghost layers, memory leak, duplicate event handlers | Never |
 
 ---
 
@@ -207,12 +380,18 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Integration | Common Mistake | Correct Approach |
 |-------------|----------------|------------------|
-| Eventbrite | Web-scraping the HTML listings | Use the official Eventbrite API (OAuth, 1000 req/hour). Much more reliable and legal. |
-| Bandsintown | Scraping the website | Use the Bandsintown API (requires artist-name-keyed requests, not location-based). Understand the API is artist-centric, not venue-centric — queries differ. |
-| Nominatim | Using the public nominatim.openstreetmap.org in production | Use OpenCage, Google Maps Geocoding, or self-hosted Nominatim. The public instance explicitly forbids production use and will block at >1 req/sec. |
-| Anthropic/OpenAI | Sending full HTML page as extraction context | Always preprocess: strip scripts/styles/nav/footer, extract main content, target the relevant section. Reduces token usage 10–25×. |
-| Vercel Cron | Expecting cron to handle long-running multi-source scrapes | Vercel Cron invokes a serverless function — subject to timeout limits. For scraping 50 venues, split into smaller batches or use an external worker. |
-| Cloudflare-protected sites | Assuming HTTP 200 means valid content | Validate response content, not just status code. Check for expected keywords or structure before calling LLM. |
+| Eventbrite | Web-scraping the HTML listings | Use the official Eventbrite API (OAuth, 1000 req/hour) |
+| Bandsintown | Scraping the website | Use the Bandsintown API (artist-name keyed, not venue-location based) |
+| Nominatim | Using the public nominatim.openstreetmap.org in production | Use OpenCage, Google Maps Geocoding, or self-hosted Nominatim |
+| Anthropic/OpenAI | Sending full HTML page as extraction context | Preprocess: strip scripts/styles/nav/footer; target main content |
+| Vercel Cron | Expecting cron to handle long-running multi-source scrapes | Split into smaller batches or use an external worker |
+| Cloudflare-protected sites | Assuming HTTP 200 means valid content | Validate response content, not just status code |
+| Leaflet.heat + react-leaflet | Import at module top level | Dynamic `import()` inside `useEffect`, or second `dynamic()` boundary |
+| Leaflet.heat + click events | Attach click handler directly to HeatLayer | Parallel spatial lookup against event dataset on map click |
+| Leaflet.heat + react-leaflet v5 | Use v3 `createTileLayerComponent` patterns | Use `createElementHook` + `useLayerLifecycle` from v5 core API |
+| nuqs + animation state | Write time position to URL on every animation tick | Keep in `useRef`/Zustand; only commit to nuqs on pause or scrub-end |
+| HeatLayer + MapContainer | Assume React reconciliation removes the Leaflet layer | Explicitly call `map.removeLayer()` in `useEffect` cleanup |
+| `next build` + Leaflet plugins | Test only in `next dev` where SSR is more forgiving | Always test `next build && next start` before considering any integration done |
 
 ---
 
@@ -220,11 +399,16 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Trap | Symptoms | Prevention | When It Breaks |
 |------|----------|------------|----------------|
-| All map pins rendered as DOM elements simultaneously | Map lags or freezes on load; scrolling stutters on mobile | Use Supercluster for client-side clustering. Only render markers in the current viewport. | At ~500+ simultaneous pins without clustering |
-| Querying all events without date filter | Event list/map API response grows unbounded over time | Always filter `WHERE event_date >= NOW()`. Index `event_date`. | At ~10,000 accumulated historical events |
-| Geocoding on every scrape run | Geocoding API costs accumulate; scrape run slows down | Geocode once per venue, store lat/lng, only re-geocode on address change | Immediately — geocoding should never be per-scrape-run |
-| LLM called synchronously during Vercel function | Timeout risk; user request hangs if LLM is slow | Scraping is always async/background, never in the request path. App reads from DB only. | On any scrape taking >10s (common) |
-| Running all scrapers serially in one job | Job takes too long; hits function timeout | Batch sources into parallel groups or run per-source cron jobs | At ~20+ sources running in series |
+| All map pins rendered as DOM elements simultaneously | Map lags; mobile stutters | Use Supercluster; only render markers in viewport | At ~500+ simultaneous pins without clustering |
+| Querying all events without date filter | API response grows unbounded | Always filter `WHERE event_date >= NOW()`; index `event_date` | At ~10,000 accumulated historical events |
+| Geocoding on every scrape run | API costs accumulate; scrape slows | Geocode once per venue; re-geocode only on address change | Immediately |
+| LLM called synchronously during Vercel function | Timeout risk; request hangs | Scraping always async/background; app reads from DB only | On any scrape >10s (common) |
+| Running all scrapers serially in one job | Job too long; hits timeout | Batch into parallel groups or per-source cron jobs | At ~20+ sources in series |
+| `setLatLngs()` called more than once per rAF frame | Stuttery animation; high CPU | Single rAF loop as the sole caller of `setLatLngs` | Immediately on mobile |
+| Per-frame `Array.filter` over full event dataset | Scrubber lag grows with event count | Pre-bucket events into time-window lookup at load | Noticeable above ~500 events |
+| Sidebar re-renders every animation frame | UI flicker; React reconciliation overhead | Throttle sidebar updates to 250 ms during playback | Immediately visible in React DevTools Profiler |
+| Multiple competing rAF loops after mode toggle | CPU stays high after leaving heatmap mode | Strict rAF cleanup via `useRef` + `useLayoutEffect` | After first toggle cycle |
+| Fetching full event objects for heatmap points | Slow initial load; memory pressure | Fetch only lat/lng/timestamp for heatmap; fetch detail on click | Noticeable above ~1,000 events on mobile |
 
 ---
 
@@ -232,10 +416,10 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Mistake | Risk | Prevention |
 |---------|------|------------|
-| Ignoring robots.txt and ToS | Legal liability; Canada's PIPEDA applies to data collection; breach of contract with platforms | Always check and respect `robots.txt`. Use official APIs where available. Document compliance decisions. |
-| Storing LLM API keys in source code or env vars without rotation plan | Key leakage exposes billing to abuse | Use environment secrets (Vercel env vars), never commit keys, set spend alerts on the LLM API account |
-| No rate limiting on the scraper's outbound requests | Venues' servers get hammered; you get IP-banned; could be legally construed as DoS | Enforce minimum 2-second delay between requests to the same domain. Honor `Crawl-delay` in robots.txt. |
-| No validation of LLM output before database insert | LLM could output malformed or malicious-looking strings that break queries or display | Always validate extracted fields against a schema before insert. Reject events with null dates. |
+| Ignoring robots.txt and ToS | Legal liability; PIPEDA data compliance; breach of contract | Always check and respect `robots.txt`; use official APIs where available |
+| Storing LLM API keys without rotation plan | Key leakage exposes billing to abuse | Use Vercel env vars; never commit keys; set spend alerts |
+| No rate limiting on outbound scraper requests | IP ban risk; could be construed as DoS | Enforce minimum 2-second delay per domain; honor `Crawl-delay` |
+| No validation of LLM output before DB insert | Malformed strings breaking queries or display | Validate all extracted fields against schema; reject null dates |
 
 ---
 
@@ -243,26 +427,42 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Pitfall | User Impact | Better Approach |
 |---------|-------------|-----------------|
-| No "no events found" state when filters return empty | Users think the app is broken | Show explicit empty state: "No events found in this area for these dates. Try expanding your date range." |
-| Map loads with all of Atlantic Canada visible by default (too zoomed out) | Pins all cluster into one blob; no useful information visible | Default map view to the user's approximate location (IP geolocation) or to the densest event area (Halifax/Moncton) |
-| Event list shows events sorted by database insertion order | Users can't find what's relevant | Sort by date ascending, soonest first. Allow secondary sort by distance from map center. |
-| No indication that data is scraped and may be stale | Users make plans based on incorrect data | Show "last updated" timestamp per event or per source. Add disclaimer: "Verify with venue before attending." |
-| Clicking a map pin shows only basic info with no way to get more | Users want artist info, not just venue name and time | Event detail card must include: band name, venue name, date/time, and a link to the source page for tickets/confirmation. |
-| Mobile map unusable because pins are too small to tap | High bounce rate on mobile | Cluster pins until zoom level where individual pins have 44px+ tap targets. Test on real mobile devices, not just browser DevTools. |
+| No "no events found" state when filters empty | Users think app is broken | Show explicit empty state with suggestions |
+| Map loads too zoomed out (all of Atlantic Canada) | Pins cluster into one blob | Default to user's approximate location or densest event area (Halifax/Moncton) |
+| Event list sorted by insertion order | Users can't find relevant events | Sort by date ascending (soonest first) |
+| No indication data is scraped and may be stale | Users plan based on incorrect data | Show "last updated" timestamp; "Verify with venue before attending" disclaimer |
+| Clicking map pin shows only basic info | Users want more context | Event detail card: band, venue, date/time, link to source page |
+| Mobile map unusable because pins too small | High bounce rate on mobile | Cluster until individual pins have 44px+ tap targets |
+| No loading state while heatmap data fetches | Map appears broken | Show skeleton/spinner in map area during heatmap data load |
+| Heatmap active with no events in time window | Empty map with no explanation | Overlay "No events in this time window" message |
+| Play advances time but map doesn't visibly change | User thinks feature is broken | Ensure at least one visible heatmap change per play tick |
+| Timeline scrubber jumps on touch tap (not drag) | Disorienting on mobile — position teleports | Distinguish tap-to-seek from drag-to-scrub; show time tooltip during drag |
+| Heatmap and cluster mode both active simultaneously | Confusing visual overlap | Modes are mutually exclusive; hide cluster layer entirely in heatmap mode |
 
 ---
 
 ## "Looks Done But Isn't" Checklist
 
-- [ ] **Scraper:** Validates response content before calling LLM — verify it detects and logs Cloudflare challenge pages.
-- [ ] **Event extraction:** Returns null for missing fields rather than hallucinated values — test with a page that has no time listed.
-- [ ] **Deduplication:** Second ingestion of the same event updates the existing record rather than creating a duplicate — verify with a controlled re-scrape.
-- [ ] **Geocoding:** Runs at venue creation time, not on every scrape — check that the geocoding API is not called on every scrape run.
-- [ ] **Past event cleanup:** Events from yesterday do not appear on the map or in the list — verify with a test event dated yesterday.
-- [ ] **Map clustering:** Works on mobile — test clustering at the zoom level expected for Atlantic Canada overview (zoom ~6-7).
-- [ ] **Source health:** If a source returns zero events three times in a row, an alert is triggered — verify the monitoring fires.
-- [ ] **Token usage:** Logged per scrape run — verify cost per run is visible and within budget before adding more sources.
-- [ ] **Vercel timeout:** Scrape job does not hit function timeout — verify against the longest realistic scrape run (all sources, full extraction).
+**v1.0 Scraping:**
+- [ ] **Scraper:** Validates response content before calling LLM — detects Cloudflare challenge pages
+- [ ] **Extraction:** Returns null for missing fields rather than hallucinated values — test with a page that has no time listed
+- [ ] **Deduplication:** Second ingestion of the same event updates the record rather than creating a duplicate
+- [ ] **Geocoding:** Runs at venue creation time only — confirm geocoding API is not called on every scrape run
+- [ ] **Past event cleanup:** Events dated yesterday do not appear on map or in list after cleanup job runs
+- [ ] **Map clustering:** Works on mobile — test at zoom ~6-7 for Atlantic Canada overview
+- [ ] **Source health:** Zero events from a source for 3 consecutive runs triggers an alert
+- [ ] **Token usage:** Logged per scrape run; cost per run visible and within budget
+- [ ] **Vercel timeout:** Scrape job does not hit function timeout on a full realistic run
+
+**v1.1 Heatmap Timelapse:**
+- [ ] **SSR build:** `next build` completes without `window is not defined` errors before any other heatmap work proceeds
+- [ ] **Animation cleanup:** Toggle to cluster view and back 10 times; DevTools heap must stabilize; Leaflet `_layers` count must not grow
+- [ ] **Click-through:** Click a heatmap hotspot — nearby events appear; click ocean or empty area — nothing appears and no error is thrown
+- [ ] **Keyboard accessibility:** Tab reaches the scrubber; arrow keys change time position; Space toggles play/pause; screen reader announces current time value
+- [ ] **Mobile scrubber:** Drag scrubber on a touch device — animation tracks finger without jank; map remains pannable (touch events not fully consumed by scrubber)
+- [ ] **Sidebar sync:** Advance time window manually — sidebar updates within 250 ms; no stale events visible
+- [ ] **Empty time window:** Advance to a time with no events — empty state message appears; no crash or frozen UI
+- [ ] **Ghost layer:** Switch to cluster mode; DevTools Elements panel must show no heatmap canvas element in the DOM
 
 ---
 
@@ -270,12 +470,19 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Pitfall | Recovery Cost | Recovery Steps |
 |---------|---------------|----------------|
-| Duplicate events already in DB | MEDIUM | Write a one-time dedup migration: identify duplicates by composite key, merge records, delete extras. Painful but recoverable. |
-| Wrong geocoordinates for venues | LOW | Re-geocode all venues with a script. Data is per-venue, not per-event — few records to fix. |
-| Stale events clogging DB | LOW | One-time cleanup query: `DELETE FROM events WHERE event_date < NOW() - INTERVAL '7 days'`. Add index on event_date. |
-| LLM cost spike from raw HTML | LOW-MEDIUM | Add preprocessing, re-run. Past spend is gone but future runs are fixed quickly. |
-| Scraper silently blocked (no events ingested for weeks) | LOW (technically) / HIGH (trust) | Add response validation to detect blockage. Re-run scraper with corrected approach. User trust damage is harder to recover. |
-| Chromium on Vercel hitting bundle size limit | HIGH | Architecture change: decouple scraper from Vercel. Requires extracting scraper to separate service. Plan for this upfront. |
+| Duplicate events already in DB | MEDIUM | Write a one-time dedup migration: identify by composite key, merge, delete extras |
+| Wrong geocoordinates for venues | LOW | Re-geocode all venues with a script; few records to fix |
+| Stale events clogging DB | LOW | One-time cleanup query + add index on `event_date` |
+| LLM cost spike from raw HTML | LOW-MEDIUM | Add preprocessing; past spend gone but future runs fixed quickly |
+| Scraper silently blocked | LOW (technical) / HIGH (trust) | Add response validation; re-run with corrected approach |
+| Chromium on Vercel bundle size | HIGH | Architecture change: decouple scraper to separate service |
+| Ghost heatmap layer / no cleanup | LOW | Add `map.removeLayer()` to `useEffect` cleanup; verify with `_layers` inspection |
+| SSR build failure from plugin import | LOW | Move plugin import inside `useEffect` dynamic import; re-run `next build` |
+| Animation loop leak | MEDIUM | Refactor loop to use `useRef` for frame ID + `useLayoutEffect`; verify with repeated toggles |
+| Click-through silently broken | MEDIUM | Replace layer click handler with spatial proximity query on event dataset |
+| Sidebar desync | MEDIUM | Lift time window state to shared Zustand atom; rewire both consumers |
+| Scrubber keyboard inaccessible | LOW | Replace `div` slider with styled `<input type="range">` + `aria-valuetext` |
+| Per-frame filter performance | MEDIUM | Pre-bucket events at load; replace Array.filter with O(1) lookup; measure in Performance panel |
 
 ---
 
@@ -283,36 +490,49 @@ Scraping/extraction phase. Build response validation before the LLM call from da
 
 | Pitfall | Prevention Phase | Verification |
 |---------|------------------|--------------|
-| Chromium/Vercel size limit | Phase 1: Infrastructure setup | Deploy a hello-world scraper job to confirm execution environment before writing real scrapers |
-| LLM hallucinating dates/times | Phase 2: Scraping & extraction | Test extraction against a page with missing time field; confirm null returned, not invented value |
-| Token cost explosion | Phase 2: Scraping & extraction | Log token usage on first 5 sources; confirm per-run cost within budget before expanding |
-| Event deduplication | Phase 2: Data storage/schema | Re-scrape same source twice; confirm event count does not increase |
-| Geocoding accuracy | Phase 2: Data storage/schema | Spot-check 10 venue coordinates in Google Maps; verify all within 500m of actual location |
-| Stale event accumulation | Phase 2: Data storage/schema | Create a test event dated yesterday; confirm it does not appear in public queries after cleanup job runs |
-| Anti-bot blocking | Phase 2: Scraping & extraction | Test each source for Cloudflare protection; confirm response validation catches blocked responses |
-| Map clustering performance | Phase 3: Map UI | Load map with 500 test pins; confirm no visible lag on a mid-range mobile device |
-| UX empty states and trust signals | Phase 3: Map UI | Walk through every filter combination that could return zero results; confirm explicit empty state shown |
+| Chromium/Vercel size limit | Phase 1: Infrastructure setup | Deploy hello-world scraper job; confirm execution environment |
+| LLM hallucinating dates/times | Phase 2: Scraping & extraction | Test with page missing time field; confirm null returned, not invented |
+| Token cost explosion | Phase 2: Scraping & extraction | Log token usage on first 5 sources; confirm cost within budget |
+| Event deduplication | Phase 2: Data storage/schema | Re-scrape same source twice; event count must not increase |
+| Geocoding accuracy | Phase 2: Data storage/schema | Spot-check 10 venue coordinates; all within 500m of actual location |
+| Stale event accumulation | Phase 2: Data storage/schema | Test event dated yesterday does not appear after cleanup job |
+| Anti-bot blocking | Phase 2: Scraping & extraction | Validate response detection catches Cloudflare pages |
+| Map clustering performance | Phase 3: Map UI | 500 test pins; no visible lag on mid-range mobile |
+| UX empty states and trust signals | Phase 3: Map UI | All zero-result filter combinations show explicit empty state |
+| No click-through via HeatLayer events | Phase 4: Heatmap interaction | Click hotspot → events appear; click empty area → nothing, no error |
+| Animation loop memory leak | Phase 4: Play/pause animation | Heap stable after 10 toggle cycles; rAF cleanup confirmed |
+| SSR build failure from plugin import | Phase 4: HeatLayer setup (first task) | `next build` passes before any other heatmap work |
+| `setLatLngs` main-thread blocking | Phase 4: Timeline scrubber | rAF callback < 16 ms; scrubber smooth at 60 fps |
+| Scrubber keyboard inaccessibility | Phase 4: Timeline scrubber UI | Arrow keys control time; Tab reaches scrubber; screen reader announces value |
+| Sidebar/heatmap time desync | Phase 4: Sidebar sync | Sidebar updates within 250 ms of time position change during playback |
+| Ghost heatmap layer on toggle | Phase 4: Mode toggle | Elements panel shows no canvas in cluster mode; `_layers` count stable |
 
 ---
 
 ## Sources
 
+**v1.0 Scraping:**
 - Kadoa: [Best AI Web Scrapers of 2026](https://www.kadoa.com/blog/best-ai-web-scrapers-2026)
-- Medium: [Web Scraping for AI in 2026: What Works, What's Broken](https://medium.com/@yash.dubey803at/web-scraping-for-ai-in-2026-what-works-whats-broken-and-what-it-actually-costs-e8d824d54385)
 - ScrapingAnt: [Building a Web Data Quality Layer - Deduping, Canonicalization](https://scrapingant.com/blog/building-a-web-data-quality-layer-deduping-canonicalization)
 - Nominatim Usage Policy: [OSM Foundation Geocoding Policy](https://operations.osmfoundation.org/policies/nominatim/)
 - Vercel: [Cron Jobs Documentation](https://vercel.com/docs/cron-jobs)
 - Vercel: [Deploying Puppeteer with Next.js](https://vercel.com/kb/guide/deploying-puppeteer-with-nextjs-on-vercel)
-- Vercel: [Function Timeout Knowledge Base](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out)
-- ZenRows: [How to Deploy Playwright on Vercel](https://www.zenrows.com/blog/playwright-vercel)
-- ScrapFly: [How to Bypass Cloudflare When Web Scraping](https://scrapfly.io/blog/posts/how-to-bypass-cloudflare-anti-scraping)
+- ZenRows: [How to Bypass Cloudflare When Web Scraping](https://www.zenrows.com/blog/playwright-vercel)
 - Eventbrite: [API Terms of Use](https://www.eventbrite.com/help/en-us/articles/833731/eventbrite-api-terms-of-use/)
 - Bandsintown: [API Documentation](https://help.artists.bandsintown.com/en/articles/9186477-api-documentation)
-- Medium: [Optimizing Leaflet Performance with Large Numbers of Markers](https://medium.com/@silvajohnny777/optimizing-leaflet-performance-with-a-large-number-of-markers-0dea18c2ec99)
-- Parasoft: [Controlling LLM Hallucinations at Application Level](https://www.parasoft.com/blog/controlling-llm-hallucinations-application-level-best-practices/)
-- Browserless: [Is Web Scraping Legal (2025)?](https://www.browserless.io/blog/is-web-scraping-legal)
-- Glukhov.org: [Reduce LLM Costs: Token Optimization Strategies](https://www.glukhov.org/post/2025/11/cost-effective-llm-applications)
+
+**v1.1 Heatmap Timelapse:**
+- [Leaflet.heat GitHub — Issue #61: Clickable/hoverable points?](https://github.com/Leaflet/Leaflet.heat/issues/61) — confirms no built-in click event support
+- [Leaflet/Leaflet.heat source: HeatLayer.js](https://github.com/Leaflet/Leaflet.heat/blob/gh-pages/src/HeatLayer.js/) — `setLatLngs` → `redraw()` implementation
+- [react-leaflet GitHub — Issue #941: Heap memory build-up when MapContainer is removed](https://github.com/PaulLeCam/react-leaflet/issues/941) — confirmed layer leak on unmount
+- [React-Leaflet core API docs](https://react-leaflet.js.org/docs/core-api/) — `useLayerLifecycle` hook
+- [React, Leaflet, and SSR — Jan Müller](https://janmueller.dev/blog/react-leaflet/) — dynamic import pattern for Next.js
+- [WCAG 2.2 SC 2.5.7 — Dragging Movements (Level AA)](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) — requires non-drag alternative
+- [Frontend Memory Leaks empirical study — stackinsight.dev](https://stackinsight.dev/blog/memory-leak-empirical-study/) — 86% of React repos missing cleanup; ~8 KB/cycle rAF leak
+- [requestAnimationFrame vs useEffect — Jakub Arnold's Blog](https://blog.jakuba.net/request-animation-frame-and-use-effect-vs-use-layout-effect/) — `useLayoutEffect` required for synchronous rAF cleanup
+- [nuqs GitHub — 47ng/nuqs](https://github.com/47ng/nuqs) — browser rate-limit on URL updates; throttle/debounce capabilities
+- [Andrej Gajdos — High-Performance Map Visualizations in React](https://andrejgajdos.com/leaflet-developer-guide-to-high-performance-map-visualizations-in-react/) — React re-render cost with Leaflet layers
 
 ---
-*Pitfalls research for: Local events discovery app with AI-powered web scraping (East Coast Local)*
-*Researched: 2026-03-13*
+*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition*
+*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1)*

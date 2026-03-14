@@ -1,7 +1,7 @@
 # Stack Research
 
 **Domain:** Local events discovery app with AI-powered web scraping and interactive map
-**Researched:** 2026-03-13
+**Researched:** 2026-03-13 (v1.0 baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse additions)
 **Confidence:** HIGH (core framework/DB/UI), MEDIUM (AI scraping approach), MEDIUM (mapping)
 
 ## Recommended Stack
@@ -131,6 +131,117 @@ npx shadcn@latest init
 
 Design scrape jobs to be **idempotent** — Vercel may invoke a cron twice for a single scheduled execution. Upsert event records by a unique key (venue_id + event_date + performer) rather than inserting blindly.
 
+---
+
+## v1.1 Additions: Heatmap Timelapse Mode
+
+*Added: 2026-03-14. These libraries extend the existing stack for the time-dimension heatmap feature.*
+
+### New Libraries for Heatmap Timelapse
+
+| Library | Version | Purpose | Why Recommended |
+|---------|---------|---------|-----------------|
+| leaflet.heat | 0.2.0 | Canvas-based heatmap layer for Leaflet | The official Leaflet-org heatmap plugin. Uses `simpleheat` (canvas 2D) under the hood. Zero dependencies beyond Leaflet itself. Exposes `L.heatLayer(points)` with `setLatLngs()` for dynamic updates — exactly the method needed to swap point sets as the timeline scrubs. Well-understood API; no third-party wrapper needed for react-leaflet 5.x. |
+| @types/leaflet.heat | 0.2.5 | TypeScript types for leaflet.heat | Published September 2025 — actively maintained. Required because leaflet.heat ships no native types. |
+
+**No wrapper library needed.** All react-leaflet heatmap wrapper packages (`react-leaflet-heatmap-layer-v3`, `react-leaflet-heat-layer`, `react-leaflet-heatmap-layer`) either target react-leaflet v3 (published 2022, peer dep `react-leaflet@^3.0.0`) or have minimal update history. The correct approach for react-leaflet 5.x is a custom component using the `useMap` hook directly — this is the pattern react-leaflet's own docs recommend for any Leaflet plugin that isn't wrapped yet.
+
+**No new library for the scrubber UI.** The timeline scrubber is a styled `<input type="range">` with Tailwind CSS. Available scrubber packages (`react-scrubber`, `react-timeline-animation`, `react-chrono`) add dependency weight, opinionated markup, and styles to fight. A native range input handles touch, keyboard, and pointer drag without libraries. The animation loop is a `useRef`/`requestAnimationFrame` hook — no animation library needed.
+
+**No new library for data processing.** Time-windowed filtering is a client-side `Array.filter()` over pre-fetched events. At Atlantic Canada scale (hundreds to low thousands of events over 30 days), this is instant. `date-fns` (already in stack) handles all timestamp comparison and formatting.
+
+### Integration Pattern: Custom Heatmap Layer for react-leaflet 5.x
+
+The react-leaflet 5.x `useMap` hook provides the Leaflet map instance inside any MapContainer descendant. The pattern:
+
+```typescript
+// components/HeatmapLayer.tsx
+'use client'
+import { useMap } from 'react-leaflet'
+import { useEffect, useRef } from 'react'
+import L from 'leaflet'
+import 'leaflet.heat'
+
+interface HeatmapLayerProps {
+  points: [number, number, number][] // [lat, lng, intensity]
+}
+
+export function HeatmapLayer({ points }: HeatmapLayerProps) {
+  const map = useMap()
+  const heatRef = useRef<L.HeatLayer | null>(null)
+
+  useEffect(() => {
+    if (!heatRef.current) {
+      heatRef.current = (L as any).heatLayer(points, { radius: 25 }).addTo(map)
+    } else {
+      heatRef.current.setLatLngs(points) // no full re-render on scrub
+    }
+    return () => {
+      heatRef.current?.remove()
+      heatRef.current = null
+    }
+  }, [map, points])
+
+  return null
+}
+```
+
+Key detail: `setLatLngs()` on the existing layer avoids destroying and re-creating the canvas element on every timeline tick. This keeps animation smooth. Only re-mount the layer when switching modes (pin cluster ↔ heatmap).
+
+### Installation: v1.1 Additions Only
+
+```bash
+npm install leaflet.heat
+npm install -D @types/leaflet.heat
+```
+
+No other new packages required.
+
+### Alternatives Considered for Heatmap
+
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| leaflet.heat (direct, no wrapper) | `react-leaflet-heat-layer@1.1.1` | Peer dep `react-leaflet>=4.0.0` is compatible with 5.x, but the wrapper adds a file indirection for a 10-line integration. Last published July 2024 — not likely to track react-leaflet 5.x API changes. Build it directly. |
+| leaflet.heat (canvas) | `leaflet-webgl-heatmap` | WebGL adds a GPU dependency with no measurable benefit at Atlantic Canada data scale (hundreds of points). Canvas 2D is sufficient and universally compatible. |
+| leaflet.heat (canvas) | heatmap.js + Leaflet plugin | heatmap.js is heavier (separate Leaflet plugin layer), less actively maintained as of 2025. leaflet.heat is lighter and the Leaflet-official choice. |
+| Native `<input type="range">` | `react-scrubber` / `react-range` | These add dependencies, CSS fights, and bundle weight for a UI element that ships natively in every browser. A styled range input with Tailwind is 15 lines of code. |
+| `requestAnimationFrame` hook | GSAP / Framer Motion | The animation is a counter incrementing a date index — this is not a spring or keyframe animation. `requestAnimationFrame` + `useRef` is the correct primitive. Zero bundle cost. |
+
+### What NOT to Add for v1.1
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `react-leaflet-heatmap-layer-v3` | Published 2022, targets react-leaflet v3. Peer dep mismatch will produce warnings or silent failures in react-leaflet 5. | Custom `useMap`-based component (10 lines) |
+| `react-leaflet-heat-layer` | July 2024 release, technically compatible peer deps, but thin wrapper over the same pattern. Adds an extra package to track for minimal gain. | Custom `useMap`-based component |
+| `react-spring` / `framer-motion` | Overkill for a numeric counter driving a timeline position. | `requestAnimationFrame` in a `useEffect` |
+| WebSocket / SSE for live updates | Heatmap is over historical event data (30-day window). No server push required — load once, filter client-side. | Static fetch on page load |
+| D3.js | Only needed if building a custom SVG timeline axis with tick marks. A range input + formatted date label covers the UX need at zero cost. | Native range input + `date-fns` |
+
+### Version Compatibility: v1.1 Additions
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| leaflet.heat@0.2.0 | leaflet@1.9.x | leaflet.heat mutates `L` as a side effect — import after leaflet. Must be a client-side import only (add `'use client'` or dynamic import with `ssr: false` in Next.js). |
+| @types/leaflet.heat@0.2.5 | TypeScript 5.x, leaflet@1.9.x | Dev dependency only. Published Sept 2025 — current. Declares `L.HeatLayer` on the Leaflet namespace. |
+
+### Data Shape for Time-Windowed Heatmap
+
+No new server infrastructure needed. The existing events table has `event_date` and `venue_lat`/`venue_lng`. The API endpoint returns all events in the 30-day window as JSON. Client-side filtering:
+
+```typescript
+// Filter to a 24-hour window around the current timeline position
+const windowedPoints = events
+  .filter(e => {
+    const diff = Math.abs(e.eventDate.getTime() - currentTime.getTime())
+    return diff < 12 * 60 * 60 * 1000 // ±12 hours = 24h window
+  })
+  .map(e => [e.venueLat, e.venueLng, 1.0] as [number, number, number])
+```
+
+Atlantic Canada event volume (hundreds of events over 30 days) makes this filter instantaneous. No server-side time bucketing, no aggregation endpoint, no caching layer needed for v1.1.
+
+---
+
 ## Sources
 
 - [Next.js 16 blog post](https://nextjs.org/blog/next-16) — Version confirmed, Turbopack stable
@@ -145,7 +256,14 @@ Design scrape jobs to be **idempotent** — Vercel may invoke a cron twice for a
 - [OpenAI pricing](https://openai.com/api/pricing/) — GPT-4o mini: $0.15/1M input, $0.60/1M output
 - [Playwright on Vercel](https://www.zenrows.com/blog/playwright-vercel) — 50MB limit, @sparticuz/chromium workaround
 - [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) — 1 req/sec public API limit (batch geocode at scrape time, not per user request)
+- `npm info react-leaflet` — version 5.0.0 confirmed, published 2024-12-14 (HIGH confidence)
+- `npm info leaflet.heat` — version 0.2.0, published 2015, zero dependencies (HIGH confidence — no newer version exists)
+- `npm info @types/leaflet.heat` — version 0.2.5, published 2025-09-03 (HIGH confidence — actively maintained)
+- `npm info react-leaflet-heatmap-layer-v3` — version 3.0.3-beta-1, published 2022-05-10, peer dep react-leaflet@^3.0.0 (HIGH confidence — confirmed incompatible with react-leaflet 5)
+- `npm info react-leaflet-heat-layer` — version 1.1.1, published 2024-07-30, peer dep react-leaflet@>=4.0.0 (HIGH confidence — technically compatible but thin wrapper not worth the dependency)
+- [react-leaflet Core Architecture docs](https://react-leaflet.js.org/docs/core-architecture/) — useMap hook pattern, createElementHook, useLayerLifecycle (HIGH confidence — official docs)
+- [Leaflet.heat GitHub](https://github.com/Leaflet/Leaflet.heat) — setLatLngs() API for dynamic updates (HIGH confidence — official Leaflet org repo)
 
 ---
 *Stack research for: East Coast Local — local live music discovery app*
-*Researched: 2026-03-13*
+*Researched: 2026-03-13 (baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse)*

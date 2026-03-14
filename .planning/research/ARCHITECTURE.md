@@ -1,377 +1,574 @@
 # Architecture Research
 
-**Domain:** Local events discovery with AI-powered web scraping + map frontend
-**Researched:** 2026-03-13
-**Confidence:** HIGH (Vercel docs verified, scraping pipeline patterns from multiple sources)
+**Domain:** Heatmap timelapse mode — integration with existing react-leaflet split-screen app
+**Researched:** 2026-03-14
+**Confidence:** HIGH (based on direct codebase inspection + react-leaflet 5.x core API verification)
 
-## Standard Architecture
+> This document supersedes the initial v1.0 architecture file. It retains the scraping/data-layer sections and adds a focused integration design for the v1.1 heatmap timelapse milestone.
 
-### System Overview
+---
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      SCHEDULED SCRAPING LAYER                    │
-│                                                                   │
-│  Vercel Cron Jobs (vercel.json)                                  │
-│       ↓ HTTP GET to /api/cron/scrape                             │
-│  ┌─────────────────────────────────────────────────┐             │
-│  │             Scrape Orchestrator                  │             │
-│  │  - Iterates configured source list               │             │
-│  │  - Spawns per-source scrape jobs (sequential     │             │
-│  │    or batched to respect rate limits)             │             │
-│  └──────────────────────┬──────────────────────────┘             │
-│                         │                                         │
-│          ┌──────────────┼──────────────┐                         │
-│          ↓              ↓              ↓                         │
-│  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
-│  │ Venue Site   │ │  Eventbrite  │ │ Bandsintown  │             │
-│  │  Fetcher     │ │   Fetcher    │ │   Fetcher    │             │
-│  └──────┬───────┘ └──────┬───────┘ └──────┬───────┘             │
-│         │                │                │                      │
-│         └────────────────┼────────────────┘                      │
-│                          ↓                                        │
-│  ┌─────────────────────────────────────────────────┐             │
-│  │              AI Extraction Layer                 │             │
-│  │  - Raw HTML/markdown → LLM prompt                │             │
-│  │  - Structured JSON output (Zod schema)           │             │
-│  │  - OpenAI / Firecrawl Extract                    │             │
-│  └──────────────────────┬──────────────────────────┘             │
-│                         ↓                                         │
-│  ┌─────────────────────────────────────────────────┐             │
-│  │           Normalization + Deduplication          │             │
-│  │  - Date/time standardization                     │             │
-│  │  - Geocoding (venue lat/lng lookup or call)      │             │
-│  │  - Dedup by source URL or composite key          │             │
-│  └──────────────────────┬──────────────────────────┘             │
-└─────────────────────────┼───────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                         DATA LAYER                               │
-│                                                                   │
-│  ┌───────────────────┐       ┌───────────────────┐              │
-│  │     events        │       │      venues        │              │
-│  │  - id             │       │  - id              │              │
-│  │  - title          │  FK   │  - name            │              │
-│  │  - performer      │◄──────│  - address         │              │
-│  │  - venue_id       │       │  - lat             │              │
-│  │  - start_at       │       │  - lng             │              │
-│  │  - end_at         │       │  - city            │              │
-│  │  - source_url     │       │  - province        │              │
-│  │  - scraped_at     │       └───────────────────┘              │
-│  └───────────────────┘                                           │
-│                                                                   │
-│  ┌───────────────────┐                                           │
-│  │   scrape_sources  │                                           │
-│  │  - id             │                                           │
-│  │  - url            │                                           │
-│  │  - venue_id (FK)  │                                           │
-│  │  - last_scraped   │                                           │
-│  │  - enabled        │                                           │
-│  └───────────────────┘                                           │
-│                                                                   │
-│   PostgreSQL (Supabase / Neon) — hosted, no self-management      │
-└─────────────────────────┬───────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                         API LAYER                                │
-│                                                                   │
-│  Next.js App Router — Vercel serverless functions                │
-│                                                                   │
-│  GET /api/events          - list/filter events (date, bbox)      │
-│  GET /api/events/[id]     - event detail                         │
-│  GET /api/venues          - venue list with coords               │
-│  GET /api/cron/scrape     - cron-triggered scrape entry point    │
-└─────────────────────────┬───────────────────────────────────────┘
-                          ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                       FRONTEND LAYER                             │
-│                                                                   │
-│  ┌───────────────────────┐    ┌──────────────────────────┐      │
-│  │      Map View          │    │       List View           │      │
-│  │  Mapbox GL JS /        │    │  Event cards, filter      │      │
-│  │  react-leaflet         │    │  by date / location       │      │
-│  │  + Supercluster        │    │                           │      │
-│  │    pin clustering      │    │                           │      │
-│  └───────────────────────┘    └──────────────────────────┘      │
-│                                                                   │
-│  ┌───────────────────────────────────────────────────────┐       │
-│  │                  Event Detail Panel                    │       │
-│  │  Band, venue, date/time, link-out to source            │       │
-│  └───────────────────────────────────────────────────────┘       │
-│                                                                   │
-│  Next.js App Router — static + server components                 │
-│  Deployed to Vercel CDN edge                                      │
-└─────────────────────────────────────────────────────────────────┘
-```
+## Existing Architecture (Verified from Codebase)
 
-### Component Responsibilities
-
-| Component | Responsibility | Typical Implementation |
-|-----------|----------------|------------------------|
-| Cron Orchestrator | Triggers periodic scrapes, iterates sources | Next.js API route called by Vercel cron |
-| Page Fetcher | Retrieves raw HTML from a source URL | Playwright / Firecrawl / native fetch |
-| AI Extractor | Parses page content into structured event data | OpenAI with JSON schema, or Firecrawl Extract |
-| Normalizer | Standardizes dates, cleans strings, validates schema | Zod, date-fns or Temporal API |
-| Geocoder | Converts venue address to lat/lng | Mapbox Geocoding API or cached lookup table |
-| Deduplicator | Prevents duplicate events across scrape runs | Upsert on source_url or composite key |
-| Event Store | Persists events and venue records | PostgreSQL (Supabase or Neon) |
-| Events API | Serves events to the frontend with filtering | Next.js App Router route handlers |
-| Map View | Displays events as clustered pins on a map | react-map-gl (Mapbox GL JS) or react-leaflet + Supercluster |
-| List View | Browseable event list with date/location filters | Next.js server components or client-filtered |
-| Admin Config | Manages scrape source URLs and enable/disable | Simple DB table; no UI required for v1 |
-
-## Recommended Project Structure
+### Current Component Tree
 
 ```
-src/
-├── app/                        # Next.js App Router
-│   ├── page.tsx                # Map view (home)
-│   ├── events/
-│   │   └── [id]/page.tsx       # Event detail
-│   ├── browse/
-│   │   └── page.tsx            # List/browse view
-│   └── api/
-│       ├── events/route.ts     # GET events with bbox/date filters
-│       ├── events/[id]/route.ts
-│       ├── venues/route.ts
-│       └── cron/
-│           └── scrape/route.ts # Cron entry point
-├── components/
-│   ├── map/
-│   │   ├── EventMap.tsx        # Map container
-│   │   ├── EventMarker.tsx     # Single pin
-│   │   └── ClusterMarker.tsx   # Cluster pin
-│   ├── events/
-│   │   ├── EventCard.tsx
-│   │   └── EventDetail.tsx
-│   └── ui/                     # Shared UI primitives
-├── lib/
-│   ├── scraper/
-│   │   ├── orchestrator.ts     # Iterates sources, dispatches jobs
-│   │   ├── fetcher.ts          # Fetches raw page HTML
-│   │   ├── extractor.ts        # LLM-based structured extraction
-│   │   ├── normalizer.ts       # Cleans + validates extracted data
-│   │   └── geocoder.ts         # Address → lat/lng
-│   ├── db/
-│   │   ├── client.ts           # Database connection
-│   │   ├── events.ts           # Event queries
-│   │   ├── venues.ts           # Venue queries
-│   │   └── sources.ts          # Scrape source queries
-│   └── schemas/
-│       ├── event.ts            # Zod schema for extracted event
-│       └── venue.ts            # Zod schema for venue
-└── types/
-    └── index.ts                # Shared TypeScript types
+page.tsx (HomeContent — client component)
+├── <header>
+├── <EventFilters>          ← nuqs: ?when, ?province
+├── <MapClientWrapper>      ← dynamic import (ssr: false) → MapClient
+│   └── <MapContainer>      ← react-leaflet root
+│       ├── <TileLayer>     ← CartoDB Positron
+│       ├── <MapBoundsTracker>   ← fires onBoundsChange on move/zoom
+│       ├── <ClusterLayer>       ← MarkerClusterGroup + Marker + Popup
+│       ├── <GeolocationButton>
+│       └── <MapViewController> ← province fly-to, marker open-popup
+└── <EventList>             ← receives visibleEvents (client-filtered)
 ```
 
-### Structure Rationale
+### Current Data Flow
 
-- **lib/scraper/:** Isolated from the web layer. Each step (fetch → extract → normalize → geocode) is a pure function that can be tested independently and swapped out without touching the API or UI.
-- **lib/db/:** Query functions centralized here. App Router routes import query functions, never raw SQL, keeping data access auditable.
-- **app/api/cron/:** Cron endpoint is a plain GET handler — Vercel hits it on schedule. No job queue infra needed for v1 given the small number of sources.
-- **components/map/:** Map is isolated from list views. Both consume the same events data shape from the API.
+```
+mount
+  ↓
+fetch('/api/events')               — loads ALL future events once
+  ↓
+allEvents (EventWithVenue[])       — held in HomeContent state
+  ↓
+filterByDateRange(allEvents, when) — nuqs ?when param
+filterByProvince(..., province)    — nuqs ?province param
+filterByBounds(..., bounds)        — map viewport (MapBoundsTracker → setBounds)
+  ↓
+visibleEvents                      — passed to EventList
+allEvents                          — passed to MapClientWrapper (cluster layer shows all)
+```
 
-## Architectural Patterns
+Key: the map always shows `allEvents` unfiltered (clustering handles density). The sidebar shows `visibleEvents` (date + province + viewport filtered).
 
-### Pattern 1: Sequential Per-Source Scraping (not parallel)
+### State Inventory (HomeContent)
 
-**What:** The cron handler fetches sources from the DB one at a time (or in small batches), scraping and upserting before moving to the next.
-**When to use:** When total source count is low (< 50 URLs) and politeness/rate limiting matters more than speed.
-**Trade-offs:** Slower total scrape time, but no risk of hammering a venue website with concurrent requests. Simpler to reason about costs since LLM calls happen serially.
+| State | Type | Owner | How Updated |
+|-------|------|-------|-------------|
+| `allEvents` | `EventWithVenue[]` | `useState` | fetch on mount |
+| `bounds` | `Bounds \| null` | `useState` | MapBoundsTracker callback |
+| `activeTab` | `'map' \| 'list'` | `useState` | MobileTabBar |
+| `loading` | `boolean` | `useState` | fetch completion |
+| `highlightedVenueId` | `number \| null` | `useState` | EventList hover |
+| `flyToTarget` | `FlyToTarget \| null` | `useState` | EventList click |
+| `when` | `string \| null` | nuqs URL | EventFilters |
+| `province` | `string \| null` | nuqs URL | EventFilters |
 
-**Example:**
+---
+
+## Heatmap Timelapse Integration Design
+
+### Overview of New Feature
+
+The timelapse mode overlays a density heatmap on the map, controlled by a timeline scrubber. The scrubber represents a sliding 24-hour window across a 30-day range. As the window moves (manually or auto-played), the heatmap updates to show event density within that window, and the sidebar event list syncs to show only events in the window.
+
+The existing cluster pin view is toggled off when timelapse mode is active. Both layers coexist inside the same `MapContainer` but only one is visible at a time.
+
+### Revised Component Tree
+
+```
+page.tsx (HomeContent)
+├── <header>
+│   └── <ModeToggle>             ← NEW: "Map" / "Timelapse" toggle
+├── <EventFilters>               ← MODIFIED: hidden in timelapse mode
+├── <TimelineBar>                ← NEW: only rendered in timelapse mode
+│   ├── <TimelineScrubber>       ← input[type=range] controlling timePosition
+│   └── <PlayPauseButton>
+├── <MapClientWrapper>           ← MODIFIED: receives mode + timeWindow props
+│   └── <MapContainer>
+│       ├── <TileLayer>
+│       ├── <MapBoundsTracker>
+│       ├── <ClusterLayer>       ← MODIFIED: hidden (display:none) in timelapse mode
+│       ├── <HeatmapLayer>       ← NEW: only active in timelapse mode
+│       ├── <GeolocationButton>
+│       └── <MapViewController>
+└── <EventList>                  ← MODIFIED: filters to timeWindow in timelapse mode
+```
+
+### New State Added to HomeContent
+
+| State | Type | Why Here |
+|-------|------|----------|
+| `mapMode` | `'cluster' \| 'timelapse'` | Controls which layer + UI branch renders |
+| `timePosition` | `number` (0–1 float) | Normalized scrubber position; drives time window |
+| `isPlaying` | `boolean` | Auto-advance animation on/off |
+
+`timePosition` is a normalized float (0 = start of 30-day window, 1 = end). The actual timestamp is derived as:
+
 ```typescript
-// lib/scraper/orchestrator.ts
-export async function runScrapeJob() {
-  const sources = await db.query.scrape_sources.findMany({
-    where: eq(scrape_sources.enabled, true),
-  });
+// lib/timelapse-utils.ts
+export const TIMELAPSE_WINDOW_DAYS = 30;
+export const TIMELAPSE_WINDOW_HOURS = 24;
 
-  for (const source of sources) {
-    try {
-      const html = await fetchPage(source.url);
-      const events = await extractEvents(html, source.url);
-      const normalized = events.map(normalizeEvent);
-      await upsertEvents(normalized, source.venue_id);
-      await markSourceScraped(source.id);
-    } catch (err) {
-      console.error(`Failed to scrape ${source.url}:`, err);
-      // Continue to next source — don't abort the whole run
-    }
-  }
+export function positionToTimestamp(position: number, now: Date): Date {
+  const rangeMs = TIMELAPSE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return new Date(now.getTime() + position * rangeMs);
+}
+
+export function filterByTimeWindow(
+  events: EventWithVenue[],
+  centerMs: number,
+  windowHours: number
+): EventWithVenue[] {
+  const halfMs = (windowHours / 2) * 60 * 60 * 1000;
+  return events.filter((e) => {
+    const t = new Date(e.events.event_date).getTime();
+    return t >= centerMs - halfMs && t <= centerMs + halfMs;
+  });
 }
 ```
 
-### Pattern 2: LLM Extraction with Zod Schema
+**Do not put `timePosition` or `isPlaying` in the URL.** nuqs is the right tool for shareable persistent state (filters, province). Timelapse is ephemeral UI state — using URL for it would cause excessive history entries during playback and break the back button. Keep it in `useState`.
 
-**What:** Convert page HTML to markdown, pass to OpenAI with a Zod-validated JSON schema for event data. The schema defines what fields are required, optional, and their types.
-**When to use:** For all venue websites where page structure varies. LLM understands semantic meaning, not CSS paths — resilient to redesigns.
-**Trade-offs:** Costs money per page scraped (~$0.001-$0.01/page with GPT-4o-mini). Must validate and handle hallucinations gracefully. Much more resilient than CSS selectors.
+### Heatmap Layer Integration
 
-**Example:**
+#### Library Recommendation: Custom hook wrapping `leaflet.heat` directly
+
+The existing wrapper packages (`react-leaflet-heatmap-layer`, `react-leaflet-heatmap-layer-v3`) target react-leaflet v3/v4 and have peer dependency conflicts with React 19 and react-leaflet 5.x. They are also unmaintained forks with low adoption.
+
+The correct approach for react-leaflet 5.x is a custom component using `useMap` + `useEffect`:
+
 ```typescript
-// lib/schemas/event.ts
-export const ExtractedEventSchema = z.object({
-  title: z.string(),
-  performer: z.string().optional(),
-  start_date: z.string(), // ISO 8601
-  start_time: z.string().optional(),
-  end_date: z.string().optional(),
-  end_time: z.string().optional(),
-  description: z.string().optional(),
-  ticket_url: z.string().url().optional(),
-});
+// components/map/HeatmapLayer.tsx
+'use client';
 
-export type ExtractedEvent = z.infer<typeof ExtractedEventSchema>;
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import type L from 'leaflet';
+
+// leaflet.heat augments L with L.heatLayer
+// Import is side-effectful — must be inside the SSR-bypassed bundle
+import 'leaflet.heat';
+
+interface HeatPoint {
+  lat: number;
+  lng: number;
+  intensity: number; // 0–1
+}
+
+interface HeatmapLayerProps {
+  points: HeatPoint[];
+  visible: boolean;
+}
+
+export default function HeatmapLayer({ points, visible }: HeatmapLayerProps) {
+  const map = useMap();
+  const heatRef = useRef<L.HeatLayer | null>(null);
+
+  useEffect(() => {
+    // @ts-expect-error leaflet.heat augments L at runtime
+    heatRef.current = L.heatLayer([], {
+      radius: 35,
+      blur: 20,
+      maxZoom: 12,
+      gradient: { 0.2: '#3b82f6', 0.5: '#f59e0b', 0.8: '#ef4444' },
+    });
+
+    return () => {
+      heatRef.current?.remove();
+      heatRef.current = null;
+    };
+  }, [map]); // only create/destroy once
+
+  useEffect(() => {
+    if (!heatRef.current) return;
+    if (!visible) {
+      heatRef.current.remove();
+      return;
+    }
+    const latlngs = points.map((p) => [p.lat, p.lng, p.intensity] as [number, number, number]);
+    heatRef.current.setLatLngs(latlngs);
+    if (!map.hasLayer(heatRef.current)) {
+      heatRef.current.addTo(map);
+    }
+    heatRef.current.redraw();
+  }, [map, points, visible]);
+
+  return null;
+}
 ```
 
-### Pattern 3: Upsert-Based Deduplication
+The `leaflet.heat` package (npm: `leaflet.heat`) is a stable ~4KB plugin from the Leaflet organization. It does not have React dependencies — it's a pure Leaflet plugin. Add `@types/leaflet.heat` (or write a local declaration) for TypeScript. Total install: `npm install leaflet.heat`.
 
-**What:** When writing events to the database, use an upsert with `source_url` as the unique key. Re-scraping the same event updates the record rather than creating a duplicate.
-**When to use:** Always — events get re-scraped on every cron run. Without upsert, the same event accumulates duplicate rows.
-**Trade-offs:** Requires a stable unique identifier per event. Source URL is ideal (a specific event page URL). Platform aggregators like Eventbrite provide stable canonical URLs per event.
+`HeatmapLayer` must remain inside the SSR-bypassed `MapClient` component (already `'use client'` and loaded via `dynamic(..., { ssr: false })`), so `leaflet.heat`'s `window` dependency is safe.
 
-## Data Flow
+#### Heatmap Point Computation
 
-### Scraping Flow (triggered by cron)
+Heatmap points are derived client-side from `allEvents` filtered to the current time window. No new API endpoint is needed.
 
-```
-Vercel Cron (schedule: 0 6 * * *)
-    ↓ GET /api/cron/scrape
-Orchestrator reads scrape_sources from DB
-    ↓ for each enabled source:
-Fetcher fetches source URL (plain fetch or headless browser)
-    ↓ raw HTML/markdown
-AI Extractor: HTML → OpenAI → JSON events[]
-    ↓ structured but unvalidated events
-Normalizer: Zod parse, date standardization, strip nulls
-    ↓ validated ExtractedEvent[]
-Geocoder: venue address → lat/lng (if not already cached in venues table)
-    ↓ events with coordinates
-DB Upsert: INSERT ... ON CONFLICT (source_url) DO UPDATE
-    ↓
-scrape_sources.last_scraped = NOW()
+```typescript
+// In HomeContent or a useMemo hook
+const heatPoints = useMemo(() => {
+  if (mapMode !== 'timelapse') return [];
+  const center = positionToTimestamp(timePosition, referenceDate);
+  const windowed = filterByTimeWindow(allEvents, center.getTime(), TIMELAPSE_WINDOW_HOURS);
+  return computeVenueHeatPoints(windowed); // groups by venue, intensity = event count normalized
+}, [mapMode, timePosition, allEvents]);
 ```
 
-### Frontend Read Flow
+Intensity normalizes event count at a venue to 0–1 relative to the busiest venue in the current window. This avoids single-event venues dominating the heatmap.
+
+#### Click-Through from Heatmap
+
+`leaflet.heat` does not support click events on individual heat points — it renders to a canvas. Click-through requires a secondary transparent marker layer:
+
+- When timelapse mode is active, render invisible `<CircleMarker>` components at each venue position (radius 20px, `opacity: 0`, `fillOpacity: 0`).
+- These markers receive click events and open a popup with the venue's events in the current time window.
+- This is a separate `<HeatmapClickLayer>` component with its own marker list derived from the same `heatPoints` array.
+
+### Timeline Scrubber Component
 
 ```
-User loads map
-    ↓
-Next.js Server Component (or Client) → GET /api/events?bbox=...&from=...
-    ↓
-API route: SQL query filtering by date range + bounding box
-    ↓
-JSON events[] with lat/lng
-    ↓
-Mapbox GL JS / Leaflet renders pins
-Supercluster clusters pins at current zoom level
-    ↓
-User clicks cluster → zoom in → pins expand
-User clicks pin → Event Detail panel opens
+<TimelineBar>                        — fixed/sticky bar above the map
+├── <PlayPauseButton>                — toggles isPlaying
+├── <input type="range" />           — timePosition (0–1), step 0.001
+└── <TimeLabel>                      — displays current window as "Sat Mar 14 · 8pm–8pm"
 ```
 
-### Key Data Flows
+**Placement:** Positioned as an overlay anchored to the bottom of the map panel, inside the map's `relative` div (already `z-[1000]` capable). This mirrors how weather apps like windy.tv position the timeline. It should NOT be inside `MapContainer` (not a Leaflet component) — it lives in the `MapClient` sibling wrapper div.
 
-1. **Scrape → Store:** One-way pipeline. Cron triggers fetch → extract → normalize → upsert. No user interaction involved.
-2. **Store → Map:** API query filtered by map bounding box + date range. All events with lat/lng are eligible. Frontend handles clustering client-side.
-3. **Venue Geocoding:** Geocoding happens once per venue when first encountered. Result cached in the `venues` table — never re-geocoded unless address changes.
+**Auto-play:** Use `setInterval` (not `requestAnimationFrame`) for the advance tick. A 200ms interval advancing `timePosition` by 0.005 per tick gives a ~40-second full playback at 30 days. Store the interval ref in `useRef`. Start/stop in `useEffect` gated on `isPlaying`.
 
-## Scaling Considerations
+```typescript
+// In HomeContent
+const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| 0-50 sources | Single cron run, sequential scraping, no queue needed |
-| 50-500 sources | Split cron into multiple jobs by province/batch, or introduce a lightweight queue (Inngest) |
-| 500+ sources | Dedicated worker process outside Vercel, proper job queue (BullMQ + Redis), parallel fetching with rate limiting |
+useEffect(() => {
+  if (isPlaying) {
+    playRef.current = setInterval(() => {
+      setTimePosition((p) => {
+        if (p >= 1) { setIsPlaying(false); return 1; }
+        return Math.min(p + 0.005, 1);
+      });
+    }, 200);
+  }
+  return () => {
+    if (playRef.current) clearInterval(playRef.current);
+  };
+}, [isPlaying]);
+```
 
-### Scaling Priorities
+### Mode Toggle
 
-1. **First bottleneck:** Vercel function timeout. A cron hitting 60+ slow venue sites sequentially will exceed the 300-second limit (Pro plan). Fix: split into batched cron runs or use Inngest for long-running steps that survive timeouts.
-2. **Second bottleneck:** LLM API costs and rate limits. At high volume, OpenAI rate limits kick in. Fix: cache extraction results by source URL hash, skip re-extraction if HTML hasn't changed (ETag/content hash).
-3. **Third bottleneck:** Database reads under high frontend traffic. Fix: add caching at the API layer (e.g., Vercel's built-in Edge Cache on read-only routes, or Upstash Redis for event lists).
+A toggle button ("Map" / "Timelapse") lives in the header or just above the filter bar. It sets `mapMode`. On toggle to timelapse:
+
+1. `EventFilters` is hidden (timelapse has its own time dimension; the date chips would conflict).
+2. `TimelineBar` appears.
+3. `ClusterLayer` receives `visible={false}` (or is conditionally not rendered).
+4. `HeatmapLayer` receives `visible={true}`.
+
+On toggle back to cluster mode:
+
+1. `TimelineBar` unmounts.
+2. `isPlaying` resets to false.
+3. `timePosition` resets to 0.
+4. Normal filter bar reappears.
+
+### Sidebar List Filtering by Time Window
+
+In timelapse mode, `visibleEvents` (currently: date + province + viewport filtered) is replaced by time-window filtered events:
+
+```typescript
+// HomeContent filter chain (mode-aware)
+const sidebarEvents = useMemo(() => {
+  if (mapMode === 'timelapse') {
+    const center = positionToTimestamp(timePosition, referenceDate);
+    const windowed = filterByTimeWindow(allEvents, center.getTime(), TIMELAPSE_WINDOW_HOURS);
+    return filterByBounds(windowed, bounds); // still filter by viewport
+  }
+  // Normal cluster mode
+  const dateFiltered = filterByDateRange(allEvents, when);
+  const provinceFiltered = filterByProvince(dateFiltered, province);
+  return filterByBounds(provinceFiltered, bounds);
+}, [mapMode, timePosition, allEvents, when, province, bounds]);
+```
+
+`EventList` receives `sidebarEvents` regardless of mode. No changes needed inside `EventList` itself.
+
+---
+
+## System Overview: With Timelapse Mode Added
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      page.tsx (HomeContent)                      │
+│                                                                   │
+│  State: allEvents, bounds, mapMode, timePosition, isPlaying,     │
+│         highlightedVenueId, flyToTarget, when, province (nuqs)   │
+│                                                                   │
+│  ┌──────────────┐    ┌────────────────────────────────────┐      │
+│  │  ModeToggle  │    │         EventFilters               │      │
+│  │ cluster|heat │    │  (hidden in timelapse mode)        │      │
+│  └──────────────┘    └────────────────────────────────────┘      │
+│                                                                   │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │   TimelineBar (only in timelapse mode)                   │    │
+│  │   PlayPause · Scrubber (0–1) · TimeLabel                 │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                   │
+│  ┌──────────────────────────────┐  ┌─────────────────────────┐  │
+│  │  MapClientWrapper            │  │  EventList               │  │
+│  │  (dynamic, ssr:false)        │  │  (sidebarEvents)         │  │
+│  │                              │  │                          │  │
+│  │  ┌──────────────────────┐    │  │  cluster mode:           │  │
+│  │  │  MapContainer        │    │  │    date+province+bounds  │  │
+│  │  │  ├ TileLayer         │    │  │  timelapse mode:         │  │
+│  │  │  ├ MapBoundsTracker  │    │  │    time window + bounds  │  │
+│  │  │  ├ ClusterLayer      │    │  └─────────────────────────┘  │
+│  │  │  │  (hidden in heat) │    │                               │
+│  │  │  ├ HeatmapLayer      │    │                               │
+│  │  │  │  (hidden in clust)│    │                               │
+│  │  │  ├ HeatmapClickLayer │    │                               │
+│  │  │  ├ GeolocationButton │    │                               │
+│  │  │  └ MapViewController │    │                               │
+│  │  └──────────────────────┘    │                               │
+│  │  ┌──────────────────────┐    │                               │
+│  │  │  TimelineBar overlay │    │                               │
+│  │  │  (inside map div,    │    │                               │
+│  │  │   z-index above map) │    │                               │
+│  │  └──────────────────────┘    │                               │
+│  └──────────────────────────────┘                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Breakdown: New vs Modified
+
+### New Components
+
+| Component | File | Responsibility |
+|-----------|------|---------------|
+| `HeatmapLayer` | `components/map/HeatmapLayer.tsx` | Wraps `leaflet.heat` imperatively; accepts `points[]` + `visible` |
+| `HeatmapClickLayer` | `components/map/HeatmapClickLayer.tsx` | Invisible CircleMarkers at venue positions for click events |
+| `TimelineBar` | `components/timelapse/TimelineBar.tsx` | Scrubber + play/pause + time label; receives `timePosition` + setters |
+| `ModeToggle` | `components/layout/ModeToggle.tsx` | Button switching `mapMode` between `'cluster'` and `'timelapse'` |
+| `timelapse-utils.ts` | `lib/timelapse-utils.ts` | Pure functions: position→timestamp, filterByTimeWindow, computeVenueHeatPoints |
+
+### Modified Components
+
+| Component | Change |
+|-----------|--------|
+| `MapClient.tsx` | Add `mapMode`, `heatPoints`, `timeWindow` props; render `HeatmapLayer` and `HeatmapClickLayer` conditionally; render `ClusterLayer` only in cluster mode; accept and render `TimelineBar` overlay in timelapse mode |
+| `MapClientWrapper.tsx` | Pass through new props (`mapMode`, `heatPoints`) |
+| `page.tsx` (HomeContent) | Add `mapMode`, `timePosition`, `isPlaying` state; add play interval; compute `heatPoints` via `useMemo`; compute `sidebarEvents` with mode-aware filter chain; render `ModeToggle` and `TimelineBar`; conditionally render `EventFilters` |
+| `EventFilters.tsx` | Accept `hidden` prop or be conditionally rendered by parent (no internal changes required) |
+
+### Unchanged Components
+
+| Component | Why Unchanged |
+|-----------|--------------|
+| `EventList.tsx` | Already accepts any `EventWithVenue[]`; no changes needed |
+| `EventCard.tsx` | No changes needed |
+| `MapBoundsTracker.tsx` | Works in both modes |
+| `MapViewController.tsx` | Works in both modes |
+| `ClusterLayer.tsx` | No changes needed — parent conditionally renders it |
+| `MobileTabBar.tsx` | No changes needed |
+| `/api/events` route | No new endpoint required — all filtering is client-side |
+| DB schema | No changes required |
+
+---
+
+## Data Flow: Timelapse Mode
+
+```
+allEvents (already loaded on mount — no new fetch)
+    ↓
+timePosition (0–1 float from scrubber or interval)
+    ↓
+positionToTimestamp(timePosition, referenceDate)
+    → centerTimestamp: Date
+    ↓
+filterByTimeWindow(allEvents, centerTimestamp.getTime(), 24h)
+    → windowedEvents: EventWithVenue[]
+    ↓
+    ├─→ computeVenueHeatPoints(windowedEvents)
+    │       → heatPoints: { lat, lng, intensity }[]
+    │       → passed to HeatmapLayer (updates setLatLngs + redraw)
+    │       → passed to HeatmapClickLayer (invisible markers for clicks)
+    │
+    └─→ filterByBounds(windowedEvents, bounds)
+            → sidebarEvents
+            → passed to EventList
+```
+
+The `referenceDate` is captured once on mount (`useRef(new Date())`). This anchors the 30-day window relative to when the user loaded the page, preventing drift if the component re-renders.
+
+---
+
+## Architectural Patterns
+
+### Pattern 1: Imperative Leaflet Plugin Wrapping
+
+**What:** For vanilla Leaflet plugins that have no react-leaflet wrapper, use `useMap()` + `useEffect()` inside a component that renders `null`. Create the layer in a mount effect, update it in a data-change effect, destroy in cleanup.
+
+**When to use:** Any third-party Leaflet plugin — `leaflet.heat`, `leaflet-velocity`, etc.
+
+**Trade-offs:** More boilerplate than a packaged wrapper, but zero dependency risk and full control over update behavior. The existing codebase already does this pattern in `MapBoundsTracker` and `MapViewController`.
+
+**Example:** See `HeatmapLayer.tsx` snippet above.
+
+### Pattern 2: Mode-Aware Conditional Rendering Inside MapContainer
+
+**What:** Render both `ClusterLayer` and `HeatmapLayer` inside `MapContainer`, but control which is active via a `visible` prop or conditional rendering. Do not unmount/remount `MapContainer` to switch modes — that destroys the map instance and resets zoom/pan.
+
+**When to use:** Any feature that needs to switch between two map visualization modes.
+
+**Trade-offs:** Both layers exist in the component tree simultaneously, so both receive prop updates. The inactive layer should early-return its update effect to avoid unnecessary Leaflet operations.
+
+### Pattern 3: Client-Side Time Windowing (No New API Endpoint)
+
+**What:** All 30 days of events are already fetched in `allEvents` on mount. Time windowing is a `useMemo` filter — no new server round-trip needed.
+
+**When to use:** When the total dataset fits comfortably in memory. The current Atlantic Canada dataset is small (hundreds to a few thousand events). A 30-day window at full load is well within browser memory limits.
+
+**Trade-offs:** If the dataset grows to tens of thousands of events, this approach will cause UI lag during scrubbing. At that scale, add a server-side endpoint `GET /api/events?from=...&to=...` for time-windowed queries. This is not needed for v1.1.
+
+### Pattern 4: Scrubber Position as Normalized Float
+
+**What:** Represent time position as a 0–1 float rather than an actual timestamp or millisecond offset. The `input[type=range]` maps directly to this float. All timestamp math is derived from this float + a fixed reference date.
+
+**When to use:** Any scrubber/slider controlling a time dimension.
+
+**Trade-offs:** Decouples the UI control from time domain specifics. Makes it easy to change the window size or range without touching the scrubber component. Slightly harder to reason about when debugging (log `positionToTimestamp(pos)` not `pos`).
+
+---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: CSS Selector Scrapers
+### Anti-Pattern 1: Putting `timePosition` in the URL
 
-**What people do:** Write specific CSS selectors (`div.event-title`, `.show-date`) for each venue's website.
-**Why it's wrong:** Venue websites redesign frequently. Every redesign silently breaks the scraper — events stop appearing with no error. Maintenance overhead scales with source count.
-**Do this instead:** AI extraction with an LLM prompt that understands semantic content. Resilient to layout changes because it reads meaning, not structure.
+**What people do:** Use nuqs to store the scrubber position in `?t=0.42`.
+**Why it's wrong:** During auto-play, position updates 5 times per second. History API calls at that rate hit browser rate limits (Chrome limits to ~100 pushState calls per 30 seconds). nuqs's `throttleMs` mitigates this partially but the URL becomes polluted and the back button behaves unexpectedly.
+**Do this instead:** Keep `timePosition` in `useState`. Only share things in the URL that make sense to bookmark or share — the time position at the moment of sharing is not meaningful.
 
-### Anti-Pattern 2: Scraping Inline with User Requests
+### Anti-Pattern 2: Unmounting MapContainer to Switch Modes
 
-**What people do:** When a user loads the page, trigger a fresh scrape and wait for it to complete before rendering.
-**Why it's wrong:** Scraping takes seconds to minutes. User experience is destroyed. Vercel function timeout kills the request before it finishes.
-**Do this instead:** Pre-populate the database on a schedule. Users always read from the database — fast and reliable. Staleness of a few hours is acceptable for events data.
+**What people do:** Conditionally render `<ClusterMapContainer>` vs `<HeatmapMapContainer>` based on mode.
+**Why it's wrong:** Destroys and recreates the Leaflet map instance on every toggle. The map resets to initial zoom/center, all event listeners are lost, and there's a flash of unstyled content.
+**Do this instead:** One `MapContainer`, two layers inside it, one visible at a time.
 
-### Anti-Pattern 3: Storing Only Raw Scraped Data
+### Anti-Pattern 3: Fetching a New API Endpoint for Time-Windowed Data
 
-**What people do:** Dump raw extracted JSON into a blob column without normalizing dates, addresses, or performer names.
-**Why it's wrong:** Date formats vary wildly across sources ("Saturday March 15", "2026-03-15", "Mar 15 @ 8pm"). Without normalization, date filtering and sorting breaks. Geocoding can't be applied without a clean address.
-**Do this instead:** Normalize at write time (scrape → normalize → store). The database contains clean, structured data. Frontend queries are simple.
+**What people do:** Add `GET /api/events?from=...&to=...` and hit it on every scrubber move.
+**Why it's wrong:** During scrubbing or playback, time position changes tens of times per second. Each change would trigger a network request. The scrubber would feel laggy and server load would spike.
+**Do this instead:** Load all data once, filter client-side with `filterByTimeWindow`.
 
-### Anti-Pattern 4: Re-Geocoding on Every Scrape
+### Anti-Pattern 4: Using `requestAnimationFrame` for the Play Loop
 
-**What people do:** Call the Mapbox Geocoding API for a venue address every time an event at that venue is scraped.
-**Why it's wrong:** Venues don't move. Geocoding the same address repeatedly wastes API quota and money. Mapbox Geocoding has a cost per call.
-**Do this instead:** Geocode once per venue, cache in the `venues` table. Events inherit lat/lng from their venue via foreign key. Only re-geocode if address changes.
+**What people do:** Drive the timelapse animation with `requestAnimationFrame` for smooth 60fps updates.
+**Why it's wrong:** At 60fps, React state updates (`setTimePosition`) would fire 60 times per second. Each update re-renders `HomeContent`, recomputes `heatPoints` via `useMemo`, and calls `setLatLngs` + `redraw` on the heat layer. This causes heavy CPU usage and jank.
+**Do this instead:** `setInterval` at 200ms (5fps). The heatmap is a density visualization — 5fps playback is smooth enough and reduces CPU by 12x.
 
-### Anti-Pattern 5: No Idempotency in Cron Jobs
+### Anti-Pattern 5: Computing Heat Points Inside HeatmapLayer
 
-**What people do:** Insert a new row for every scraped event on every cron run.
-**Why it's wrong:** Running the cron daily creates an exponentially growing events table full of duplicates. Deduplication becomes a separate cleanup problem.
-**Do this instead:** Upsert using `source_url` as the unique conflict key. Each event has one canonical row, updated in place.
+**What people do:** Pass all events to `HeatmapLayer` and let it filter + compute internally.
+**Why it's wrong:** `HeatmapLayer` is a Leaflet-layer component inside `MapContainer`. It should not own filtering logic. Placing business logic inside map components makes them harder to test and creates tight coupling.
+**Do this instead:** Compute `heatPoints` in `HomeContent` via `useMemo`. Pass the already-computed `{ lat, lng, intensity }[]` array to `HeatmapLayer`. The layer is dumb — it only calls Leaflet APIs.
+
+---
+
+## Build Order for Timelapse Milestone
+
+Dependencies flow strictly downward — each item can only start when the items above it are done.
+
+```
+1. lib/timelapse-utils.ts
+   Pure functions. No dependencies. Build and test first.
+   Covers: positionToTimestamp, filterByTimeWindow, computeVenueHeatPoints
+
+2. HeatmapLayer.tsx
+   Depends on: leaflet.heat npm install, timelapse-utils (for HeatPoint type)
+   Can be developed in isolation with hardcoded test points.
+   No UI, no state — just a Leaflet layer wrapper.
+
+3. TimelineBar.tsx + ModeToggle.tsx
+   Depends on: nothing (pure UI, receives props/callbacks)
+   Build with hardcoded/stubbed props first.
+
+4. HeatmapClickLayer.tsx
+   Depends on: react-leaflet CircleMarker (already installed)
+   Thin component — invisible markers at venue coordinates.
+
+5. HomeContent wiring (page.tsx)
+   Depends on: all of the above
+   Add mapMode, timePosition, isPlaying state.
+   Wire ModeToggle → mapMode.
+   Wire TimelineBar ↔ timePosition, isPlaying.
+   Wire heatPoints useMemo.
+   Wire sidebarEvents mode-aware filter chain.
+   Pass new props to MapClientWrapper.
+
+6. MapClient.tsx + MapClientWrapper.tsx prop threading
+   Depends on: HomeContent wiring complete
+   Add mapMode, heatPoints, timeWindow props.
+   Conditionally render ClusterLayer / HeatmapLayer / HeatmapClickLayer.
+   Position TimelineBar overlay inside the map div.
+
+7. Integration testing
+   Test: mode toggle shows/hides correct UI
+   Test: scrubber updates heatmap and sidebar simultaneously
+   Test: auto-play advances, stops at end
+   Test: heatmap click opens correct popup
+   Test: mobile tab bar still works in both modes
+```
+
+---
 
 ## Integration Points
 
-### External Services
+### New Library Integration
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| OpenAI API | Called during extraction step with JSON schema prompt | Use `gpt-4o-mini` for cost; batch by page not by event |
-| Mapbox Geocoding API | Called once per new venue address | Cache result in venues.lat/lng; ~$0.005/request |
-| Mapbox GL JS (frontend) | Client-side map rendering and clustering | Free tier: 50k loads/month; sufficient for v1 |
-| Vercel Cron | HTTP GET to /api/cron/scrape on schedule | Pro plan: up to 100 crons, runs within specified minute |
-| PostgreSQL (Supabase or Neon) | Direct connection from API routes | Use connection pooling (PgBouncer); Vercel functions are stateless |
-| Firecrawl (optional) | Managed crawl + markdown conversion service | Alternative to self-hosting Playwright; handles JS rendering |
+| Library | How Integrated | Notes |
+|---------|---------------|-------|
+| `leaflet.heat` | Installed as npm dep; imported side-effectively inside `HeatmapLayer.tsx` | `leaflet.heat` patches `L` at import time. Must be inside the `ssr:false` dynamic import boundary. Add a `.d.ts` shim or `@types/leaflet.heat` if available. |
 
 ### Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| Cron handler ↔ Scraper lib | Direct function call (same process) | No queue for v1; orchestrator called directly |
-| Scraper ↔ Database | Drizzle ORM / Prisma queries | Scraper writes; API reads; shared schema |
-| API routes ↔ Database | Read-only queries from event/venue tables | Parameterized queries; never raw SQL in routes |
-| Frontend ↔ API | REST JSON over HTTP | No GraphQL complexity needed; simple GET endpoints |
-| Map component ↔ Event data | Props / context (all events fetched once on load) | For small datasets (<5k events) client-side clustering is fine |
+| `HomeContent` ↔ `MapClientWrapper` | Props: `mapMode`, `heatPoints`, `timeWindow` added to existing interface | `MapClientWrapper` passes through to `MapClient` |
+| `HomeContent` ↔ `TimelineBar` | Props: `timePosition`, `isPlaying`, `onPositionChange`, `onPlayPause` | `TimelineBar` is outside `MapContainer` — no Leaflet context |
+| `HeatmapLayer` ↔ Leaflet | Imperative: `useMap()` + `useEffect()` | Layer added/removed directly to map instance |
+| `HeatmapLayer` ↔ `HeatmapClickLayer` | Sibling components sharing the same `heatPoints` prop from parent | No direct coupling between them |
 
-## Build Order Implications
+### Unchanged Integration Points
 
-The architecture has clear dependency chains that determine what to build first:
+| Boundary | Status |
+|----------|--------|
+| `/api/events` → `HomeContent` | Unchanged — same fetch, same data shape |
+| `nuqs` URL state (`when`, `province`) | Unchanged — still used in cluster mode |
+| `MapBoundsTracker` → `setBounds` | Unchanged — bounds still used for sidebar filtering in both modes |
+| `EventList` ↔ `EventCard` | Unchanged — no mode awareness needed in list components |
 
-1. **Database schema + migrations** — Everything depends on this. Venues, events, and scrape_sources tables must exist before any other component can work.
-2. **Scraper library (fetch → extract → normalize → upsert)** — Can be built and tested independently with seed data before the frontend exists.
-3. **Geocoding + venue enrichment** — Depends on scraper producing venue records.
-4. **Cron route wiring** — Thin wrapper; depends on scraper library working.
-5. **Events API routes** — Depends on events being in the database.
-6. **Map frontend** — Depends on the API returning events with lat/lng.
-7. **List/browse view and event detail** — Depends on the API; can be built in parallel with map.
+---
 
-This order means the scraping pipeline and database are the critical path. The frontend is unblockable until events exist with valid coordinates.
+## Scaling Considerations
+
+| Scale | Architecture Adjustments |
+|-------|--------------------------|
+| Current (<5k events) | Client-side time window filter with useMemo — no server changes needed |
+| 5k–50k events | Add `GET /api/events?from=...&to=...` endpoint; fetch only on scrubber release (not during drag), debounce 300ms |
+| 50k+ events | Server-side spatial aggregation for heatmap (return pre-binned grid, not individual points); use Postgres `ST_SnapToGrid` or application-level geohash bucketing |
+
+The current Atlantic Canada scope is unlikely to exceed 5k future events for years. Build for the current scale; the API endpoint approach is a documented escape hatch, not a v1.1 requirement.
+
+---
 
 ## Sources
 
-- [Vercel Cron Jobs documentation](https://vercel.com/docs/cron-jobs) — HIGH confidence
-- [Vercel Cron Jobs: Managing and Duration](https://vercel.com/docs/cron-jobs/manage-cron-jobs) — HIGH confidence
-- [Tech Event Discovery Platform architecture (DEV.to)](https://dev.to/danishaft/how-i-built-a-tech-event-discovery-platform-with-real-time-scraping-3o4f) — MEDIUM confidence
-- [Events Data Scraping Architecture Guide (GroupBWT)](https://groupbwt.com/blog/events-data-scraping/) — MEDIUM confidence
-- [Mapbox GL JS clustering in Next.js](https://riopulok.medium.com/using-mapbox-gl-in-a-next-js-app-large-scale-data-visualization-with-clustering-and-bounds-loading-3bc61735608b) — MEDIUM confidence
-- [Supercluster library (Mapbox)](https://github.com/mapbox/supercluster) — HIGH confidence
-- [Firecrawl Extract (structured LLM extraction)](https://docs.firecrawl.dev/v0/features/extract) — MEDIUM confidence
-- [Crawl4AI LLM Strategies](https://docs.crawl4ai.com/extraction/llm-strategies/) — MEDIUM confidence
-- [AI Web Scraping in 2026 (Morph)](https://www.morphllm.com/ai-web-scraping) — MEDIUM confidence
+- Direct codebase inspection: `src/components/map/`, `src/app/page.tsx`, `src/app/api/events/route.ts`, `src/lib/filter-utils.ts`, `package.json` — HIGH confidence
+- [React Leaflet 5.x Core Architecture](https://react-leaflet.js.org/docs/core-architecture/) — useLeafletContext, createElementHook, useLayerLifecycle — HIGH confidence
+- [Leaflet.heat GitHub (Leaflet org)](https://github.com/Leaflet/Leaflet.heat) — plugin API, setLatLngs, redraw — HIGH confidence
+- [Creating a React-Leaflet Custom Component Using Hooks (Medium/Trabe)](https://medium.com/trabe/creating-a-react-leaflet-custom-component-using-hooks-5b5b905d5a01) — useMap + useEffect pattern for imperative layer wrapping — MEDIUM confidence
+- [nuqs GitHub (47ng/nuqs)](https://github.com/47ng/nuqs) — throttleMs, debounce, URL state management — HIGH confidence
+- `react-leaflet-heat-layer` (LockBlock-dev) — inspected, targets react-leaflet v4 only, last commit July 2024, 3 commits total — LOW confidence (used as negative signal; not recommended)
 
 ---
-*Architecture research for: Local events discovery — AI scraping + map frontend + Vercel*
-*Researched: 2026-03-13*
+
+*Architecture research for: Heatmap timelapse mode integration — East Coast Local v1.1*
+*Researched: 2026-03-14*
