@@ -38,6 +38,7 @@ export interface MapClientWrapperProps {
   showPins?: boolean;
   onTogglePins?: () => void;
   referenceDate?: Date;
+  timeFilteredEvents?: EventWithVenue[];
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {

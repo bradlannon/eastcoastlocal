@@ -42,6 +42,7 @@ interface MapClientProps {
   showPins?: boolean;
   onTogglePins?: () => void;
   referenceDate?: Date;
+  timeFilteredEvents?: EventWithVenue[];
 }
 
 export default function MapClient({
@@ -63,6 +64,7 @@ export default function MapClient({
   showPins,
   onTogglePins,
   referenceDate,
+  timeFilteredEvents,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
@@ -89,7 +91,7 @@ export default function MapClient({
         <MapBoundsTracker onBoundsChange={onBoundsChange} />
         {(mapMode !== 'timelapse' || showPins) && (
           <ClusterLayer
-            events={events}
+            events={mapMode === 'timelapse' ? (timeFilteredEvents ?? []) : events}
             highlightedVenueId={highlightedVenueId}
             markersRef={markersRef}
           />

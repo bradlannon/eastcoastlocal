@@ -77,8 +77,8 @@ function HomeContent() {
       });
   }, []);
 
-  // Mode-aware filter chain: derives sidebarEvents and heatPoints from same useMemo
-  const { sidebarEvents, heatPoints } = useMemo(() => {
+  // Mode-aware filter chain: derives sidebarEvents, heatPoints, and timeFilteredEvents
+  const { sidebarEvents, heatPoints, timeFilteredEvents } = useMemo(() => {
     if (mapMode === 'timelapse') {
       const center = positionToTimestamp(timePosition, referenceDate.current);
       const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
@@ -86,6 +86,7 @@ function HomeContent() {
       return {
         sidebarEvents: filterByBounds(provinceFiltered, bounds),
         heatPoints: computeVenueHeatPoints(provinceFiltered),
+        timeFilteredEvents: provinceFiltered,
       };
     }
     const dateFiltered = filterByDateRange(allEvents, when);
@@ -93,6 +94,7 @@ function HomeContent() {
     return {
       sidebarEvents: filterByBounds(provinceFiltered, bounds),
       heatPoints: [],
+      timeFilteredEvents: [],
     };
   }, [mapMode, timePosition, allEvents, when, province, bounds]);
 
@@ -198,6 +200,7 @@ function HomeContent() {
               showPins={showPins}
               onTogglePins={handleTogglePins}
               referenceDate={referenceDate.current}
+              timeFilteredEvents={timeFilteredEvents}
             />
           )}
         </div>
