@@ -7,7 +7,8 @@ import MapClientWrapper from '@/components/map/MapClientWrapper';
 import EventList from '@/components/events/EventList';
 import EventFilters from '@/components/events/EventFilters';
 import MobileTabBar from '@/components/layout/MobileTabBar';
-import { filterByBounds, filterByDateRange, filterByProvince } from '@/lib/filter-utils';
+import { filterByBounds, filterByDateRange, filterByProvince, filterByCategory } from '@/lib/filter-utils';
+import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 import {
   STEP_SIZE,
   positionToTimestamp,
@@ -64,6 +65,7 @@ function HomeContent() {
   // Filter state via URL query params
   const [when] = useQueryState('when');
   const [province] = useQueryState('province');
+  const [category] = useQueryState('category');
 
   useEffect(() => {
     fetch('/api/events')
@@ -83,20 +85,22 @@ function HomeContent() {
       const center = positionToTimestamp(timePosition, referenceDate.current);
       const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
       const provinceFiltered = filterByProvince(timeWindowed, province);
+      const categoryFiltered = filterByCategory(provinceFiltered, category);
       return {
-        sidebarEvents: filterByBounds(provinceFiltered, bounds),
-        heatPoints: computeVenueHeatPoints(provinceFiltered),
-        timeFilteredEvents: provinceFiltered,
+        sidebarEvents: filterByBounds(categoryFiltered, bounds),
+        heatPoints: computeVenueHeatPoints(categoryFiltered),
+        timeFilteredEvents: categoryFiltered,
       };
     }
     const dateFiltered = filterByDateRange(allEvents, when);
     const provinceFiltered = filterByProvince(dateFiltered, province);
+    const categoryFiltered = filterByCategory(provinceFiltered, category);
     return {
-      sidebarEvents: filterByBounds(provinceFiltered, bounds),
+      sidebarEvents: filterByBounds(categoryFiltered, bounds),
       heatPoints: [],
       timeFilteredEvents: [],
     };
-  }, [mapMode, timePosition, allEvents, when, province, bounds]);
+  }, [mapMode, timePosition, allEvents, when, province, category, bounds]);
 
   // Current time label for TimelineBar
   const currentLabel = useMemo(() => {
@@ -120,7 +124,7 @@ function HomeContent() {
 
   // Compute friendly empty state message
   function getEmptyMessage(): string {
-    if (when && province) {
+    if ((when && province) || (when && category) || (province && category)) {
       return `No events matching your filters. Clear filters to see all events.`;
     }
     if (when) {
@@ -134,6 +138,10 @@ function HomeContent() {
     if (province) {
       const label = PROVINCE_LABELS[province] ?? province;
       return `No events in ${label}. Try All Provinces.`;
+    }
+    if (category) {
+      const label = CATEGORY_META[category as EventCategory]?.label ?? category;
+      return `No ${label} events in this area. Try All categories.`;
     }
     return 'No events in this area. Zoom out to see more.';
   }

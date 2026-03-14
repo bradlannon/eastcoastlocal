@@ -2,6 +2,8 @@
 
 import { useQueryState } from 'nuqs';
 import { PROVINCE_LABELS } from '@/lib/province-bounds';
+import { EVENT_CATEGORIES } from '@/lib/db/schema';
+import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface EventFiltersProps {
   eventCount: number;
@@ -18,8 +20,9 @@ const DATE_CHIPS = [
 export default function EventFilters({ eventCount, onProvinceChange }: EventFiltersProps) {
   const [when, setWhen] = useQueryState('when');
   const [province, setProvince] = useQueryState('province');
+  const [category, setCategory] = useQueryState('category');
 
-  const hasFilters = !!(when || province);
+  const hasFilters = !!(when || province || category);
 
   function handleChipClick(value: string | null) {
     setWhen(value);
@@ -34,6 +37,7 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
   function handleClearFilters() {
     setWhen(null);
     setProvince(null);
+    setCategory(null);
     onProvinceChange?.(null);
   }
 
@@ -59,6 +63,37 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
               }`}
             >
               {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Category chip filters */}
+      <div className="flex gap-1 overflow-x-auto no-scrollbar">
+        <button
+          onClick={() => setCategory(null)}
+          className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
+            !category
+              ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+              : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+          }`}
+        >
+          All
+        </button>
+        {EVENT_CATEGORIES.map((cat) => {
+          const isActive = category === cat;
+          const meta = CATEGORY_META[cat as EventCategory];
+          return (
+            <button
+              key={cat}
+              onClick={() => setCategory(cat)}
+              className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
+                isActive
+                  ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+                  : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+              }`}
+            >
+              {meta.label}
             </button>
           );
         })}
@@ -95,5 +130,6 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
 export function useEventFilters() {
   const [when] = useQueryState('when');
   const [province] = useQueryState('province');
-  return { when, province };
+  const [category] = useQueryState('category');
+  return { when, province, category };
 }
