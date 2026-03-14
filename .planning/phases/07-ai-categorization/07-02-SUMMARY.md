@@ -55,12 +55,14 @@ completed: 2026-03-14
 - Script completed without errors
 - Confirmed 0 rows had null event_category (DB column default 'community' applied at insert time to all existing rows)
 - CAT-02 requirement satisfied: no events in the database have null event_category values
+- Human verified via Drizzle Studio: events table has no NULL event_category values; historical events show 'community'
 
 ## Task Commits
 
 Each task was committed atomically:
 
-1. **Task 1: Run backfill-categories script** - no code changes (script execution only; DB state updated)
+1. **Task 1: Run backfill-categories script** - `450eedf` (docs — no code changes; DB state updated)
+2. **Task 2: Verify via Drizzle Studio** - human-verify checkpoint approved; user confirmed zero NULLs
 
 **Plan metadata:** (see final docs commit)
 
@@ -85,7 +87,7 @@ None - no external service configuration required.
 - CAT-02 is satisfied: all events in production have a non-null event_category
 - AI categorization pipeline (Phase 7 Plan 01) is live and assigns categories to new events via Gemini
 - Ready for Phase 8: map category filter UI
-- Human should verify via Drizzle Studio before proceeding (see Task 2 checkpoint)
+- Human verified via Drizzle Studio (Task 2 checkpoint approved) — no NULLs remain
 
 ## Self-Check: PASSED
 

@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Event Discovery
 status: executing
-stopped_at: 07-02 complete — backfill ran, zero null event_category values confirmed; awaiting human verification via Drizzle Studio
-last_updated: "2026-03-14T21:36:52.907Z"
+stopped_at: 07-02 complete — backfill verified by human via Drizzle Studio; Phase 7 fully done
+last_updated: "2026-03-14T21:56:18.424Z"
 last_activity: 2026-03-14 — Phase 7 Plan 01 complete; extraction pipeline now produces categorized events
 progress:
   total_phases: 4
@@ -45,6 +45,7 @@ Recent decisions affecting current work:
 - Schema first: CAT-03 is the hard gate — phases 7, 8, 9 all depend on it
 - Backfill: Run immediately after Phase 7 deploys — not a deferred task
 - [Phase 07-ai-categorization]: Backfill reported 0 rows updated — DB default 'community' applied at insert time; no historical null event_category values existed
+- [Phase 07-ai-categorization]: Human verified zero NULLs in events.event_category via Drizzle Studio before proceeding to Phase 8
 
 ### Decisions from 06-01
 
@@ -72,6 +73,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-14T21:36:52.903Z
-Stopped at: 07-02 complete — backfill ran, zero null event_category values confirmed; awaiting human verification via Drizzle Studio
+Last session: 2026-03-14T21:56:18.421Z
+Stopped at: 07-02 complete — backfill verified by human via Drizzle Studio; Phase 7 fully done
 Resume file: None
