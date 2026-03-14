@@ -8,10 +8,23 @@ import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
 
+// Delay between AI extraction requests to stay within Gemini rate limits.
+// Free tier: 20 req/day. Paid tier: much higher — can reduce this to 0.
+const AI_THROTTLE_MS = parseInt(process.env.SCRAPE_THROTTLE_MS ?? '4000', 10);
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function runScrapeJob(): Promise<void> {
   const sources = await db.query.scrape_sources.findMany({
     where: eq(scrape_sources.enabled, true),
   });
+
+  console.log(`Scraping ${sources.length} enabled sources (throttle: ${AI_THROTTLE_MS}ms)...`);
+  let successCount = 0;
+  let failCount = 0;
+  let eventCount = 0;
 
   for (const source of sources) {
     try {
@@ -27,6 +40,7 @@ export async function runScrapeJob(): Promise<void> {
             .update(scrape_sources)
             .set({ last_scraped_at: new Date(), last_scrape_status: 'failure' })
             .where(eq(scrape_sources.id, source.id));
+          failCount++;
           continue;
         }
 
@@ -49,10 +63,20 @@ export async function runScrapeJob(): Promise<void> {
         for (const event of extracted) {
           await upsertEvent(source.venue_id, event, source.url);
         }
+
+        eventCount += extracted.length;
+        console.log(`  ✓ ${venue.name}: ${extracted.length} events`);
+
+        // Throttle AI requests to respect rate limits
+        if (AI_THROTTLE_MS > 0) {
+          await delay(AI_THROTTLE_MS);
+        }
       } else if (source.source_type === 'eventbrite') {
         await scrapeEventbrite(source);
+        console.log(`  ✓ Eventbrite source ${source.id}`);
       } else if (source.source_type === 'bandsintown') {
         await scrapeBandsintown(source);
+        console.log(`  ✓ Bandsintown source ${source.id}`);
       } else {
         console.warn(`Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }
@@ -62,13 +86,17 @@ export async function runScrapeJob(): Promise<void> {
         .update(scrape_sources)
         .set({ last_scraped_at: new Date(), last_scrape_status: 'success' })
         .where(eq(scrape_sources.id, source.id));
+      successCount++;
     } catch (err) {
-      console.error(`Error processing source ${source.id} (${source.url}):`, err);
+      console.error(`  ✗ Source ${source.id} (${source.url}):`, err instanceof Error ? err.message : err);
       await db
         .update(scrape_sources)
         .set({ last_scraped_at: new Date(), last_scrape_status: 'failure' })
         .where(eq(scrape_sources.id, source.id));
+      failCount++;
       // Continue to next source — never abort full run
     }
   }
+
+  console.log(`Scrape complete: ${successCount} succeeded, ${failCount} failed, ${eventCount} events extracted`);
 }

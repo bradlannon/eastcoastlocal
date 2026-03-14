@@ -36,10 +36,13 @@ describe('Seed Data Structure', () => {
       }
     });
 
-    it('The Ship Pub source is disabled', () => {
-      // The Ship Pub is the last venue (NL) — no confirmed scrapeable URL
-      const shipPubSource = sourceData[sourceData.length - 1];
-      expect(shipPubSource.enabled).toBe(false);
+    it('Facebook-only venues have their sources disabled', () => {
+      // Venues relying on Facebook for events should be disabled
+      const shipPubIndex = venueData.findIndex(
+        (v) => v.name === 'The Ship Pub & Kitchen'
+      );
+      expect(shipPubIndex).toBeGreaterThanOrEqual(0);
+      expect(sourceData[shipPubIndex].enabled).toBe(false);
     });
   });
 });

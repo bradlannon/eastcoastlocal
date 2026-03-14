@@ -40,6 +40,10 @@ ${pageText}`,
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
+  // Only keep events within the next 30 days — locals care about what's coming up soon
+  const maxDate = new Date(now);
+  maxDate.setDate(maxDate.getDate() + 30);
+
   return raw.filter((event) => {
     if (!event.performer) return false;
     if (!event.event_date) return false;
@@ -48,6 +52,7 @@ ${pageText}`,
     const eventDate = new Date(event.event_date);
     if (isNaN(eventDate.getTime())) return false;
     if (eventDate < now) return false;
+    if (eventDate > maxDate) return false;
 
     return true;
   });

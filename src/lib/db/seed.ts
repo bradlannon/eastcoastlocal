@@ -7,6 +7,18 @@ import { venueData, sourceData } from './seed-data';
 export { venueData, sourceData } from './seed-data';
 
 async function seed() {
+  const args = process.argv.slice(2);
+  const reset = args.includes('--reset');
+
+  if (reset) {
+    console.log('Resetting database...');
+    const { sql } = await import('drizzle-orm');
+    await db.execute(sql`DELETE FROM events`);
+    await db.execute(sql`DELETE FROM scrape_sources`);
+    await db.execute(sql`DELETE FROM venues`);
+    console.log('Cleared all tables.');
+  }
+
   console.log('Seeding venues...');
 
   // Insert venues first (FK constraint)
