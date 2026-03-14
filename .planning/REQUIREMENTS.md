@@ -28,7 +28,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **MAP-04**: User can browse events in a list view sorted by date
 - [x] **MAP-05**: User can filter events by date using quick filters (Today, This Weekend, This Week)
 - [x] **MAP-06**: User can filter events by province or city
-- [ ] **MAP-07**: User can use browser geolocation to center the map on their current location ("Near me")
+- [x] **MAP-07**: User can use browser geolocation to center the map on their current location ("Near me")
 - [x] **MAP-08**: User can view event detail page showing band, venue, date, time, address, and link to original source
 - [x] **MAP-09**: Map and list views are mobile-responsive and usable on phone screens
 
@@ -89,7 +89,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MAP-04 | Phase 3 | Complete |
 | MAP-05 | Phase 3 | Complete |
 | MAP-06 | Phase 3 | Complete |
-| MAP-07 | Phase 3 | Pending |
+| MAP-07 | Phase 3 | Complete |
 | MAP-08 | Phase 3 | Complete |
 | MAP-09 | Phase 3 | Complete |
 | INFR-01 | Phase 1 | Complete |
