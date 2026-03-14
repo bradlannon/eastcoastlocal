@@ -94,6 +94,19 @@ export function filterByProvince(
 }
 
 /**
+ * Filter events by event category.
+ * @param events - Array of EventWithVenue objects
+ * @param category - null (all) or a category string like 'live_music', 'comedy', etc.
+ */
+export function filterByCategory(
+  events: EventWithVenue[],
+  category: string | null
+): EventWithVenue[] {
+  if (!category) return events;
+  return events.filter((e) => e.events.event_category === category);
+}
+
+/**
  * Filter events by visible map viewport bounds.
  * Uses a plain object (not Leaflet LatLngBounds) for testability without Leaflet.
  * @param events - Array of EventWithVenue objects

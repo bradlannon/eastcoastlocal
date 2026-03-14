@@ -2,6 +2,7 @@ import {
   filterByDateRange,
   filterByProvince,
   filterByBounds,
+  filterByCategory,
 } from './filter-utils';
 import type { EventWithVenue } from '@/types/index';
 
@@ -16,6 +17,7 @@ function makeEvent(
     province: string;
     lat: number | null;
     lng: number | null;
+    event_category: string;
   }> = {}
 ): EventWithVenue {
   return {
@@ -35,6 +37,7 @@ function makeEvent(
       cover_image_url: null,
       created_at: new Date(),
       updated_at: new Date(),
+      event_category: overrides.event_category ?? 'other',
     },
     venues: {
       id: 1,
@@ -270,5 +273,44 @@ describe('filterByBounds', () => {
     const onBoundary = makeEvent(5, { lat: 45.0, lng: -63.5 });
     const result = filterByBounds([onBoundary], bounds);
     expect(result).toHaveLength(1); // inclusive bounds
+  });
+});
+
+// ---------------------------------------------------------------------------
+// filterByCategory
+// ---------------------------------------------------------------------------
+
+describe('filterByCategory', () => {
+  const events = [
+    makeEvent(1, { event_category: 'live_music' }),
+    makeEvent(2, { event_category: 'comedy' }),
+    makeEvent(3, { event_category: 'live_music' }),
+    makeEvent(4, { event_category: 'theatre' }),
+  ];
+
+  it('returns all events when category is null', () => {
+    expect(filterByCategory(events, null)).toEqual(events);
+  });
+
+  it('returns only live_music events when category is "live_music"', () => {
+    const result = filterByCategory(events, 'live_music');
+    expect(result).toHaveLength(2);
+    result.forEach((e) => expect(e.events.event_category).toBe('live_music'));
+  });
+
+  it('returns only comedy events when category is "comedy"', () => {
+    const result = filterByCategory(events, 'comedy');
+    expect(result).toHaveLength(1);
+    expect(result[0].events.event_category).toBe('comedy');
+  });
+
+  it('returns empty array when no events match the category', () => {
+    const result = filterByCategory(events, 'nonexistent');
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty array when input is empty', () => {
+    const result = filterByCategory([], 'live_music');
+    expect(result).toHaveLength(0);
   });
 });
