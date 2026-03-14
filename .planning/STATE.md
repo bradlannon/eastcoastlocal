@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Event Discovery
-status: in-progress
-stopped_at: "07-01 complete — AI categorization extraction pipeline wired"
-last_updated: "2026-03-14T21:33:42Z"
-last_activity: 2026-03-14 — Phase 7 Plan 01 complete; event_category extraction pipeline live
+status: executing
+stopped_at: 07-02 complete — backfill ran, zero null event_category values confirmed; awaiting human verification via Drizzle Studio
+last_updated: "2026-03-14T21:36:52.907Z"
+last_activity: 2026-03-14 — Phase 7 Plan 01 complete; extraction pipeline now produces categorized events
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 1
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
   percent: 62
 ---
 
@@ -44,6 +44,7 @@ Recent decisions affecting current work:
 - Discovery: Gemini + Google Search grounding; no new npm packages needed
 - Schema first: CAT-03 is the hard gate — phases 7, 8, 9 all depend on it
 - Backfill: Run immediately after Phase 7 deploys — not a deferred task
+- [Phase 07-ai-categorization]: Backfill reported 0 rows updated — DB default 'community' applied at insert time; no historical null event_category values existed
 
 ### Decisions from 06-01
 
@@ -71,6 +72,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-14T21:33:42Z
-Stopped at: 07-01 complete — extraction pipeline with AI categorization
-Resume file: .planning/phases/07-ai-categorization/07-01-SUMMARY.md
+Last session: 2026-03-14T21:36:52.903Z
+Stopped at: 07-02 complete — backfill ran, zero null event_category values confirmed; awaiting human verification via Drizzle Studio
+Resume file: None
