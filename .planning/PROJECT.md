@@ -40,14 +40,22 @@ Users can instantly see what live music is happening near them on a map — wher
 
 <!-- Current scope. Building toward these. -->
 
-(None — plan next milestone)
+## Current Milestone: v1.2 Event Discovery
+
+**Goal:** Automatically discover new event sources across Atlantic Canada, expand beyond live music to all event types, and let users filter by category
+
+**Target features:**
+- Automatic venue/source discovery (find new event sources without manual configuration)
+- All event types supported (comedy, theatre, festivals, community, etc. — not just live music)
+- AI-powered event categorization (Gemini tags each event with a category)
+- Category filtering on the map and event list
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Non-music events (festivals, community events, markets) — focused on live music discovery only
-- AI-powered source discovery (finding new venues automatically) — configure sources manually
+- Non-music events (festivals, community events, markets) — ~~focused on live music discovery only~~ REMOVED in v1.2: expanding to all event types
+- AI-powered source discovery (finding new venues automatically) — ~~configure sources manually~~ REMOVED in v1.2: building automatic discovery
 - User accounts/authentication — public read-only app, no login needed
 - Mobile native app — web-first, responsive design covers mobile
 - Event submission by venues — scraping-only
@@ -96,4 +104,4 @@ Users can instantly see what live music is happening near them on a map — wher
 | Map-level click handler over per-marker | One listener regardless of venue count, handles overlap | ✓ Good — clean spatial proximity query with Haversine |
 
 ---
-*Last updated: 2026-03-14 after v1.1 milestone*
+*Last updated: 2026-03-14 after v1.2 milestone started*
