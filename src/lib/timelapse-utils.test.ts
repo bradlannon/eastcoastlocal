@@ -143,9 +143,10 @@ describe('positionToBlockName', () => {
     expect(positionToBlockName(5 / 120)).toBe('Afternoon');
   });
 
-  it('step 119 (position 119/120, last step) returns "Night"', () => {
-    // 119 % 4 = 3 -> "Night"
-    expect(positionToBlockName(119 / 120)).toBe('Night');
+  it('position 119/120 maps to stepIndex 118, which returns "Evening"', () => {
+    // Math.round((119/120) * 119) = Math.round(118.008) = 118
+    // 118 % 4 = 2 -> "Evening"
+    expect(positionToBlockName(119 / 120)).toBe('Evening');
   });
 
   it('position=1 (end) returns correct block', () => {
