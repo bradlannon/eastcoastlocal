@@ -25,6 +25,16 @@ export interface MapClientWrapperProps {
   province?: string | null;
   highlightedVenueId?: number | null;
   flyToTarget?: FlyToTarget | null;
+  mapMode?: 'cluster' | 'timelapse';
+  heatPoints?: Array<{ lat: number; lng: number; intensity: number }>;
+  onModeToggle?: () => void;
+  isPlaying?: boolean;
+  timePosition?: number;
+  currentLabel?: string;
+  eventCount?: number;
+  onTimePositionChange?: (pos: number) => void;
+  onScrubStart?: () => void;
+  onPlayPause?: () => void;
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {

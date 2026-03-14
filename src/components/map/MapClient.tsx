@@ -11,12 +11,16 @@ import { MapContainer, TileLayer } from 'react-leaflet';
 import type L from 'leaflet';
 import MapBoundsTracker from './MapBoundsTracker';
 import ClusterLayer from './ClusterLayer';
+import HeatmapLayer from './HeatmapLayer';
+import ModeToggle from './ModeToggle';
 import GeolocationButton from './GeolocationButton';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
+import TimelineBar from '../timelapse/TimelineBar';
 import { ATLANTIC_CANADA_CENTER, INITIAL_ZOOM } from '@/lib/province-bounds';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
+import type { HeatPoint } from '@/lib/timelapse-utils';
 
 interface MapClientProps {
   events: EventWithVenue[];
@@ -24,6 +28,16 @@ interface MapClientProps {
   province?: string | null;
   highlightedVenueId?: number | null;
   flyToTarget?: FlyToTarget | null;
+  mapMode?: 'cluster' | 'timelapse';
+  heatPoints?: HeatPoint[];
+  onModeToggle?: () => void;
+  isPlaying?: boolean;
+  timePosition?: number;
+  currentLabel?: string;
+  eventCount?: number;
+  onTimePositionChange?: (pos: number) => void;
+  onScrubStart?: () => void;
+  onPlayPause?: () => void;
 }
 
 export default function MapClient({
@@ -32,6 +46,16 @@ export default function MapClient({
   province,
   highlightedVenueId,
   flyToTarget,
+  mapMode,
+  heatPoints,
+  onModeToggle,
+  isPlaying,
+  timePosition,
+  currentLabel,
+  eventCount,
+  onTimePositionChange,
+  onScrubStart,
+  onPlayPause,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
@@ -56,11 +80,16 @@ export default function MapClient({
           maxZoom={20}
         />
         <MapBoundsTracker onBoundsChange={onBoundsChange} />
-        <ClusterLayer
-          events={events}
-          highlightedVenueId={highlightedVenueId}
-          markersRef={markersRef}
-        />
+        {mapMode !== 'timelapse' && (
+          <ClusterLayer
+            events={events}
+            highlightedVenueId={highlightedVenueId}
+            markersRef={markersRef}
+          />
+        )}
+        {mapMode === 'timelapse' && (
+          <HeatmapLayer points={heatPoints ?? []} visible={true} />
+        )}
         <GeolocationButton />
         <MapViewController
           province={province ?? null}
@@ -68,6 +97,27 @@ export default function MapClient({
           markersRef={markersRef}
         />
       </MapContainer>
+
+      {/* Mode toggle button */}
+      <ModeToggle
+        mapMode={mapMode ?? 'cluster'}
+        onToggle={onModeToggle ?? (() => {})}
+      />
+
+      {/* Timeline bar — shown only in timelapse mode */}
+      {mapMode === 'timelapse' && (
+        <div className="absolute bottom-0 left-0 right-0 z-[1000] px-4 pb-4">
+          <TimelineBar
+            timePosition={timePosition ?? 0}
+            isPlaying={isPlaying ?? false}
+            currentLabel={currentLabel ?? ''}
+            eventCount={eventCount ?? 0}
+            onPositionChange={onTimePositionChange ?? (() => {})}
+            onScrubStart={onScrubStart ?? (() => {})}
+            onPlayPause={onPlayPause ?? (() => {})}
+          />
+        </div>
+      )}
 
       {/* No events overlay */}
       {visibleVenueCount === 0 && events.length > 0 && (

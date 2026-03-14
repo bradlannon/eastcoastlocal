@@ -1,13 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useQueryState } from 'nuqs';
+import { format } from 'date-fns';
 import MapClientWrapper from '@/components/map/MapClientWrapper';
 import EventList from '@/components/events/EventList';
 import EventFilters from '@/components/events/EventFilters';
 import MobileTabBar from '@/components/layout/MobileTabBar';
 import { filterByBounds, filterByDateRange, filterByProvince } from '@/lib/filter-utils';
+import {
+  STEP_SIZE,
+  positionToTimestamp,
+  positionToBlockName,
+  filterByTimeWindow,
+  computeVenueHeatPoints,
+} from '@/lib/timelapse-utils';
 import { PROVINCE_LABELS } from '@/lib/province-bounds';
+import type { MapMode } from '@/components/map/ModeToggle';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
 import type { FlyToTarget } from '@/components/map/MapViewController';
@@ -29,6 +38,28 @@ function HomeContent() {
   const [highlightedVenueId, setHighlightedVenueId] = useState<number | null>(null);
   const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | null>(null);
 
+  // Timelapse state
+  const [mapMode, setMapMode] = useState<MapMode>('cluster');
+  const [timePosition, setTimePosition] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const referenceDate = useRef(new Date());
+
+  // Play loop: advance scrubber at 1s per step
+  const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  useEffect(() => {
+    if (isPlaying) {
+      playRef.current = setInterval(() => {
+        setTimePosition((p) => {
+          if (p >= 1) { setIsPlaying(false); return 1; }
+          return Math.min(p + STEP_SIZE, 1);
+        });
+      }, 1000);
+    }
+    return () => {
+      if (playRef.current) { clearInterval(playRef.current); playRef.current = null; }
+    };
+  }, [isPlaying]);
+
   // Filter state via URL query params
   const [when] = useQueryState('when');
   const [province] = useQueryState('province');
@@ -45,10 +76,43 @@ function HomeContent() {
       });
   }, []);
 
-  // Stacked filter chain: date -> province -> viewport
-  const dateFiltered = filterByDateRange(allEvents, when);
-  const provinceFiltered = filterByProvince(dateFiltered, province);
-  const visibleEvents = filterByBounds(provinceFiltered, bounds);
+  // Mode-aware filter chain: derives sidebarEvents and heatPoints from same useMemo
+  const { sidebarEvents, heatPoints } = useMemo(() => {
+    if (mapMode === 'timelapse') {
+      const center = positionToTimestamp(timePosition, referenceDate.current);
+      const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
+      const provinceFiltered = filterByProvince(timeWindowed, province);
+      return {
+        sidebarEvents: filterByBounds(provinceFiltered, bounds),
+        heatPoints: computeVenueHeatPoints(provinceFiltered),
+      };
+    }
+    const dateFiltered = filterByDateRange(allEvents, when);
+    const provinceFiltered = filterByProvince(dateFiltered, province);
+    return {
+      sidebarEvents: filterByBounds(provinceFiltered, bounds),
+      heatPoints: [],
+    };
+  }, [mapMode, timePosition, allEvents, when, province, bounds]);
+
+  // Current time label for TimelineBar
+  const currentLabel = useMemo(() => {
+    const ts = positionToTimestamp(timePosition, referenceDate.current);
+    const dayStr = format(ts, 'EEE MMM d');
+    const block = positionToBlockName(timePosition);
+    return `${dayStr} - ${block}`;
+  }, [timePosition]);
+
+  // Timelapse handler functions
+  const handleModeToggle = useCallback(() => {
+    setMapMode((m) => {
+      if (m === 'cluster') return 'timelapse';
+      setIsPlaying(false); // stop playback when leaving timelapse
+      return 'cluster';
+    });
+  }, []);
+  const handleScrubStart = useCallback(() => setIsPlaying(false), []);
+  const handlePlayPause = useCallback(() => setIsPlaying((p) => !p), []);
 
   // Compute friendly empty state message
   function getEmptyMessage(): string {
@@ -93,14 +157,14 @@ function HomeContent() {
         </h1>
       </header>
 
-      {/* Filter bar */}
+      {/* Filter bar — hidden in timelapse mode (TimelineBar replaces date filtering) */}
       {loading ? (
         <div className="flex-shrink-0 h-[44px] bg-white border-b border-gray-200 animate-pulse" />
-      ) : (
+      ) : mapMode === 'cluster' ? (
         <EventFilters
-          eventCount={visibleEvents.length}
+          eventCount={sidebarEvents.length}
         />
-      )}
+      ) : null}
 
       {/* Main content */}
       <div className="flex flex-1 min-h-0">
@@ -119,6 +183,16 @@ function HomeContent() {
               province={province}
               highlightedVenueId={highlightedVenueId}
               flyToTarget={flyToTarget}
+              mapMode={mapMode}
+              heatPoints={heatPoints}
+              onModeToggle={handleModeToggle}
+              isPlaying={isPlaying}
+              timePosition={timePosition}
+              currentLabel={currentLabel}
+              eventCount={sidebarEvents.length}
+              onTimePositionChange={setTimePosition}
+              onScrubStart={handleScrubStart}
+              onPlayPause={handlePlayPause}
             />
           )}
         </div>
@@ -140,7 +214,7 @@ function HomeContent() {
             </div>
           ) : (
             <EventList
-              events={visibleEvents}
+              events={sidebarEvents}
               emptyMessage={getEmptyMessage()}
               onHoverVenue={setHighlightedVenueId}
               onClickVenue={handleClickVenue}
