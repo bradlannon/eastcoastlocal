@@ -27,7 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Neon Postgres database is connected and all migrations run without error
   3. The `events`, `venues`, and `scrape_sources` tables exist with the correct schema (composite dedup key, geocoordinate columns on venues, event_date index)
   4. An admin can add a scrape source URL to the `scrape_sources` table and it persists
-**Plans**: TBD
+**Plans:** 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Scaffold Next.js 16 project with Drizzle schema, DB client, seed script, and tests
+- [ ] 01-02-PLAN.md — Deploy to Vercel, connect Neon Postgres, verify end-to-end
 
 ### Phase 2: Data Pipeline
 **Goal**: The system automatically scrapes configured venue URLs on a schedule, extracts real Atlantic Canada events via LLM, geocodes venues, deduplicates across sources, and stores validated events in the database — hands-off
@@ -61,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/2 | Planning complete | - |
 | 2. Data Pipeline | 0/TBD | Not started | - |
 | 3. Public Frontend | 0/TBD | Not started | - |
