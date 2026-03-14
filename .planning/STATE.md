@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Heatmap Timelapse
 status: planning
-stopped_at: Completed 05-click-through 05-01-PLAN.md
-last_updated: "2026-03-14T18:16:57.767Z"
+stopped_at: "Checkpoint: 05-02 Task 3 human-verify pending"
+last_updated: "2026-03-14T18:20:58.366Z"
 last_activity: 2026-03-14 — Roadmap created, phases 4-5 defined
 progress:
   total_phases: 2
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 6
-  completed_plans: 4
+  completed_plans: 5
   percent: 0
 ---
 
@@ -49,6 +49,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04-timelapse-core P02 | 3 | 2 tasks | 3 files |
 | Phase 04-timelapse-core P03 | 3 | 2 tasks | 4 files |
 | Phase 05-click-through P01 | 2 | 2 tasks | 2 files |
+| Phase 05-click-through P02 | 116 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 05-click-through]: haversineDistance exported as named function for direct unit testing and reuse by HeatmapClickLayer
 - [Phase 05-click-through]: findNearbyVenues accepts Map<number, VenueGroup> keyed by venueId to match HeatmapClickLayer grouping shape
 - [Phase 05-click-through]: CLICK_RADIUS_METERS = 2000 exported as named constant — single source of truth shared by click layer and tests
+- [Phase 05-click-through]: react-leaflet Popup uses eventHandlers={{ remove }} not onClose prop
+- [Phase 05-click-through]: HeatmapClickLayer clears popup on timePosition change to prevent stale windows after scrubbing
+- [Phase 05-click-through]: onScrubStart reused as onPause in HeatmapClickLayer — already calls setIsPlaying(false)
 
 ### Pending Todos
 
@@ -82,6 +86,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T18:16:57.763Z
-Stopped at: Completed 05-click-through 05-01-PLAN.md
+Last session: 2026-03-14T18:20:58.361Z
+Stopped at: Checkpoint: 05-02 Task 3 human-verify pending
 Resume file: None

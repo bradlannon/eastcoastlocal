@@ -21,7 +21,7 @@
 **Milestone Goal:** Add a dynamic time dimension to the map — users can switch to a heatmap timelapse mode, scrub through 30 days of events, play animated playback, and see the sidebar sync to the current time window.
 
 - [x] **Phase 4: Timelapse Core** - Pure utilities, HeatmapLayer (SSR-guarded), TimelineBar, ModeToggle, and HomeContent wiring — delivers the working timelapse loop (completed 2026-03-14)
-- [ ] **Phase 5: Click-Through** - HeatmapClickLayer invisible CircleMarker implementation enabling hotspot click events, plus full pitfall verification
+- [x] **Phase 5: Click-Through** - HeatmapClickLayer invisible CircleMarker implementation enabling hotspot click events, plus full pitfall verification (completed 2026-03-14)
 
 ## Phase Details
 
@@ -50,7 +50,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can click a heatmap hotspot and see the events at that venue (via the existing event detail or popup flow)
   2. Click-through works correctly when venues overlap or are close together at the current zoom level
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 05-01-PLAN.md — TDD: findNearbyVenues spatial proximity function in timelapse-utils
@@ -64,4 +64,4 @@ Plans:
 | 2. Data Pipeline | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 4. Timelapse Core | 3/4 | Complete    | 2026-03-14 | - |
-| 5. Click-Through | 1/2 | In Progress|  | - |
+| 5. Click-Through | 2/2 | Complete   | 2026-03-14 | - |
