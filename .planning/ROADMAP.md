@@ -58,7 +58,7 @@ Plans:
   2. The extractor accepts all event types (not just live music) — comedy, theatre, festivals, community events are extracted
   3. All existing events in the database have been backfilled with a category (no null categories remain at feature launch)
   4. Category values are constrained by `z.enum()` — the LLM cannot produce values outside the taxonomy
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 07-01-PLAN.md — Wire event_category into extraction pipeline: schema, prompt, normalizer, third-party scrapers
 - [ ] 07-02-PLAN.md — Run backfill script and verify no null categories remain
@@ -95,6 +95,6 @@ Plans:
 | 4. Timelapse Core | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 5. Click-Through | v1.1 | 2/2 | Complete | 2026-03-14 |
 | 6. Category Schema | v1.2 | 0/1 | In Progress (checkpoint) | - |
-| 7. AI Categorization | v1.2 | 0/2 | Not started | - |
+| 7. AI Categorization | 1/2 | In Progress|  | - |
 | 8. Category Filter UI | v1.2 | 0/TBD | Not started | - |
 | 9. Source Discovery | v1.2 | 0/TBD | Not started | - |

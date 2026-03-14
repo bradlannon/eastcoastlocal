@@ -9,7 +9,7 @@ Requirements for event discovery and categorization. Each maps to roadmap phases
 
 ### Categorization
 
-- [ ] **CAT-01**: Events are automatically assigned a category by AI during scraping (live_music, comedy, theatre, arts, sports, festival, community, other)
+- [x] **CAT-01**: Events are automatically assigned a category by AI during scraping (live_music, comedy, theatre, arts, sports, festival, community, other)
 - [ ] **CAT-02**: Existing events in the database are backfilled with categories
 - [x] **CAT-03**: Database schema includes event_category enum column on events table
 
@@ -54,7 +54,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAT-01 | Phase 7 | Pending |
+| CAT-01 | Phase 7 | Complete |
 | CAT-02 | Phase 7 | Pending |
 | CAT-03 | Phase 6 | Complete (2026-03-14) |
 | FILT-01 | Phase 8 | Pending |
