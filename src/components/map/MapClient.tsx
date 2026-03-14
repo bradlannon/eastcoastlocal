@@ -21,6 +21,7 @@ import { ATLANTIC_CANADA_CENTER, INITIAL_ZOOM } from '@/lib/province-bounds';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
 import type { HeatPoint } from '@/lib/timelapse-utils';
+import HeatmapClickLayer from './HeatmapClickLayer';
 
 interface MapClientProps {
   events: EventWithVenue[];
@@ -40,6 +41,7 @@ interface MapClientProps {
   onPlayPause?: () => void;
   showPins?: boolean;
   onTogglePins?: () => void;
+  referenceDate?: Date;
 }
 
 export default function MapClient({
@@ -60,6 +62,7 @@ export default function MapClient({
   onPlayPause,
   showPins,
   onTogglePins,
+  referenceDate,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
@@ -92,7 +95,15 @@ export default function MapClient({
           />
         )}
         {mapMode === 'timelapse' && (
-          <HeatmapLayer points={heatPoints ?? []} visible={true} />
+          <>
+            <HeatmapLayer points={heatPoints ?? []} visible={true} />
+            <HeatmapClickLayer
+              allEvents={events}
+              timePosition={timePosition ?? 0}
+              referenceDate={referenceDate ?? new Date()}
+              onPause={onScrubStart ?? (() => {})}
+            />
+          </>
         )}
         <GeolocationButton />
         <MapViewController

@@ -197,6 +197,7 @@ function HomeContent() {
               onPlayPause={handlePlayPause}
               showPins={showPins}
               onTogglePins={handleTogglePins}
+              referenceDate={referenceDate.current}
             />
           )}
         </div>

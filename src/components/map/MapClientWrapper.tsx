@@ -37,6 +37,7 @@ export interface MapClientWrapperProps {
   onPlayPause?: () => void;
   showPins?: boolean;
   onTogglePins?: () => void;
+  referenceDate?: Date;
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {
