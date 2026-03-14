@@ -12,7 +12,7 @@ Three phases with a strict dependency chain: stand up the project infrastructure
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Project scaffold, Neon Postgres schema, Vercel deployment, configurable source list
+- [x] **Phase 1: Foundation** - Project scaffold, Neon Postgres schema, Vercel deployment, configurable source list
 - [ ] **Phase 2: Data Pipeline** - AI scraping, extraction, geocoding, deduplication, cron automation, platform API integration
 - [ ] **Phase 3: Public Frontend** - Interactive map with clustering, event list, detail pages, filters, geolocation, mobile-responsive UI
 
@@ -27,11 +27,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Neon Postgres database is connected and all migrations run without error
   3. The `events`, `venues`, and `scrape_sources` tables exist with the correct schema (composite dedup key, geocoordinate columns on venues, event_date index)
   4. An admin can add a scrape source URL to the `scrape_sources` table and it persists
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans executed
 
 Plans:
-- [ ] 01-01-PLAN.md — Scaffold Next.js 16 project with Drizzle schema, DB client, seed script, and tests
-- [ ] 01-02-PLAN.md — Deploy to Vercel, connect Neon Postgres, verify end-to-end
+- [x] 01-01-PLAN.md — Scaffold Next.js 16 project with Drizzle schema, DB client, seed script, and tests
+- [x] 01-02-PLAN.md — Deploy to Vercel, connect Neon Postgres, verify end-to-end
 
 ### Phase 2: Data Pipeline
 **Goal**: The system automatically scrapes configured venue URLs on a schedule, extracts real Atlantic Canada events via LLM, geocodes venues, deduplicates across sources, and stores validated events in the database — hands-off
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 1/2 | In Progress|  |
+| 1. Foundation | 2/2 | Complete | 2026-03-13 |
 | 2. Data Pipeline | 0/TBD | Not started | - |
 | 3. Public Frontend | 0/TBD | Not started | - |

@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-foundation-01-PLAN.md
-last_updated: "2026-03-14T01:37:13.061Z"
-last_activity: 2026-03-13 — Roadmap created, phases derived from requirements
+stopped_at: Completed 01-foundation-02-PLAN.md
+last_updated: "2026-03-14T01:49:10Z"
+last_activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 2
-  completed_plans: 1
-  percent: 0
+  completed_plans: 2
+  percent: 33
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-13)
 ## Current Position
 
 Phase: 1 of 3 (Foundation)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-13 — Roadmap created, phases derived from requirements
+Plan: 2 of 2 in current phase (Phase 1 complete)
+Status: In progress
+Last activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -66,6 +66,8 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Use integer() not serial() for FK columns — serial auto-generates values, integer references existing rows
 - [Phase 01-foundation]: Lazy Proxy-based DB client in client.ts — defers DATABASE_URL requirement to query time, not module import time
 - [Phase 01-foundation]: Seed data in seed-data.ts separate from seed.ts — enables unit testing without DB connection
+- [Phase 01-02]: Neon-Vercel integration auto-injects DATABASE_URL — no manual env var management needed
+- [Phase 01-02]: Migrations run in build step (npm run db:migrate && next build) — schema is always current before first request
 
 ### Pending Todos
 
@@ -78,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T01:37:13.056Z
-Stopped at: Completed 01-foundation-01-PLAN.md
+Last session: 2026-03-14T01:49:10Z
+Stopped at: Completed 01-foundation-02-PLAN.md
 Resume file: None
