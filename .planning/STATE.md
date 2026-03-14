@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 2 context gathered
-last_updated: "2026-03-14T02:09:02.700Z"
+stopped_at: Completed 02-data-pipeline-02-PLAN.md
+last_updated: "2026-03-14T02:33:44.953Z"
 last_activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 5
+  completed_plans: 3
   percent: 33
 ---
 
@@ -51,6 +51,7 @@ Progress: [███░░░░░░░] 33%
 
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 10 | 2 tasks | 17 files |
+| Phase 02-data-pipeline P02 | 3 | 1 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 01-foundation]: Seed data in seed-data.ts separate from seed.ts — enables unit testing without DB connection
 - [Phase 01-02]: Neon-Vercel integration auto-injects DATABASE_URL — no manual env var management needed
 - [Phase 01-02]: Migrations run in build step (npm run db:migrate && next build) — schema is always current before first request
+- [Phase 02-data-pipeline]: API source URLs use colon-separated scheme (eventbrite:org:ID, bandsintown:artist:NAME) stored in scrape_sources.url
+- [Phase 02-data-pipeline]: Atlantic Canada Set filter includes full province names and short codes for Bandsintown region field robustness
 
 ### Pending Todos
 
@@ -80,6 +83,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T02:09:02.694Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-data-pipeline/02-CONTEXT.md
+Last session: 2026-03-14T02:33:44.948Z
+Stopped at: Completed 02-data-pipeline-02-PLAN.md
+Resume file: None
