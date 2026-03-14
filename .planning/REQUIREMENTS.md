@@ -73,13 +73,33 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (Populated during roadmap creation) | | |
+| SCRP-01 | Phase 2 | Pending |
+| SCRP-02 | Phase 2 | Pending |
+| SCRP-03 | Phase 2 | Pending |
+| SCRP-04 | Phase 2 | Pending |
+| SCRP-05 | Phase 1 | Pending |
+| SCRP-06 | Phase 1 | Pending |
+| SCRP-07 | Phase 2 | Pending |
+| SCRP-08 | Phase 2 | Pending |
+| SCRP-09 | Phase 2 | Pending |
+| SCRP-10 | Phase 2 | Pending |
+| MAP-01 | Phase 3 | Pending |
+| MAP-02 | Phase 3 | Pending |
+| MAP-03 | Phase 3 | Pending |
+| MAP-04 | Phase 3 | Pending |
+| MAP-05 | Phase 3 | Pending |
+| MAP-06 | Phase 3 | Pending |
+| MAP-07 | Phase 3 | Pending |
+| MAP-08 | Phase 3 | Pending |
+| MAP-09 | Phase 3 | Pending |
+| INFR-01 | Phase 1 | Pending |
+| INFR-02 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 21 total
-- Mapped to phases: 0
-- Unmapped: 21 ⚠️
+- Mapped to phases: 21
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-13*
-*Last updated: 2026-03-13 after initial definition*
+*Last updated: 2026-03-13 after roadmap creation*
