@@ -22,15 +22,15 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Map & Discovery
 
-- [ ] **MAP-01**: User can view an interactive map centered on Atlantic Canada (NB, NS, PEI, NL)
-- [ ] **MAP-02**: Events display as pin clusters that show count when zoomed out and expand to individual pins when zoomed in
-- [ ] **MAP-03**: User can click a map pin to see event summary (band, venue, date, time)
+- [x] **MAP-01**: User can view an interactive map centered on Atlantic Canada (NB, NS, PEI, NL)
+- [x] **MAP-02**: Events display as pin clusters that show count when zoomed out and expand to individual pins when zoomed in
+- [x] **MAP-03**: User can click a map pin to see event summary (band, venue, date, time)
 - [x] **MAP-04**: User can browse events in a list view sorted by date
 - [x] **MAP-05**: User can filter events by date using quick filters (Today, This Weekend, This Week)
 - [x] **MAP-06**: User can filter events by province or city
 - [ ] **MAP-07**: User can use browser geolocation to center the map on their current location ("Near me")
 - [x] **MAP-08**: User can view event detail page showing band, venue, date, time, address, and link to original source
-- [ ] **MAP-09**: Map and list views are mobile-responsive and usable on phone screens
+- [x] **MAP-09**: Map and list views are mobile-responsive and usable on phone screens
 
 ### Infrastructure
 
@@ -83,15 +83,15 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCRP-08 | Phase 2 | Complete |
 | SCRP-09 | Phase 2 | Complete |
 | SCRP-10 | Phase 2 | Complete |
-| MAP-01 | Phase 3 | Pending |
-| MAP-02 | Phase 3 | Pending |
-| MAP-03 | Phase 3 | Pending |
+| MAP-01 | Phase 3 | Complete |
+| MAP-02 | Phase 3 | Complete |
+| MAP-03 | Phase 3 | Complete |
 | MAP-04 | Phase 3 | Complete |
 | MAP-05 | Phase 3 | Complete |
 | MAP-06 | Phase 3 | Complete |
 | MAP-07 | Phase 3 | Pending |
 | MAP-08 | Phase 3 | Complete |
-| MAP-09 | Phase 3 | Pending |
+| MAP-09 | Phase 3 | Complete |
 | INFR-01 | Phase 1 | Complete |
 | INFR-02 | Phase 3 | Complete |
 

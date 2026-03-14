@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-03-14T06:11:41.911Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-03-14T06:17:28.245Z"
 last_activity: 2026-03-14 — Orchestrator, cron route, vercel.json complete; 57 tests passing
 progress:
   total_phases: 3
   completed_phases: 2
   total_plans: 8
-  completed_plans: 6
+  completed_plans: 7
   percent: 50
 ---
 
@@ -55,6 +55,7 @@ Progress: [█████░░░░░] 50%
 | Phase 02-data-pipeline P01 | 306 | 2 tasks | 10 files |
 | Phase 02-data-pipeline P03 | 6 | 3 tasks | 4 files |
 | Phase 03-public-frontend P01 | 5 | 3 tasks | 9 files |
+| Phase 03-public-frontend P02 | 15 | 2 tasks | 12 files |
 
 ## Accumulated Context
 
@@ -85,6 +86,7 @@ Recent decisions affecting current work:
 - [Phase 02-03]: maxDuration=60 in cron route for Vercel Hobby plan (Pro allows 300)
 - [Phase 03-public-frontend]: filterByBounds uses plain object bounds (not Leaflet LatLngBounds) for testability without Leaflet in test env
 - [Phase 03-public-frontend]: MapClientWrapper exported as placeholder component from MapWrapper.tsx — will become dynamic import when MapClient.tsx is built in Plan 03-02
+- [Phase 03-public-frontend]: MapClientWrapper extracted to separate file — next/dynamic with ssr:false cannot live in Server-Component-importable files
 
 ### Pending Todos
 
@@ -97,6 +99,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T06:11:41.908Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-03-14T06:17:28.239Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
