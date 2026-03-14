@@ -14,22 +14,22 @@ Users can instantly see what live music is happening near them on a map — wher
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — ship to validate)
+- ✓ AI-powered web scraper that periodically extracts event data from configured URLs — v1.0
+- ✓ Configurable list of scraping targets (venue websites + event platforms like Eventbrite, Bandsintown) — v1.0
+- ✓ Event data storage with band/performer, venue, date, time, and location — v1.0
+- ✓ Interactive map (Leaflet) covering Atlantic Canada with pin clusters — v1.0
+- ✓ Pin clusters that expand into individual event pins when zoomed in — v1.0
+- ✓ Event detail view showing band, venue, date, time, and location — v1.0
+- ✓ Event listing/browse view with filtering by date and location — v1.0
+- ✓ Clean, intuitive public-facing UI for discovering upcoming live music — v1.0
+- ✓ Scheduled/periodic rescanning of sources (hands-off operation) — v1.0
+- ✓ Cloud deployment (Vercel) — v1.0
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] AI-powered web scraper that periodically extracts event data from configured URLs
-- [ ] Configurable list of scraping targets (venue websites + event platforms like Eventbrite, Bandsintown)
-- [ ] Event data storage with band/performer, venue, date, time, and location
-- [ ] Interactive map (Leaflet/Mapbox) covering Atlantic Canada with pin clusters
-- [ ] Pin clusters that expand into individual event pins when zoomed in
-- [ ] Event detail view showing band, venue, date, time, and location
-- [ ] Event listing/browse view with filtering by date and location
-- [ ] Clean, intuitive public-facing UI for discovering upcoming live music
-- [ ] Scheduled/periodic rescanning of sources (hands-off operation)
-- [ ] Cloud deployment (Vercel or similar managed platform)
+(None — plan next milestone)
 
 ### Out of Scope
 
@@ -46,27 +46,35 @@ Users can instantly see what live music is happening near them on a map — wher
 
 - Geographic scope: All four Atlantic Canadian provinces (NB, NS, PEI, NL)
 - Event sources: Mix of individual venue websites and event platforms (Eventbrite, Bandsintown, etc.)
-- Scraping approach: AI-powered extraction using LLM to parse event data from arbitrary page formats — no brittle CSS selectors
-- The app should be hands-off once configured — periodic rescans happen automatically
+- Scraping approach: AI-powered extraction using Gemini LLM to parse event data from arbitrary page formats — no brittle CSS selectors
+- The app is hands-off once configured — daily cron rescans happen automatically via Vercel
 - Public app accessible to anyone in the region
-- Map uses pin clustering: pins cluster when zoomed out, expand to individual events when zoomed in
+- Map uses pin clustering: one pin per venue, clusters when zoomed out, expand to individual venues when zoomed in
+- v1.0 shipped: 3,521 LOC TypeScript, 77 tests, Next.js 16 + Neon Postgres + Drizzle ORM
 
 ## Constraints
 
-- **Hosting**: Cloud-hosted on Vercel or similar managed platform — no self-hosted infrastructure
+- **Hosting**: Cloud-hosted on Vercel with Neon Postgres — no self-hosted infrastructure
 - **Scraping**: Must respect robots.txt and rate limits on source websites
-- **Cost**: AI extraction costs should be manageable — batch processing, not real-time per-request
-- **Geography**: Must accurately geocode venues across all four Atlantic provinces
+- **Cost**: AI extraction costs managed via batch processing (daily cron, not real-time per-request)
+- **Geography**: Google Maps Geocoding API for accurate Canadian addresses; rejects APPROXIMATE precision
+- **Vercel Hobby**: 60s function timeout (maxDuration=60); 50MB function size limit rules out Playwright/Puppeteer
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| AI-powered extraction over structured scrapers | Resilient to site redesigns, hands-off maintenance | — Pending |
-| Pin clusters over heat map | More intuitive for finding specific events | — Pending |
-| Live music only (no general events) | Focused scope, clear value prop for v1 | — Pending |
-| No user accounts for v1 | Public read-only reduces complexity, faster to ship | — Pending |
-| Cloud deployment (Vercel) | Managed platform, no infrastructure management | — Pending |
+| AI-powered extraction over structured scrapers | Resilient to site redesigns, hands-off maintenance | ✓ Good — Gemini LLM extracts reliably from arbitrary HTML |
+| Pin clusters over heat map | More intuitive for finding specific events | ✓ Good — one pin per venue with multi-event popups |
+| Live music only (no general events) | Focused scope, clear value prop for v1 | ✓ Good — kept scope tight |
+| No user accounts for v1 | Public read-only reduces complexity, faster to ship | ✓ Good — shipped in 2 days |
+| Cloud deployment (Vercel) | Managed platform, no infrastructure management | ✓ Good — Neon integration auto-injects DATABASE_URL |
+| Gemini Pro via Vercel AI SDK | User already pays for Gemini; avoids additional API costs | ✓ Good — generateText + Output.object pattern works |
+| Google Maps Geocoding over Nominatim | Best accuracy for Canadian addresses | ✓ Good — ROOFTOP precision requirement filters bad geocodes |
+| Drizzle ORM over raw SQL | Type-safe queries, schema-as-code, easy migrations | ✓ Good — innerJoin works with Neon HTTP driver |
+| react-leaflet 5.x + react-leaflet-cluster 4.0 | React 19 compatible, stable releases | ✓ Good — SSR bypass via dynamic import works |
+| nuqs for URL filter state | Type-safe URL params, useState-like API | ✓ Good — shareable filtered views, back-nav preserves state |
+| Light theme + CartoDB Positron tiles | User chose light tiles; consistent light UI throughout | ✓ Good — clean, readable design |
 
 ---
-*Last updated: 2026-03-13 after initialization*
+*Last updated: 2026-03-14 after v1.0 milestone*
