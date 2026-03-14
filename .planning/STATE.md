@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: "Checkpoint: 03-03 Task 2 human-verify"
-last_updated: "2026-03-14T06:23:17.243Z"
+stopped_at: Completed 03-03-PLAN.md — Phase 03 public frontend complete
+last_updated: "2026-03-14T06:39:05.779Z"
 last_activity: 2026-03-14 — Orchestrator, cron route, vercel.json complete; 57 tests passing
 progress:
   total_phases: 3
@@ -57,6 +57,7 @@ Progress: [█████░░░░░] 50%
 | Phase 03-public-frontend P01 | 5 | 3 tasks | 9 files |
 | Phase 03-public-frontend P02 | 15 | 2 tasks | 12 files |
 | Phase 03-public-frontend P03 | 4 | 1 tasks | 9 files |
+| Phase 03-public-frontend P03 | 30 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 03-public-frontend]: MapClientWrapper extracted to separate file — next/dynamic with ssr:false cannot live in Server-Component-importable files
 - [Phase 03-public-frontend]: Suspense boundary wrapping HomeContent required — nuqs useQueryState uses useSearchParams, which Next.js requires inside Suspense for static prerendering
 - [Phase 03-public-frontend]: markersRef pattern: ClusterLayer populates Map<venueId, L.Marker> via ref callback; MapViewController reads it on moveend to call openPopup() after flyTo
+- [Phase 03-public-frontend]: markersRef pattern: ClusterLayer populates Map<venueId, L.Marker> via ref callback; MapViewController reads it on moveend to call openPopup() after flyTo
+- [Phase 03-public-frontend]: MapBoundsTracker stabilizes onBoundsChange via ref to prevent useMapEvents re-registration loop
+- [Phase 03-public-frontend]: MapViewController removes moveend listener before openPopup() to prevent recursive call stack from popup auto-pan
 
 ### Pending Todos
 
@@ -102,6 +106,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T06:23:17.239Z
-Stopped at: Checkpoint: 03-03 Task 2 human-verify
+Last session: 2026-03-14T06:39:05.774Z
+Stopped at: Completed 03-03-PLAN.md — Phase 03 public frontend complete
 Resume file: None
