@@ -43,7 +43,12 @@ Plans:
   3. Venues are geocoded once at import time and coordinates are cached on the venue record (not re-geocoded on each scrape)
   4. Scraping the same source twice does not create duplicate events (composite key deduplication via upsert)
   5. A Vercel cron job runs the full scrape pipeline daily without manual intervention
-**Plans**: TBD
+**Plans:** 3 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Core pipeline modules: fetcher, extractor (Gemini LLM), normalizer, geocoder with tests
+- [ ] 02-02-PLAN.md — Eventbrite and Bandsintown API integration clients with tests
+- [ ] 02-03-PLAN.md — Orchestrator, cron route, vercel.json config, end-to-end verification
 
 ### Phase 3: Public Frontend
 **Goal**: Anyone can open the app, see live music events across Atlantic Canada on an interactive map, browse by date and location, and get to an event detail page with enough information to decide whether to go
@@ -66,5 +71,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete    | 2026-03-14 |
-| 2. Data Pipeline | 0/TBD | Not started | - |
+| 2. Data Pipeline | 0/3 | In progress | - |
 | 3. Public Frontend | 0/TBD | Not started | - |
