@@ -1,4 +1,4 @@
-import type { EventWithVenue } from '@/types/index';
+import type { EventWithVenue, Venue } from '@/types/index';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -110,4 +110,73 @@ export function computeVenueHeatPoints(events: EventWithVenue[]): HeatPoint[] {
     lng,
     intensity: Math.max(0.15, count / maxCount),
   }));
+}
+
+// ---------------------------------------------------------------------------
+// Spatial proximity — click-through support
+// ---------------------------------------------------------------------------
+
+/** Default radius in meters for map click → venue hit detection. */
+export const CLICK_RADIUS_METERS = 2000;
+
+/** A venue together with all of its events in the current time window. */
+export interface VenueGroup {
+  venue: Venue;
+  events: EventWithVenue[];
+}
+
+/**
+ * Computes the great-circle distance in meters between two lat/lng points
+ * using the Haversine formula.
+ *
+ * No Leaflet dependency — safe to call in Node/test environments.
+ */
+export function haversineDistance(
+  lat1: number,
+  lng1: number,
+  lat2: number,
+  lng2: number
+): number {
+  const R = 6371000; // Earth radius in meters
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) *
+      Math.cos(toRad(lat2)) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/**
+ * Returns venue groups whose venue coordinates fall within `radiusMeters` of
+ * the given click coordinate.
+ *
+ * Venues with null lat or lng are silently skipped.
+ */
+export function findNearbyVenues(
+  clickLat: number,
+  clickLng: number,
+  venueGroups: Map<number, VenueGroup>,
+  radiusMeters: number = CLICK_RADIUS_METERS
+): VenueGroup[] {
+  const results: VenueGroup[] = [];
+
+  for (const group of venueGroups.values()) {
+    const { lat, lng } = group.venue;
+    if (lat == null || lng == null) continue;
+
+    const dist = haversineDistance(clickLat, clickLng, lat as number, lng as number);
+    if (dist <= radiusMeters) {
+      results.push(group);
+    }
+  }
+
+  return results;
 }
