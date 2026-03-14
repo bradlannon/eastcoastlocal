@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Project scaffold, Neon Postgres schema, Vercel deployment, configurable source list
 - [x] **Phase 2: Data Pipeline** - AI scraping, extraction, geocoding, deduplication, cron automation, platform API integration (completed 2026-03-14)
-- [ ] **Phase 3: Public Frontend** - Interactive map with clustering, event list, detail pages, filters, geolocation, mobile-responsive UI
+- [x] **Phase 3: Public Frontend** - Interactive map with clustering, event list, detail pages, filters, geolocation, mobile-responsive UI (completed 2026-03-14)
 
 ## Phase Details
 
@@ -61,7 +61,7 @@ Plans:
   4. User can filter events by province or city and the map and list both update accordingly
   5. User can view an event detail page showing band, venue, full address, date, time, and a link to the original source
   6. The map loads and is interactive in under 3 seconds on broadband; all views are usable on a phone screen
-**Plans:** 3 plans
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 03-01-PLAN.md — Data layer, filter utilities with tests, and event detail page
@@ -77,4 +77,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete    | 2026-03-14 |
 | 2. Data Pipeline | 3/3 | Complete    | 2026-03-14 |
-| 3. Public Frontend | 0/3 | Not started | - |
+| 3. Public Frontend | 0/3 | Complete    | 2026-03-14 |
