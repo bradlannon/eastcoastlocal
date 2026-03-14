@@ -4,12 +4,16 @@ import {
   TOTAL_STEPS,
   STEP_SIZE,
   WINDOW_HOURS,
+  CLICK_RADIUS_METERS,
   positionToTimestamp,
   positionToBlockName,
   filterByTimeWindow,
   computeVenueHeatPoints,
+  haversineDistance,
+  findNearbyVenues,
 } from './timelapse-utils';
 import type { EventWithVenue } from '@/types/index';
+import type { VenueGroup } from './timelapse-utils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -304,5 +308,157 @@ describe('computeVenueHeatPoints', () => {
       expect(point.intensity).toBeGreaterThanOrEqual(0.15);
       expect(point.intensity).toBeLessThanOrEqual(1.0);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Helpers for findNearbyVenues tests
+// ---------------------------------------------------------------------------
+
+function makeVenueGroup(
+  venueId: number,
+  lat: number | null,
+  lng: number | null
+): VenueGroup {
+  return {
+    venue: {
+      id: venueId,
+      name: `Venue ${venueId}`,
+      address: '123 Main St',
+      city: 'Halifax',
+      province: 'NS',
+      lat,
+      lng,
+      website: null,
+      phone: null,
+      venue_type: null,
+      created_at: new Date(),
+    },
+    events: [],
+  };
+}
+
+// ---------------------------------------------------------------------------
+// CLICK_RADIUS_METERS
+// ---------------------------------------------------------------------------
+
+describe('CLICK_RADIUS_METERS', () => {
+  it('equals 2000', () => {
+    expect(CLICK_RADIUS_METERS).toBe(2000);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// haversineDistance
+// ---------------------------------------------------------------------------
+
+describe('haversineDistance', () => {
+  it('returns ~0 for same coordinates', () => {
+    expect(haversineDistance(44.6488, -63.5752, 44.6488, -63.5752)).toBeCloseTo(0, 0);
+  });
+
+  it('returns ~180km between Halifax and Moncton', () => {
+    // Halifax: 44.6488, -63.5752 / Moncton: 46.0878, -64.7782
+    const dist = haversineDistance(44.6488, -63.5752, 46.0878, -64.7782);
+    // Distance is approximately 180,000m
+    expect(dist).toBeGreaterThan(170000);
+    expect(dist).toBeLessThan(200000);
+  });
+
+  it('returns meters (Earth radius ~6371km)', () => {
+    // Antipodal points should be ~20,015km = 20,015,000m
+    const dist = haversineDistance(0, 0, 0, 180);
+    expect(dist).toBeCloseTo(20015000, -5); // within 100km
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findNearbyVenues
+// ---------------------------------------------------------------------------
+
+describe('findNearbyVenues', () => {
+  // Halifax coordinates
+  const HALIFAX_LAT = 44.6488;
+  const HALIFAX_LNG = -63.5752;
+  // Moncton coordinates (~180km from Halifax)
+  const MONCTON_LAT = 46.0878;
+  const MONCTON_LNG = -64.7782;
+
+  it('returns venue when click is at the same location (distance ~0m)', () => {
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, HALIFAX_LAT, HALIFAX_LNG));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(1);
+    expect(result[0].venue.id).toBe(1);
+  });
+
+  it('returns empty array when click is far from all venues (~180km)', () => {
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, HALIFAX_LAT, HALIFAX_LNG));
+
+    const result = findNearbyVenues(MONCTON_LAT, MONCTON_LNG, groups);
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns multiple venues when several are within radius', () => {
+    const groups = new Map<number, VenueGroup>();
+    // Two venues very close to Halifax — well within 2000m of Halifax click
+    groups.set(1, makeVenueGroup(1, HALIFAX_LAT, HALIFAX_LNG));
+    groups.set(2, makeVenueGroup(2, HALIFAX_LAT + 0.001, HALIFAX_LNG + 0.001)); // ~130m away
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(2);
+  });
+
+  it('skips venues with null lat', () => {
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, null, HALIFAX_LNG));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(0);
+  });
+
+  it('skips venues with null lng', () => {
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, HALIFAX_LAT, null));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(0);
+  });
+
+  it('returns empty array for empty venue map', () => {
+    const groups = new Map<number, VenueGroup>();
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(0);
+  });
+
+  it('respects custom radius: venue at ~1500m excluded with radius=1000', () => {
+    // Offset ~0.0135 degrees lat ≈ 1500m
+    const venueLat = HALIFAX_LAT + 0.0135;
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, venueLat, HALIFAX_LNG));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups, 1000);
+    expect(result).toHaveLength(0);
+  });
+
+  it('respects custom radius: venue at ~1500m included with radius=2000', () => {
+    const venueLat = HALIFAX_LAT + 0.0135;
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, venueLat, HALIFAX_LNG));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups, 2000);
+    expect(result).toHaveLength(1);
+  });
+
+  it('uses CLICK_RADIUS_METERS as default radius', () => {
+    // Venue at ~1800m (within default 2000m)
+    const venueLat = HALIFAX_LAT + 0.0162; // ~1800m
+    const groups = new Map<number, VenueGroup>();
+    groups.set(1, makeVenueGroup(1, venueLat, HALIFAX_LNG));
+
+    const result = findNearbyVenues(HALIFAX_LAT, HALIFAX_LNG, groups);
+    expect(result).toHaveLength(1);
   });
 });
