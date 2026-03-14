@@ -55,6 +55,7 @@ export async function scrapeEventbrite(source: ScrapeSource): Promise<void> {
         description: event.description?.text?.slice(0, 500) ?? null,
         cover_image_url: event.logo?.url ?? null,
         confidence: 1.0,
+        event_category: 'other' as const,
       },
       event.url
     );

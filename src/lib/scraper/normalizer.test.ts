@@ -14,6 +14,8 @@ jest.mock('@/lib/db/client', () => {
 // Mock the schema to get reference to events table
 jest.mock('@/lib/db/schema', () => ({
   events: { venue_id: 'venue_id', event_date: 'event_date', normalized_performer: 'normalized_performer' },
+  EVENT_CATEGORIES: ['live_music', 'comedy', 'theatre', 'arts', 'sports', 'festival', 'community', 'other'],
+  eventCategoryEnum: jest.fn(),
 }));
 
 import { db } from '@/lib/db/client';
@@ -59,6 +61,7 @@ describe('upsertEvent', () => {
       description: 'A great show',
       cover_image_url: null,
       confidence: 0.9,
+      event_category: 'live_music',
     };
 
     await upsertEvent(42, extracted, 'https://example.com');
@@ -76,6 +79,7 @@ describe('upsertEvent', () => {
       description: null,
       cover_image_url: null,
       confidence: 0.9,
+      event_category: 'live_music',
     };
 
     await upsertEvent(1, extracted, 'https://example.com');
@@ -97,6 +101,7 @@ describe('upsertEvent', () => {
       description: null,
       cover_image_url: null,
       confidence: 0.8,
+      event_category: 'other',
     };
 
     await upsertEvent(5, extracted, 'https://venue.com');
@@ -120,6 +125,7 @@ describe('upsertEvent', () => {
       description: 'Big summer show',
       cover_image_url: null,
       confidence: 0.95,
+      event_category: 'live_music',
     };
 
     await upsertEvent(10, extracted, 'https://source.com');
@@ -133,5 +139,25 @@ describe('upsertEvent', () => {
     expect(insertedValues.price).toBe('$25');
     expect(insertedValues.description).toBe('Big summer show');
     expect(insertedValues.source_url).toBe('https://source.com');
+  });
+
+  it('passes event_category to inserted values', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'Comedy Club Night',
+      event_date: '2026-09-05',
+      event_time: '8:00 PM',
+      price: null,
+      ticket_link: null,
+      description: 'Stand-up comedy showcase',
+      cover_image_url: null,
+      confidence: 0.85,
+      event_category: 'comedy',
+    };
+
+    await upsertEvent(7, extracted, 'https://venue.com/comedy');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const insertedValues = mockDb.insert.mock.results[0].value.values.mock.calls[0][0];
+    expect(insertedValues.event_category).toBe('comedy');
   });
 });

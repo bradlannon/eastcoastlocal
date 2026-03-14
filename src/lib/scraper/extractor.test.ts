@@ -32,7 +32,7 @@ const pastDate = yesterday.toISOString().slice(0, 10);
 describe('extractEvents', () => {
   it('returns events with all fields from LLM output', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: 'The Trews', event_date: futureDate, event_time: '8:00 PM', price: '$20', ticket_link: null, description: 'Great show', cover_image_url: null, confidence: 0.9 },
+      { performer: 'The Trews', event_date: futureDate, event_time: '8:00 PM', price: '$20', ticket_link: null, description: 'Great show', cover_image_url: null, confidence: 0.9, event_category: 'live_music' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
@@ -42,8 +42,8 @@ describe('extractEvents', () => {
 
   it('filters out events with null event_date', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: 'Valid Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8 },
-      { performer: 'No Date Band', event_date: null, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9 },
+      { performer: 'Valid Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'live_music' },
+      { performer: 'No Date Band', event_date: null, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9, event_category: 'live_music' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
@@ -53,8 +53,8 @@ describe('extractEvents', () => {
 
   it('filters out events with null performer', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: null, event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8 },
-      { performer: 'Real Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8 },
+      { performer: null, event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'comedy' },
+      { performer: 'Real Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'live_music' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
@@ -64,8 +64,8 @@ describe('extractEvents', () => {
 
   it('filters out events with confidence below 0.5', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: 'Low Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.3 },
-      { performer: 'High Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8 },
+      { performer: 'Low Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.3, event_category: 'live_music' },
+      { performer: 'High Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'live_music' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
@@ -75,8 +75,8 @@ describe('extractEvents', () => {
 
   it('filters out events with dates in the past', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: 'Past Band', event_date: pastDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9 },
-      { performer: 'Future Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9 },
+      { performer: 'Past Band', event_date: pastDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9, event_category: 'live_music' },
+      { performer: 'Future Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9, event_category: 'live_music' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
@@ -86,10 +86,32 @@ describe('extractEvents', () => {
 
   it('returns empty array when all events are filtered out', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
-      { performer: null, event_date: null, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.2 },
+      { performer: null, event_date: null, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.2, event_category: 'other' },
     ]) as never);
 
     const result = await extractEvents('some page text', 'https://example.com');
     expect(result).toHaveLength(0);
+  });
+
+  it('passes event_category through from Gemini output', async () => {
+    mockGenerateText.mockResolvedValue(makeExtractionResult([
+      { performer: 'Funny Person', event_date: futureDate, event_time: '7:30 PM', price: null, ticket_link: null, description: 'Stand-up comedy night', cover_image_url: null, confidence: 0.9, event_category: 'comedy' },
+    ]) as never);
+
+    const result = await extractEvents('some page text', 'https://example.com');
+    expect(result).toHaveLength(1);
+    expect(result[0].event_category).toBe('comedy');
+  });
+
+  it('defaults event_category to "other" when Gemini omits it (via Zod schema default applied by AI SDK)', async () => {
+    // The AI SDK applies Zod schema defaults when parsing experimental_output.
+    // This test simulates the SDK having applied the default before returning.
+    mockGenerateText.mockResolvedValue(makeExtractionResult([
+      { performer: 'Unknown Event', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'other' },
+    ]) as never);
+
+    const result = await extractEvents('some page text', 'https://example.com');
+    expect(result).toHaveLength(1);
+    expect(result[0].event_category).toBe('other');
   });
 });

@@ -32,6 +32,7 @@ export async function upsertEvent(
       ticket_link: extracted.ticket_link ?? null,
       description: extracted.description ?? null,
       cover_image_url: extracted.cover_image_url ?? null,
+      event_category: extracted.event_category ?? 'other',
     })
     .onConflictDoUpdate({
       target: [events.venue_id, events.event_date, events.normalized_performer],
@@ -44,6 +45,7 @@ export async function upsertEvent(
         ticket_link: extracted.ticket_link ?? null,
         description: extracted.description ?? null,
         cover_image_url: extracted.cover_image_url ?? null,
+        event_category: extracted.event_category ?? 'other',
         updated_at: new Date(),
       },
     });

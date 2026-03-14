@@ -13,23 +13,34 @@ export async function extractEvents(
     output: Output.object({ schema: ExtractedEventSchema }),
     prompt: `Today's date is ${today}.
 
-You are extracting live music events from the following web page content scraped from: ${sourceUrl}
+You are extracting upcoming public events from the following web page content scraped from: ${sourceUrl}
 
-Extract all UPCOMING live music events (after today: ${today}). For each event return:
-- performer: the artist/band name (null if unclear)
+Extract all UPCOMING events (after today: ${today}). For each event return:
+- performer: the main act, performer, team, troupe, organizer, or event title (null if unclear)
 - event_date: the date in YYYY-MM-DD format (null if unclear — NEVER guess)
 - event_time: the time (e.g. "8:00 PM") or null if not mentioned
 - price: ticket price or null if not mentioned
 - ticket_link: URL to buy tickets or null if not mentioned
 - description: brief description of the event or null
 - cover_image_url: URL of event image or null
-- confidence: your confidence 0.0–1.0 that this is a real upcoming live music event (set to 0 if unsure)
+- confidence: your confidence 0.0–1.0 that this is a real upcoming public event
+- event_category: one of live_music | comedy | theatre | arts | sports | festival | community | other
+
+Category guidance:
+- live_music: concerts, bands, solo artists performing live
+- comedy: stand-up, improv, open mic comedy nights
+- theatre: plays, musicals, dramatic productions
+- arts: art shows, gallery openings, craft fairs, exhibitions
+- sports: athletic events, games, races, tournaments
+- festival: multi-day or multi-act events celebrating food, culture, music, etc.
+- community: farmers markets, fundraisers, town halls, charity events, meetups
+- other: anything that does not fit the above
 
 Rules:
-- Only include LIVE music events (not DJ sets that aren't music events, trivia nights, etc.)
+- Include ALL event types — not just live music
 - If you cannot determine the date with certainty, set event_date to null
 - Skip events that have already passed (before ${today})
-- Set confidence to 0 if you're unsure the event is real
+- Set confidence to 0 if you are unsure the event is real
 
 Page content:
 ${pageText}`,

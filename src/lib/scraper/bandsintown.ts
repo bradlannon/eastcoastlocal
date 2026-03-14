@@ -75,6 +75,7 @@ export async function scrapeBandsintown(source: ScrapeSource): Promise<void> {
         description: event.description ?? null,
         cover_image_url: null,
         confidence: 1.0,
+        event_category: 'live_music' as const,
       },
       event.url
     );
