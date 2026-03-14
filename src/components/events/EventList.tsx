@@ -4,9 +4,16 @@ import type { EventWithVenue } from '@/types/index';
 interface EventListProps {
   events: EventWithVenue[];
   emptyMessage?: string;
+  onHoverVenue?: (venueId: number | null) => void;
+  onClickVenue?: (venueId: number, lat: number, lng: number) => void;
 }
 
-export default function EventList({ events, emptyMessage }: EventListProps) {
+export default function EventList({
+  events,
+  emptyMessage,
+  onHoverVenue,
+  onClickVenue,
+}: EventListProps) {
   const sorted = [...events].sort(
     (a, b) =>
       new Date(a.events.event_date).getTime() -
@@ -15,13 +22,6 @@ export default function EventList({ events, emptyMessage }: EventListProps) {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Count header */}
-      <div className="px-3 py-2 border-b border-gray-200 flex-shrink-0">
-        <span className="text-xs text-gray-500 font-medium">
-          {sorted.length} event{sorted.length !== 1 ? 's' : ''}
-        </span>
-      </div>
-
       {/* List or empty state */}
       <div className="flex-1 overflow-y-auto">
         {sorted.length === 0 ? (
@@ -33,7 +33,12 @@ export default function EventList({ events, emptyMessage }: EventListProps) {
         ) : (
           <div className="p-2 space-y-2">
             {sorted.map((event) => (
-              <EventCard key={event.events.id} event={event} />
+              <EventCard
+                key={event.events.id}
+                event={event}
+                onHover={onHoverVenue}
+                onClickVenue={onClickVenue}
+              />
             ))}
           </div>
         )}

@@ -8,27 +8,36 @@ import type { Venue, EventWithVenue } from '@/types/index';
 
 interface ClusterLayerProps {
   events: EventWithVenue[];
+  highlightedVenueId?: number | null;
+  markersRef?: React.RefObject<Map<number, L.Marker>>;
 }
 
 // Custom orange-red accent icon for venue markers
-function createVenueIcon() {
+function createVenueIcon(highlighted = false) {
+  const size = highlighted ? 20 : 14;
+  const border = highlighted ? 3 : 2;
   return L.divIcon({
     className: '',
     html: `<div style="
-      width: 14px;
-      height: 14px;
+      width: ${size}px;
+      height: ${size}px;
       background-color: #E85D26;
-      border: 2px solid #ffffff;
+      border: ${border}px solid #ffffff;
       border-radius: 50%;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.35);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.35)${highlighted ? ', 0 0 0 3px rgba(232,93,38,0.35)' : ''};
+      transition: all 0.15s ease;
     "></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-    popupAnchor: [0, -10],
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+    popupAnchor: [0, -size / 2 - 2],
   });
 }
 
-export default function ClusterLayer({ events }: ClusterLayerProps) {
+export default function ClusterLayer({
+  events,
+  highlightedVenueId,
+  markersRef,
+}: ClusterLayerProps) {
   // Group events by venue_id
   const venueMap = new Map<number, { venue: Venue; events: EventWithVenue[] }>();
 
@@ -45,21 +54,33 @@ export default function ClusterLayer({ events }: ClusterLayerProps) {
     }
   }
 
-  const venueIcon = createVenueIcon();
-
   return (
     <MarkerClusterGroup chunkedLoading>
-      {Array.from(venueMap.values()).map(({ venue, events: venueEvents }) => (
-        <Marker
-          key={venue.id}
-          position={[venue.lat as number, venue.lng as number]}
-          icon={venueIcon}
-        >
-          <Popup>
-            <VenuePopup venue={venue} events={venueEvents} />
-          </Popup>
-        </Marker>
-      ))}
+      {Array.from(venueMap.values()).map(({ venue, events: venueEvents }) => {
+        const isHighlighted = highlightedVenueId === venue.id;
+        const icon = createVenueIcon(isHighlighted);
+
+        return (
+          <Marker
+            key={venue.id}
+            position={[venue.lat as number, venue.lng as number]}
+            icon={icon}
+            ref={(markerInstance) => {
+              if (markersRef?.current) {
+                if (markerInstance) {
+                  markersRef.current.set(venue.id, markerInstance);
+                } else {
+                  markersRef.current.delete(venue.id);
+                }
+              }
+            }}
+          >
+            <Popup>
+              <VenuePopup venue={venue} events={venueEvents} />
+            </Popup>
+          </Marker>
+        );
+      })}
     </MarkerClusterGroup>
   );
 }

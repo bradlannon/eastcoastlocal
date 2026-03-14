@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
+import type { FlyToTarget } from './MapViewController';
 
 // Loading skeleton
 const MapSkeleton = () => (
@@ -21,6 +22,9 @@ const MapClientWrapperInner = dynamic(() => import('./MapClient'), {
 export interface MapClientWrapperProps {
   events: EventWithVenue[];
   onBoundsChange: (bounds: Bounds) => void;
+  province?: string | null;
+  highlightedVenueId?: number | null;
+  flyToTarget?: FlyToTarget | null;
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {

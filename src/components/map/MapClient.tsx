@@ -6,9 +6,14 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
 import 'leaflet-defaulticon-compatibility';
 
+import { useRef } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
+import type L from 'leaflet';
 import MapBoundsTracker from './MapBoundsTracker';
 import ClusterLayer from './ClusterLayer';
+import GeolocationButton from './GeolocationButton';
+import MapViewController from './MapViewController';
+import type { FlyToTarget } from './MapViewController';
 import { ATLANTIC_CANADA_CENTER, INITIAL_ZOOM } from '@/lib/province-bounds';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
@@ -16,9 +21,20 @@ import type { Bounds } from '@/lib/filter-utils';
 interface MapClientProps {
   events: EventWithVenue[];
   onBoundsChange: (bounds: Bounds) => void;
+  province?: string | null;
+  highlightedVenueId?: number | null;
+  flyToTarget?: FlyToTarget | null;
 }
 
-export default function MapClient({ events, onBoundsChange }: MapClientProps) {
+export default function MapClient({
+  events,
+  onBoundsChange,
+  province,
+  highlightedVenueId,
+  flyToTarget,
+}: MapClientProps) {
+  const markersRef = useRef<Map<number, L.Marker>>(new Map());
+
   const visibleVenueCount = new Set(
     events
       .filter((e) => e.venues.lat !== null && e.venues.lng !== null)
@@ -40,7 +56,17 @@ export default function MapClient({ events, onBoundsChange }: MapClientProps) {
           maxZoom={20}
         />
         <MapBoundsTracker onBoundsChange={onBoundsChange} />
-        <ClusterLayer events={events} />
+        <ClusterLayer
+          events={events}
+          highlightedVenueId={highlightedVenueId}
+          markersRef={markersRef}
+        />
+        <GeolocationButton />
+        <MapViewController
+          province={province ?? null}
+          flyToTarget={flyToTarget ?? null}
+          markersRef={markersRef}
+        />
       </MapContainer>
 
       {/* No events overlay */}
