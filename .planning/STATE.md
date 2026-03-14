@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Event Discovery
-status: planning
-stopped_at: Phase 6 context gathered
-last_updated: "2026-03-14T20:44:53.484Z"
-last_activity: 2026-03-14 — v1.2 roadmap created; Phases 6-9 defined
+status: in-progress
+stopped_at: "06-01: checkpoint:human-verify — awaiting Neon db:studio confirmation"
+last_updated: "2026-03-14T21:04:03Z"
+last_activity: 2026-03-14 — Phase 6 Plan 01 automation complete; migration applied to Neon
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 0
-  percent: 56
+  percent: 58
 ---
 
 # Project State
@@ -26,9 +26,9 @@ See: .planning/PROJECT.md (updated 2026-03-14)
 ## Current Position
 
 Phase: 6 of 9 (Category Schema)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-14 — v1.2 roadmap created; Phases 6-9 defined
+Plan: 1 of 1 in current phase
+Status: Checkpoint — awaiting human verification (db:studio)
+Last activity: 2026-03-14 — Phase 6 Plan 01 automation complete; migration applied to Neon production
 
 Progress: [█████░░░░░] ~56% (5/9 total phases complete across all milestones)
 
@@ -45,18 +45,27 @@ Recent decisions affecting current work:
 - Schema first: CAT-03 is the hard gate — phases 7, 8, 9 all depend on it
 - Backfill: Run immediately after Phase 7 deploys — not a deferred task
 
+### Decisions from 06-01
+
+- Export EVENT_CATEGORIES const array alongside pgEnum so Phase 7 can use `z.enum(EVENT_CATEGORIES)` without re-declaring values
+- event_category defaults to 'community' at DB level; backfill handles historical nulls after Phase 7 deploys
+- discovered_sources.status is plain text (not enum) — keeps discovery pipeline status flexible
+
 ### Pending Todos
 
 - Zoom-to-location button on event cards (backlog from v1.1)
+- Run backfill-categories.ts after Phase 7 ships
 
 ### Blockers/Concerns
 
 - Phase 9: Gemini grounding output quality for Atlantic Canada discovery is unverified — test on Halifax before building full orchestrator
 - Phase 9: Confirm `useSearchGrounding` is available in current installed `@ai-sdk/google` version before planning
-- Drizzle pgEnum bug #5174: Export all pgEnum definitions or they are silently omitted from migration SQL
+- Drizzle pgEnum bug #5174: RESOLVED — enum exported correctly; migration SQL contains CREATE TYPE statement
+- Phase 9: Gemini grounding output quality for Atlantic Canada discovery is unverified — test on Halifax before building full orchestrator
+- Phase 9: Confirm `useSearchGrounding` is available in current installed `@ai-sdk/google` version before planning
 
 ## Session Continuity
 
-Last session: 2026-03-14T20:44:53.480Z
-Stopped at: Phase 6 context gathered
-Resume file: .planning/phases/06-category-schema/06-CONTEXT.md
+Last session: 2026-03-14T21:04:03Z
+Stopped at: 06-01 checkpoint:human-verify — verify events.event_category and discovered_sources via db:studio
+Resume file: .planning/phases/06-category-schema/06-01-SUMMARY.md

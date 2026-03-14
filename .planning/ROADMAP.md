@@ -47,7 +47,7 @@
   4. A backfill script exists and is ready to run immediately after the next phase ships categories
 **Plans:** 1 plan
 Plans:
-- [ ] 06-01-PLAN.md — Schema migration: pgEnum + event_category column + discovered_sources table + backfill script
+- [~] 06-01-PLAN.md — Schema migration: pgEnum + event_category column + discovered_sources table + backfill script (awaiting human verification)
 
 ### Phase 7: AI Categorization
 **Goal**: Every event — new and existing — carries an AI-assigned category from the fixed taxonomy
@@ -91,7 +91,7 @@ Plans:
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 4. Timelapse Core | v1.1 | 4/4 | Complete | 2026-03-14 |
 | 5. Click-Through | v1.1 | 2/2 | Complete | 2026-03-14 |
-| 6. Category Schema | v1.2 | 0/1 | Planning | - |
+| 6. Category Schema | v1.2 | 0/1 | In Progress (checkpoint) | - |
 | 7. AI Categorization | v1.2 | 0/TBD | Not started | - |
 | 8. Category Filter UI | v1.2 | 0/TBD | Not started | - |
 | 9. Source Discovery | v1.2 | 0/TBD | Not started | - |
