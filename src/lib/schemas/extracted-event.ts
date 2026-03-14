@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { EVENT_CATEGORIES } from '@/lib/db/schema';
 
 export const ExtractedEventSchema = z.object({
   events: z.array(
@@ -11,6 +12,7 @@ export const ExtractedEventSchema = z.object({
       description: z.string().nullable(),
       cover_image_url: z.string().url().nullable(),
       confidence: z.number().min(0).max(1),
+      event_category: z.enum(EVENT_CATEGORIES).default('other'),
     })
   ),
 });
