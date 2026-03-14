@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-14T00:57:01.552Z"
+stopped_at: Completed 01-foundation-01-PLAN.md
+last_updated: "2026-03-14T01:37:13.061Z"
 last_activity: 2026-03-13 — Roadmap created, phases derived from requirements
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -50,6 +50,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-foundation P01 | 10 | 2 tasks | 17 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Recent decisions affecting current work:
 - Scraping: cheerio for HTML preprocessing before LLM; never scrape Eventbrite/Bandsintown HTML — use their APIs
 - Geocoding: production geocoder (OpenCage or Google Maps), NOT Nominatim; geocode once at venue creation, cache on venues table
 - Deduplication: composite key (normalized venue name + event date + normalized artist name); upsert-based
+- [Phase 01-foundation]: Use integer() not serial() for FK columns — serial auto-generates values, integer references existing rows
+- [Phase 01-foundation]: Lazy Proxy-based DB client in client.ts — defers DATABASE_URL requirement to query time, not module import time
+- [Phase 01-foundation]: Seed data in seed-data.ts separate from seed.ts — enables unit testing without DB connection
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T00:57:01.544Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation/01-CONTEXT.md
+Last session: 2026-03-14T01:37:13.056Z
+Stopped at: Completed 01-foundation-01-PLAN.md
+Resume file: None
