@@ -4,8 +4,8 @@ milestone: v1.2
 milestone_name: Event Discovery
 status: executing
 stopped_at: 08-01 complete — category filter UI with chip row, URL persistence, and category badges
-last_updated: "2026-03-14T23:28:14.021Z"
-last_activity: 2026-03-14 — Phase 8 Plan 01 complete; category filter UI with chip row, URL persistence, and badges
+last_updated: "2026-03-14T23:55:34.880Z"
+last_activity: 2026-03-14 — Phase 8 Plan 01 complete; category chip row, URL persistence, badges on cards and detail page
 progress:
   total_phases: 4
   completed_phases: 3
