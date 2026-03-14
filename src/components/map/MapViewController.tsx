@@ -55,11 +55,11 @@ export default function MapViewController({
     });
 
     const handleMoveEnd = () => {
+      map.off('moveend', handleMoveEnd);
       const marker = markersRef.current?.get(flyToTarget.venueId);
       if (marker) {
         marker.openPopup();
       }
-      map.off('moveend', handleMoveEnd);
     };
 
     map.on('moveend', handleMoveEnd);
