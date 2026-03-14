@@ -1,53 +1,52 @@
 # Requirements: East Coast Local
 
 **Defined:** 2026-03-14
-**Core Value:** Users can instantly see what live music is happening near them on a map — where, when, and who's playing
+**Core Value:** Users can instantly see what events are happening near them on a map — where, when, and what type
 
-## v1.1 Requirements
+## v1.2 Requirements
 
-Requirements for heatmap timelapse mode. Each maps to roadmap phases.
+Requirements for event discovery and categorization. Each maps to roadmap phases.
 
-### Heatmap
+### Categorization
 
-- [x] **HEAT-01**: User can see a heatmap overlay on the map showing event density by location
-- [x] **HEAT-02**: Heatmap intensity reflects the number of events at each venue within the current time window
-- [x] **HEAT-03**: User can click a heatmap hotspot to see the specific events at that location
-- [x] **HEAT-04**: Heatmap updates smoothly in-place as the time position changes (no flicker)
+- [ ] **CAT-01**: Events are automatically assigned a category by AI during scraping (live_music, comedy, theatre, arts, sports, festival, community, other)
+- [ ] **CAT-02**: Existing events in the database are backfilled with categories
+- [ ] **CAT-03**: Database schema includes event_category enum column on events table
 
-### Timeline
+### Filtering
 
-- [x] **TIME-01**: User can drag a scrubber bar to move through a 30-day window of events
-- [x] **TIME-02**: Each scrubber position shows events within a 24-hour rolling window
-- [x] **TIME-03**: User can see the current date/time label showing what window is displayed
-- [x] **TIME-04**: User can play/pause to auto-advance the scrubber through time
+- [ ] **FILT-01**: User can filter events by category using horizontal chip buttons
+- [ ] **FILT-02**: Category filter applies to heatmap mode (heatmap only shows selected categories)
+- [ ] **FILT-03**: Category filter selection is persisted in the URL and shareable
 
-### Mode
+### Discovery
 
-- [x] **MODE-01**: User can toggle between pin/cluster view and heatmap timelapse view
-- [x] **MODE-02**: Event list sidebar updates to show only events within the current 24-hour time window
-- [x] **MODE-03**: Map viewport (zoom/pan) is preserved when switching between modes
+- [ ] **DISC-01**: System automatically searches for new event venues/sources across Atlantic Canada cities
+- [ ] **DISC-02**: Discovered sources land in a staging table for review before being scraped
+- [ ] **DISC-03**: Approved sources can be promoted from staging to active scraping
 
 ## Future Requirements
 
-### Heatmap Enhancements
+### Admin Tools
 
-- **HEAT-05**: User can adjust heatmap radius/blur settings
-- **HEAT-06**: Heatmap color gradient reflects event categories or genres
+- **ADMIN-01**: Admin UI to manage venues and scrape sources
+- **ADMIN-02**: Admin can manually add a venue/source URL
+- **ADMIN-03**: Admin can review and approve/reject discovered sources in a UI
 
-### Timeline Enhancements
+### Enhanced Discovery
 
-- **TIME-05**: Step forward/back buttons to move one increment at a time
-- **TIME-06**: Adjustable playback speed
-- **TIME-07**: Mini calendar view alongside scrubber for date jumping
+- **DISC-04**: System learns from approved/rejected sources to improve discovery quality
+- **DISC-05**: Discovery covers event platforms beyond venue websites (Facebook Events, community boards)
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Server-side heatmap aggregation | Client-side filtering sufficient at Atlantic Canada data scale |
-| 3D heatmap / elevation | Unnecessary complexity, 2D density conveys the information |
-| URL persistence of time position | Animation state through nuqs causes History API rate-limit issues |
-| Custom scrubber (div-based) | Native input[range] provides accessibility (WCAG 2.5.7) for free |
+| User accounts/authentication | Public read-only app, admin tools deferred |
+| Manual event submission | Scraping/discovery only for v1.2 |
+| Multi-select category filter | Single-select chips for v1.2, multi-select in future |
+| Real-time discovery (user-triggered) | Discovery is a periodic cron job, not on-demand |
+| Category customization by users | Fixed 8-category taxonomy enforced by AI |
 
 ## Traceability
 
@@ -55,23 +54,21 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| HEAT-01 | Phase 4 | Complete |
-| HEAT-02 | Phase 4 | Complete |
-| HEAT-03 | Phase 5 | Complete |
-| HEAT-04 | Phase 4 | Complete |
-| TIME-01 | Phase 4 | Complete |
-| TIME-02 | Phase 4 | Complete |
-| TIME-03 | Phase 4 | Complete |
-| TIME-04 | Phase 4 | Complete |
-| MODE-01 | Phase 4 | Complete |
-| MODE-02 | Phase 4 | Complete |
-| MODE-03 | Phase 4 | Complete |
+| CAT-01 | — | Pending |
+| CAT-02 | — | Pending |
+| CAT-03 | — | Pending |
+| FILT-01 | — | Pending |
+| FILT-02 | — | Pending |
+| FILT-03 | — | Pending |
+| DISC-01 | — | Pending |
+| DISC-02 | — | Pending |
+| DISC-03 | — | Pending |
 
 **Coverage:**
-- v1.1 requirements: 11 total
-- Mapped to phases: 11
-- Unmapped: 0 ✓
+- v1.2 requirements: 9 total
+- Mapped to phases: 0
+- Unmapped: 9 ⚠️
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 — Phase mapping complete after roadmap creation*
+*Last updated: 2026-03-14 after initial definition*
