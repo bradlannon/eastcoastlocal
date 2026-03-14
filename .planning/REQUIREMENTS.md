@@ -9,14 +9,14 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Scraping & Data
 
-- [ ] **SCRP-01**: System can fetch and parse HTML from configured venue website URLs
-- [ ] **SCRP-02**: System uses LLM (GPT-4o mini) to extract structured event data (band, venue, date, time) from arbitrary page formats
-- [ ] **SCRP-03**: System preprocesses HTML (strip scripts/styles/nav) before LLM extraction to minimize token costs
-- [ ] **SCRP-04**: System rejects events with null/missing dates rather than accepting LLM-hallucinated values
+- [x] **SCRP-01**: System can fetch and parse HTML from configured venue website URLs
+- [x] **SCRP-02**: System uses LLM (GPT-4o mini) to extract structured event data (band, venue, date, time) from arbitrary page formats
+- [x] **SCRP-03**: System preprocesses HTML (strip scripts/styles/nav) before LLM extraction to minimize token costs
+- [x] **SCRP-04**: System rejects events with null/missing dates rather than accepting LLM-hallucinated values
 - [x] **SCRP-05**: Admin can configure a list of scrape target URLs (venue websites and event platform pages)
 - [x] **SCRP-06**: System stores events in Postgres with band/performer, venue, date, time, coordinates, and source URL
-- [ ] **SCRP-07**: System deduplicates events using composite key (venue + date + normalized band name) to prevent duplicates across sources
-- [ ] **SCRP-08**: System geocodes venue addresses at import time and caches coordinates on the venue record
+- [x] **SCRP-07**: System deduplicates events using composite key (venue + date + normalized band name) to prevent duplicates across sources
+- [x] **SCRP-08**: System geocodes venue addresses at import time and caches coordinates on the venue record
 - [ ] **SCRP-09**: System runs scheduled rescans via cron (daily minimum) without manual intervention
 - [x] **SCRP-10**: System integrates with Eventbrite/Bandsintown APIs (not scraping) for platform-sourced events
 
@@ -73,14 +73,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCRP-01 | Phase 2 | Pending |
-| SCRP-02 | Phase 2 | Pending |
-| SCRP-03 | Phase 2 | Pending |
-| SCRP-04 | Phase 2 | Pending |
+| SCRP-01 | Phase 2 | Complete |
+| SCRP-02 | Phase 2 | Complete |
+| SCRP-03 | Phase 2 | Complete |
+| SCRP-04 | Phase 2 | Complete |
 | SCRP-05 | Phase 1 | Complete |
 | SCRP-06 | Phase 1 | Complete |
-| SCRP-07 | Phase 2 | Pending |
-| SCRP-08 | Phase 2 | Pending |
+| SCRP-07 | Phase 2 | Complete |
+| SCRP-08 | Phase 2 | Complete |
 | SCRP-09 | Phase 2 | Pending |
 | SCRP-10 | Phase 2 | Complete |
 | MAP-01 | Phase 3 | Pending |

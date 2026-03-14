@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-data-pipeline-02-PLAN.md
-last_updated: "2026-03-14T02:33:44.953Z"
+stopped_at: Completed 02-data-pipeline-01-PLAN.md
+last_updated: "2026-03-14T02:35:57.996Z"
 last_activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
 progress:
   total_phases: 3
   completed_phases: 1
   total_plans: 5
-  completed_plans: 3
+  completed_plans: 4
   percent: 33
 ---
 
@@ -52,6 +52,7 @@ Progress: [███░░░░░░░] 33%
 *Updated after each plan completion*
 | Phase 01-foundation P01 | 10 | 2 tasks | 17 files |
 | Phase 02-data-pipeline P02 | 3 | 1 tasks | 6 files |
+| Phase 02-data-pipeline P01 | 306 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 01-02]: Migrations run in build step (npm run db:migrate && next build) — schema is always current before first request
 - [Phase 02-data-pipeline]: API source URLs use colon-separated scheme (eventbrite:org:ID, bandsintown:artist:NAME) stored in scrape_sources.url
 - [Phase 02-data-pipeline]: Atlantic Canada Set filter includes full province names and short codes for Bandsintown region field robustness
+- [Phase 02-01]: normalizePerformer removes non-alphanumeric chars without space replacement (AC/DC -> acdc)
+- [Phase 02-01]: geocodeAddress rejects APPROXIMATE precision, accepts ROOFTOP and RANGE_INTERPOLATED
+- [Phase 02-01]: extractEvents uses generateText + Output.object (AI SDK 6), not generateObject
 
 ### Pending Todos
 
@@ -83,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T02:33:44.948Z
-Stopped at: Completed 02-data-pipeline-02-PLAN.md
+Last session: 2026-03-14T02:35:57.992Z
+Stopped at: Completed 02-data-pipeline-01-PLAN.md
 Resume file: None
