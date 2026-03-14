@@ -14,7 +14,10 @@
     "test": "jest"
   },
   "dependencies": {
+    "@ai-sdk/google": "^3.0.43",
     "@neondatabase/serverless": "^1.0.2",
+    "ai": "^6.0.116",
+    "cheerio": "^1.2.0",
     "date-fns": "^4.1.0",
     "dotenv": "^17.3.1",
     "drizzle-orm": "^0.45.1",
