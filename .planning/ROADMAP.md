@@ -72,7 +72,9 @@ Plans:
   2. Switching to heatmap mode with a category selected shows only events of that category in the heatmap intensity
   3. The selected category is preserved in the URL as a `?category=` parameter — copying and sharing the URL reproduces the same filtered view
   4. A category badge is visible on event cards and event detail pages
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 08-01-PLAN.md — Filter function + chip UI + category badges + URL persistence
 
 ### Phase 9: Source Discovery
 **Goal**: The system automatically finds new Atlantic Canada event venues on a weekly schedule and stages them for review before any scraping occurs
@@ -96,5 +98,5 @@ Plans:
 | 5. Click-Through | v1.1 | 2/2 | Complete | 2026-03-14 |
 | 6. Category Schema | v1.2 | 0/1 | In Progress (checkpoint) | - |
 | 7. AI Categorization | 2/2 | Complete   | 2026-03-14 | - |
-| 8. Category Filter UI | v1.2 | 0/TBD | Not started | - |
+| 8. Category Filter UI | v1.2 | 0/1 | Not started | - |
 | 9. Source Discovery | v1.2 | 0/TBD | Not started | - |
