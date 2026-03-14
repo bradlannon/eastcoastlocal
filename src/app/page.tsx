@@ -80,7 +80,7 @@ function HomeContent() {
   }, []);
 
   // Mode-aware filter chain: derives sidebarEvents, heatPoints, and timeFilteredEvents
-  const { sidebarEvents, heatPoints, timeFilteredEvents } = useMemo(() => {
+  const { sidebarEvents, heatPoints, timeFilteredEvents, mapEvents } = useMemo(() => {
     if (mapMode === 'timelapse') {
       const center = positionToTimestamp(timePosition, referenceDate.current);
       const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
@@ -90,6 +90,7 @@ function HomeContent() {
         sidebarEvents: filterByBounds(categoryFiltered, bounds),
         heatPoints: computeVenueHeatPoints(categoryFiltered),
         timeFilteredEvents: categoryFiltered,
+        mapEvents: categoryFiltered,
       };
     }
     const dateFiltered = filterByDateRange(allEvents, when);
@@ -99,6 +100,7 @@ function HomeContent() {
       sidebarEvents: filterByBounds(categoryFiltered, bounds),
       heatPoints: [],
       timeFilteredEvents: [],
+      mapEvents: categoryFiltered,
     };
   }, [mapMode, timePosition, allEvents, when, province, category, bounds]);
 
@@ -190,7 +192,7 @@ function HomeContent() {
             <div className="w-full h-full bg-gray-100 animate-pulse" />
           ) : (
             <MapClientWrapper
-              events={allEvents}
+              events={mapEvents}
               onBoundsChange={setBounds}
               province={province}
               highlightedVenueId={highlightedVenueId}
