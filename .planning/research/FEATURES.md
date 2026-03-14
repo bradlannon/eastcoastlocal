@@ -1,22 +1,24 @@
 # Feature Research
 
-**Domain:** Heatmap timelapse mode for live music event discovery map (v1.1 milestone)
+**Domain:** Event discovery platform — automatic source discovery, AI categorization, category filtering (v1.2 milestone)
 **Researched:** 2026-03-14
-**Confidence:** MEDIUM (core UX patterns are HIGH confidence from established tools like kepler.gl, ArcGIS, windy.com; implementation specifics for this exact data shape are MEDIUM confidence from analogous examples)
+**Confidence:** MEDIUM (source discovery approach is MEDIUM — no canonical pattern exists for local-region automated venue discovery; categorization and filtering UX are HIGH confidence from established platforms)
 
 ---
 
-## Context: What Already Exists
+## Context: What Already Exists (Must Preserve)
 
-This is a subsequent milestone. The following are already built and must be preserved and integrated with:
+This is the v1.2 milestone. The following are already built and must be integrated with, not replaced:
 
-- Interactive Leaflet map with pin clusters (react-leaflet 5.x + react-leaflet-cluster 4.0)
-- Event list sidebar with date and province filters (nuqs URL state)
-- Event detail pages
-- Split-screen layout (map left, list right)
-- Viewport-synced list (list shows events visible in current map bounds)
+- AI scraping pipeline: 26 venue URLs in `scrape_sources` DB table, scraped daily via Vercel cron
+- Orchestrator (`runScrapeJob`) iterates enabled sources, calls `fetchAndPreprocess` + `extractEvents` (Gemini) + `upsertEvent`
+- `ExtractedEventSchema` (Zod): performer, event_date, event_time, price, ticket_link, description, cover_image_url, confidence
+- Schema: `venues`, `events`, `scrape_sources` tables — no `category` field exists yet
+- Map with pin clusters and heatmap timelapse mode
+- Event list with date + province filters (nuqs URL state)
+- Vercel Hobby constraints: 60s function timeout, no Playwright/Puppeteer
 
-The heatmap timelapse mode is an alternative visualization mode layered onto this foundation — not a replacement.
+The v1.2 features must extend this pipeline, not rebuild it.
 
 ---
 
@@ -24,118 +26,126 @@ The heatmap timelapse mode is an alternative visualization mode layered onto thi
 
 ### Table Stakes (Users Expect These)
 
-Features that users of map timelapse tools (windy.com, kepler.gl, ArcGIS) expect. Missing these makes the feature feel broken or half-built.
+Features users expect from an event discovery platform that covers all event types. Missing these makes the product feel incomplete for the expanded scope.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Play / pause button | Every animation tool from Google Earth to windy.com has this; users immediately look for it | LOW | Single toggle button; keyboard spacebar shortcut is expected by power users |
-| Timeline scrubber (draggable) | Users must be able to jump to any time position, not just play forward; learned behavior from video players and windy.com | MEDIUM | Horizontal slider showing 30-day window; dragging updates heatmap and sidebar in real time |
-| Current time display | Users need to know what time slice they are viewing; "Thursday 8 PM" is the essential context for event discovery | LOW | Show day + time prominently near scrubber; format as human-readable (not epoch) |
-| Heatmap color gradient (cool-to-hot) | Universal convention: blue/green = sparse, red/orange = dense; deviating confuses users | LOW | leaflet.heat defaults to this; customize radius and blur for event data density |
-| Heatmap responds to time position | The entire point of timelapse; static heatmap has no value in this context | MEDIUM | On scrubber move or play advance, recompute which events fall in the current 24-hour window |
-| Toggle between heatmap mode and pin/cluster mode | Users need to return to detailed pin view for "what's actually playing"; heatmap alone can't complete discovery | LOW | Toggle button (e.g., top-right of map); animated or instant transition |
-| Sidebar list syncs with time position | When scrubber is at Thursday 8 PM, list shows only events in that window; this is the expected behavior from ArcGIS, kepler.gl, and the Crime Time UI pattern | MEDIUM | Filter event list to current time window; sidebar updates on every scrubber change during drag and on play advance |
-| Animation loops | After reaching 30-day end, playback loops back to start; expected from windy.com and video players | LOW | Optional loop toggle; loop by default is acceptable |
-| Step forward / backward controls | Single-step navigation through time intervals; expected alongside play/pause from kepler.gl and ArcGIS time slider | LOW | Arrow buttons flanking play button; advance by one day or one 6-hour block |
+| Category filter on map and event list | Once events span music, comedy, theatre, and community, users immediately need to narrow by type; no existing discovery platform (Eventbrite, Meetup, Bandsintown) ships multi-type events without category filtering | MEDIUM | Filter chips or pills in the UI; must work in both pin/cluster view and heatmap mode; integrates with existing date/province nuqs filters |
+| Defined, stable event categories | Users need predictable, human-readable labels; inconsistent LLM-generated tags create confusion | LOW | Hard-code a small taxonomy (6-10 categories); the LLM assigns from this fixed list rather than inventing labels |
+| "All" / clear filter option | Users in filter-chip UIs expect a one-tap way to remove all category filters; missing this causes frustration | LOW | "All" chip that deselects others; or a clear-all X button on multi-select |
+| Category visible on event cards and detail pages | Once categories exist, users expect to see them on each event; a category label without it surfacing on the event itself feels half-built | LOW | Small pill/badge on event card and detail page |
+| New sources appear in the app automatically | The milestone promise is hands-off discovery; if new venues require manual seed-data edits to appear, the feature has not shipped | HIGH | Core requirement; the discovery pipeline must end with new `venues` + `scrape_sources` rows that the existing daily cron picks up without code changes |
 
 ### Differentiators (Competitive Advantage)
 
-Features that make this timelapse mode genuinely useful for live music discovery, not just technically complete.
+Features specific to this milestone that go beyond what the v1.1 app offered and differentiate from general event platforms.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Click-through from heatmap hotspot to events | "I see a hot Friday night in Halifax — show me what's on" is the entire discovery loop; heatmap without drill-down is dead-end visualization | HIGH | leaflet.heat renders to canvas and does not support native click events; requires a spatial lookup — on map click, find events near that lat/lng in the current time window, then filter sidebar or open a popup listing those events |
-| 24-hour rolling window (not snapshot) | A single-moment snapshot for event data is sparse and misleading; a 24-hour window shows "what's happening in this evening" which matches how people think about going out | MEDIUM | Window size should be configurable in code (24h default); UI may show window size for clarity |
-| Animation speed control | Windy.com's lack of per-user speed control is a top user complaint; even simple slow/medium/fast presets are valued | LOW | Two to three speed presets (e.g., 1x = 1 step/sec, 2x = 2 steps/sec, 4x = 4 steps/sec); store preference in localStorage |
-| Heatmap intensity weighted by event count per venue | A venue with 5 events on a Friday should appear hotter than a venue with 1; naive point-per-event approach causes over-representation of data entry patterns | MEDIUM | Aggregate events by venue coordinates within the time window; pass count as intensity weight to leaflet.heat |
-| Sidebar shows count and day context | "12 events this Friday evening" gives users a mental model of what the animation means; windy.com's lack of contextual labeling is a recurring user frustration | LOW | Label above sidebar list: "X events — [day] [time range]" |
+| AI-assigned categories at extraction time | Categorization happens in the same Gemini call that extracts events — no second-pass, no extra cost; category is available immediately when event is stored | MEDIUM | Extend `ExtractedEventSchema` to include a `category` enum field; update the extractor prompt to classify against a fixed list |
+| Automatic venue/source discovery via targeted search queries | Atlantic Canada is a small region; a curated-but-automated approach (search queries + LLM evaluation of candidate pages) can surface new venues without crawling the open web | HIGH | Use a search API (Serper/Exa) or Google Custom Search to find candidate event pages by city; LLM evaluates whether each result is a scrapeable event source; approved candidates inserted into `scrape_sources` |
+| Discovery scoped to Atlantic Canada cities | Generic web crawlers surface national/international results; scoping queries to NB/NS/PEI/NL cities prevents noise | LOW | Discovery queries parameterized by province and major cities; candidate filter rejects non-Atlantic results |
+| Human review step before new sources go live | Fully automated source insertion risks adding spam, paywalled, or broken pages to the scrape queue; a "pending" state allows human approval without blocking discovery | MEDIUM | `scrape_sources.last_scrape_status = 'pending_review'` state; admin endpoint or seed-script pattern to approve; prevents bad sources from consuming Gemini quota |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
-Features that seem natural for a heatmap timelapse but create problems in this specific context.
-
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Heatmap as default / first view | "It looks cooler" | Event data is sparse in rural NL and PEI; a heatmap over sparse data communicates nothing and confuses users; pin clusters work everywhere | Pin/cluster view is default; heatmap is opt-in from a mode toggle |
-| Per-hour time steps | More granular = more accurate | Most events have only date + rough time (evening); per-hour steps create false precision and sparsely populated windows; 6-hour or 12-hour steps match the data resolution | Use 6-hour steps: Morning / Afternoon / Evening / Night blocks |
-| Real-time heatmap update as user types filter | Feels interactive | Thrashing renders on every keystroke during drag is expensive; the heatmap re-renders are not free | Debounce scrubber drag updates; update on drag end or at low frequency during drag |
-| Province / location filter active during heatmap mode | Logical extension of existing filters | The heatmap conveys geography visually; applying a geo-filter while in heatmap mode creates an invisible restriction that contradicts what the map shows | During heatmap mode, suppress or reset geo filters; keep only the time filter; re-apply geo filters when switching back to pin mode |
-| Custom time window size control | Power users want this | Adds significant UI complexity; most users don't understand what changing window size means; 24-hour is the right default for "going out tonight" use case | Hard-code 24-hour window in v1.1; make it a future config option if users request it |
-| Heatmap-only navigation (no sidebar) | Clean fullscreen map | Removes the event list which is the payoff of clicking hotspots; heatmap alone cannot complete the discovery loop | Keep sidebar; let sidebar collapse if user prefers, but don't remove it |
-| Animated heat point trails (particle effects) | Windy.com-style particle flow looks impressive | Meaningful for continuous phenomena (wind, pressure); misleading for discrete event data (a gig on Friday is not a "flow"); performance-intensive in canvas | Static heatmap that updates per time step; no trails |
+| Open-ended LLM-generated category tags | "Let the AI decide the categories" feels powerful and flexible | LLM hallucination produces inconsistent tags ("Live Music", "live music", "music concert", "concert") that cannot be filtered reliably; each event becomes its own category | Hard-code a fixed 8-category taxonomy passed to Gemini as an enum constraint; `generateObject` with a Zod enum enforces it at parse time |
+| Crawling the full web for new venues | Seems thorough | Atlantic Canada event pages number in the thousands but quality is low; open-web crawling on Vercel Hobby (60s timeout) is not feasible; Playwright is banned by bundle size; most pages are not event sources | Targeted search-query approach: issue 3-5 search queries per city, evaluate top 10 results per query with LLM, insert only confirmed event-page URLs |
+| Real-time source discovery (on every page load) | "Always fresh" | Discovery is expensive: search API calls + LLM evaluation per candidate = high cost and slow response; Vercel 60s timeout makes this impossible for any significant number of candidates | Separate cron job for discovery (weekly or on-demand), distinct from the daily scrape cron |
+| User-submitted venues | Community-sourced growth looks appealing | Requires moderation, spam handling, user accounts (explicitly out of scope); venue submission by venues is already in the project out-of-scope list | Admin-seeded sources; discovery pipeline handles growth without user input |
+| Subcategories or tags (e.g., "Jazz", "Celtic" under "Live Music") | More granular filtering sounds better | Increases LLM classification ambiguity dramatically; "Jazz" and "Celtic" are subjective; the app has insufficient volume at Atlantic Canada scale to make subcategories useful | Single-level taxonomy for v1.2; description field already holds detail for users who want to read it |
+| Category filter as a multi-level sidebar | Desktop convention from Eventbrite | App is mobile-first map with limited screen real estate; sidebar is already used for event list | Horizontal scrollable chip row above event list; single-select initially (multi-select as v2 enhancement) |
+
+---
+
+## Recommended Event Category Taxonomy
+
+Based on existing venue types in the dataset (pubs, concert halls, theatres, breweries) and the milestone goal of expanding beyond live music:
+
+| Category | What It Covers | Example Venues in Dataset |
+|----------|----------------|---------------------------|
+| `live_music` | Bands, solo performers, open mic, acoustic sets | All current 26 venues |
+| `comedy` | Stand-up, improv, sketch comedy nights | Capitol Theatre, Imperial Theatre |
+| `theatre` | Plays, musicals, dramatic performances | Harbourfront Theatre, Arts & Culture Centres |
+| `arts` | Gallery openings, spoken word, poetry, literary events | Arts & Culture Centres |
+| `sports` | Sporting events at entertainment venues | Stadiums, arenas (future sources) |
+| `festival` | Multi-day or multi-act festivals, outdoor events | Summer festival sources (future) |
+| `community` | Fundraisers, markets, cultural celebrations, trivia | Breweries, food halls |
+| `other` | Catch-all for events that don't fit above categories | Any venue |
+
+**Rationale:** 8 categories is the upper limit before chip rows require horizontal scroll on mobile. The `other` category prevents LLM refusals or hallucinations when an event genuinely doesn't fit. `live_music` remains distinct because it covers the existing dataset and is the most common category in the region.
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Heatmap Timelapse Mode]
-    └──requires──> [Heatmap Layer] (leaflet.heat or equivalent)
-    └──requires──> [Timeline Scrubber Component]
-    └──requires──> [Time Window Filter Logic] (filter events by date/time range)
-    └──requires──> [Mode Toggle] (switch between pin view and heatmap view)
+[AI Event Categorization]
+    └──requires──> [Extended ExtractedEventSchema] (add category enum field)
+    └──requires──> [Updated extractor prompt] (include fixed category list)
+    └──requires──> [DB migration] (add category column to events table)
+    └──drives──> [Category Filter UI] (categories only filterable once stored)
 
-[Timeline Scrubber Component]
-    └──requires──> [Time Window Filter Logic]
-    └──drives──> [Heatmap Layer] (recompute on time change)
-    └──drives──> [Sidebar List] (filter to current window on time change)
+[Category Filter UI]
+    └──requires──> [AI Event Categorization] (no categories to filter without it)
+    └──requires──> [DB migration] (category column must exist)
+    └──integrates with──> [Existing nuqs date/province filters] (must coexist)
+    └──drives──> [Category visible on event cards] (surface stored category in UI)
 
-[Play / Pause Animation]
-    └──requires──> [Timeline Scrubber Component]
-    └──requires──> [Step interval logic] (advance scrubber by N hours, loop)
+[Automatic Source Discovery]
+    └──requires──> [Search API integration] (Serper or Google Custom Search)
+    └──requires──> [LLM candidate evaluator] (new Gemini call: "is this an event page?")
+    └──requires──> [Venue geocoder] (already exists in geocoder.ts)
+    └──requires──> [scrape_sources insert logic] (write approved candidates to DB)
+    └──drives──> [Existing daily scrape cron] (new sources are picked up automatically)
 
-[Click-through from Heatmap Hotspot]
-    └──requires──> [Heatmap Layer] (canvas click event interception)
-    └──requires──> [Spatial proximity lookup] (find events near clicked lat/lng)
-    └──drives──> [Sidebar List] (filter to nearby events in current window)
+[Existing daily scrape cron]
+    └──depends on──> [scrape_sources table] (reads enabled sources)
+    └──unchanged by──> [Source Discovery] (discovery writes rows; scrape reads them)
 
-[Mode Toggle]
-    └──depends on──> [Existing Pin/Cluster Layer] (must re-show on toggle back)
-    └──conflicts with──> [Existing Geo Filters] (must suppress or handle during heatmap mode)
-
-[Sidebar Sync]
-    └──requires──> [Time Window Filter Logic]
-    └──enhances──> [Existing Sidebar] (adds time-based filter on top of existing date/province filters)
-    └──depends on──> [Existing Event List Component] (extend, not replace)
+[Category visible on event cards / detail pages]
+    └──requires──> [AI Event Categorization] (category must be stored on events)
+    └──requires──> [DB migration] (category column)
 ```
 
 ### Dependency Notes
 
-- **Click-through from heatmap requires custom canvas click handling:** leaflet.heat renders to a canvas element with no built-in click events. A map-level click handler must compute which events fall within a configurable radius (e.g., 30km) of the clicked point AND within the current time window. This is the most technically novel piece of the milestone.
-- **Mode toggle must manage two mutually exclusive Leaflet layer groups:** The pin cluster layer group and the heatmap layer must not render simultaneously. React state controls which is mounted; dynamic imports already exist for SSR bypass and should continue to apply.
-- **Sidebar sync must not break existing filters:** The existing date and province filters use nuqs URL state. Time-window filtering during heatmap mode is a separate, transient state (not URL-persisted) because the animation position is ephemeral. These two filter systems must coexist without collision.
-- **Heatmap Layer depends on aggregated data shape:** The heatmap needs `[lat, lng, intensity]` tuples where intensity = event count per venue per time window. This computation runs client-side against the already-loaded event dataset; no new API endpoint is required if the full 30-day event dataset is loaded upfront.
+- **DB migration must precede all other work:** Adding `category` to the `events` table (nullable, text/enum) is a prerequisite for storing categories, filtering on them, and displaying them. The migration is low-risk (additive, nullable column).
+- **ExtractedEventSchema extension is a single-file change:** Adding `category: z.enum([...]).nullable()` to the Zod schema and updating the extractor prompt is the core of AI categorization. The existing `generateText` + `Output.object` pattern supports this without architectural changes.
+- **Source discovery is an independent cron, not the scrape cron:** Mixing discovery logic into `runScrapeJob` would couple two unrelated concerns and risk timeouts. Discovery runs on a separate schedule (weekly is sufficient) and writes `scrape_sources` rows; the daily cron then picks them up.
+- **Category filter must not break existing nuqs filters:** Date and province filters are URL-persisted via nuqs. Category filter should also use nuqs (consistent pattern) but as an independent param. No conflict if implemented as separate `category` query param.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.1)
+### Launch With (v1.2)
 
-Minimum viable timelapse feature — what makes the mode useful and complete.
+Minimum viable feature set — what makes this milestone shippable and valuable.
 
-- [ ] Mode toggle (pin/cluster view vs heatmap timelapse view) — entry point to the new feature
-- [ ] Heatmap layer rendering event density for current 24-hour time window — core visualization
-- [ ] Timeline scrubber covering 30-day window — user control over time position
-- [ ] Play / pause animation with auto-advance (configurable step size, default 6 hours) — the "timelapse" part
-- [ ] Current time position label (day + time) — context without which the animation is meaningless
-- [ ] Sidebar list synced to current time window (shows events in current 24-hour window) — completes the discovery loop
-- [ ] Step forward / backward buttons — fine-grained navigation
-- [ ] Animation loops after reaching 30-day end — prevents dead-end playback
+- [ ] DB migration: add `category` column to `events` table (nullable text, no constraint initially)
+- [ ] Extended `ExtractedEventSchema` with `category` enum field (8 categories + null)
+- [ ] Updated extractor prompt instructing Gemini to assign category from fixed list
+- [ ] Category filter UI: horizontal chip row above event list, "All" chip default, single-select
+- [ ] Category filter applies to both event list and map pins (hide pins for filtered-out categories)
+- [ ] Category pill/badge on event cards and event detail pages
+- [ ] Automatic source discovery cron: search queries per Atlantic Canada city, LLM candidate evaluation, insert approved sources with `pending_review` status
+- [ ] Admin approval mechanism for discovered sources (minimal — a script or DB flag flip is acceptable for v1.2)
 
-### Add After Validation (v1.1.x)
+### Add After Validation (v1.2.x)
 
-Features to add once the core timelapse is in users' hands.
-
-- [ ] Click-through from heatmap hotspot to events — validates whether users actually want to drill down from the heatmap; add if interaction data shows users clicking the map
-- [ ] Animation speed control (slow/medium/fast) — add when users report animation feels too fast or slow
-- [ ] Sidebar event count + time context label — low effort, add if user testing shows confusion about what the sidebar is showing
+- [ ] Multi-select category filter (filter to "Live Music + Comedy" simultaneously) — add if users request it; single-select is sufficient for v1 of the filter
+- [ ] Category filter in heatmap mode — heatmap currently shows all events; add category-aware heatmap filtering once category data is populated
+- [ ] Confidence threshold tuning for discovery — after first discovery run, adjust search queries and LLM prompt based on false positive rate
 
 ### Future Consideration (v2+)
 
-- [ ] Configurable time window size (12h, 24h, 48h) — only if users with specific use cases request it
-- [ ] Keyboard shortcuts (spacebar = play/pause, arrow keys = step) — power user polish, not needed at launch
-- [ ] Share / permalink to a specific time position — requires URL state for animation position; deferred
+- [ ] Full auto-approval for high-confidence discovered sources — requires enough history to trust the evaluator
+- [ ] Category subcategories (Jazz, Celtic, Folk under Live Music) — only if event volume justifies it
+- [ ] Discovery coverage report in admin — shows which cities/provinces have the most/fewest sources
+- [ ] User-facing "suggest a venue" form — requires moderation infrastructure
 
 ---
 
@@ -143,59 +153,52 @@ Features to add once the core timelapse is in users' hands.
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Mode toggle (heatmap on/off) | HIGH | LOW | P1 |
-| Heatmap layer with time window | HIGH | MEDIUM | P1 |
-| Timeline scrubber (30-day range) | HIGH | MEDIUM | P1 |
-| Play / pause animation | HIGH | LOW | P1 |
-| Current time label | HIGH | LOW | P1 |
-| Sidebar sync to time window | HIGH | MEDIUM | P1 |
-| Step forward / backward buttons | MEDIUM | LOW | P1 |
-| Animation loop | MEDIUM | LOW | P1 |
-| Click-through from hotspot | HIGH | HIGH | P2 |
-| Animation speed control | MEDIUM | LOW | P2 |
-| Sidebar event count label | MEDIUM | LOW | P2 |
-| Keyboard shortcuts | LOW | LOW | P3 |
-| Permalink to time position | LOW | MEDIUM | P3 |
-| Configurable window size | LOW | MEDIUM | P3 |
+| DB migration (category column) | HIGH | LOW | P1 |
+| Extended schema + prompt (AI categorization) | HIGH | LOW | P1 |
+| Category filter chips UI | HIGH | MEDIUM | P1 |
+| Category visible on event cards | MEDIUM | LOW | P1 |
+| Category filter on map pins | HIGH | MEDIUM | P1 |
+| Source discovery cron (search + LLM eval) | HIGH | HIGH | P1 |
+| Admin approval for discovered sources | MEDIUM | LOW | P1 |
+| Multi-select category filter | MEDIUM | MEDIUM | P2 |
+| Category-aware heatmap mode | MEDIUM | MEDIUM | P2 |
+| Discovery coverage reporting | LOW | MEDIUM | P3 |
+| Auto-approval for high-confidence sources | LOW | HIGH | P3 |
 
 **Priority key:**
-- P1: Must have for launch of this milestone
+- P1: Must have for v1.2 launch
 - P2: Should have; add when core is stable
 - P3: Nice to have; future consideration
 
 ---
 
-## Reference App Analysis
+## Competitor Feature Analysis
 
-How comparable tools implement each pattern:
+How comparable platforms handle the same features:
 
-| Feature | windy.com | kepler.gl | ArcGIS Time Slider | Our Approach |
-|---------|-----------|-----------|-------------------|--------------|
-| Timeline position | Bottom bar, drag anywhere | Bottom bar, click or drag | Top or bottom, configurable | Bottom bar, horizontal scrubber |
-| Play/pause | Prominent button left of timeline | Play button left of timeline | Playback controls with keyboard shortcuts | Button left of scrubber |
-| Speed control | Available on Android, missing on web (user complaint) | 1x / 2x / 4x presets | 5 preset levels | 3 presets (slow/medium/fast) |
-| Time step size | Hours (weather model resolution) | Any (data-driven) | Configurable | 6-hour blocks (matches event data resolution) |
-| Current time display | Timestamp above timeline | Timestamp in control bar | Timestamp in slider | Human-readable day + time near scrubber |
-| Sidebar/list sync | None (weather app, no list) | Panel updates on filter | List widgets sync when connected to same data source | Sidebar event list filters to current time window |
-| Click-through | N/A (weather layers) | Tooltip on hover/click | Info panel on click | Map click -> spatial proximity lookup -> sidebar filter |
-| Mode toggle | Layer switcher (wind / rain / etc.) | Layer panel | Layer list | Single toggle button (pins vs heatmap) |
-| Loop | Yes | Yes | Configurable | Yes (default on) |
+| Feature | Eventbrite | Meetup | Bandsintown | Our Approach |
+|---------|------------|--------|-------------|--------------|
+| Category taxonomy | 30+ categories (too many for chip UI) | Interest-based (tech, outdoors, etc.) | Music genres only | 8 fixed categories, LLM-assigned |
+| Category filter UI | Dropdown on search results page | Horizontal scroll chips on discovery | Genre chips on artist pages | Horizontal scroll chip row, persistent |
+| Source discovery | Self-serve event submission by organizers | Group creation by users | Artist-claimed pages | Automated search + LLM evaluation, no user accounts needed |
+| New source onboarding | Instant (self-serve) | Instant (self-serve) | Manual artist claim | Pending review state; admin approval |
+| Category on event card | Icon + label | Color-coded category dot | None (genre on artist, not event) | Text pill/badge in consistent color |
 
 ---
 
 ## Sources
 
-- [Leaflet.TimeDimension — GitHub (socib)](https://github.com/socib/Leaflet.TimeDimension) — play/pause, scrubber, speed controls, layer integration patterns
-- [Leaflet.heat — GitHub (Leaflet)](https://github.com/Leaflet/Leaflet.heat) — heatmap layer API, intensity weighting, setLatLngs for time updates
-- [kepler.gl Time Playback — Official Docs](https://docs.kepler.gl/docs/user-guides/h-playback) — 1x/2x/4x speed, window selection, distribution graph UI
-- [Timeline Slider — Map UI Patterns](https://mapuipatterns.com/timeline-slider/) — two-knob range vs single-knob scrubber, snapping to human-friendly values, play/pause behavior, Crime Time sidebar integration example
-- [ArcGIS Timeline Widget — Experience Builder](https://developers.arcgis.com/experience-builder/guide/timeline-widget/) — timeline filtering applies to connected list widgets via shared data source
-- [Animated Heatmap — Socrata / heatmap.js](https://dev.socrata.com/blog/2014/10/01/animated-heatmap.html) — frame-by-frame setLatLngs approach for animation
-- [windy.com Community — Speed Control Discussions](https://community.windy.com/topic/10016/time-lapse-speed-control) — confirmed user frustration with fixed speed; validated speed control as expected feature
-- [windy.com Community — Timeline Display](https://community.windy.com/topic/25149/how-to-display-the-timeline) — confirmed bottom-bar timeline as standard pattern
-- [react-leaflet-heatmap-layer-v3 — npm](https://www.npmjs.com/package/react-leaflet-heatmap-layer-v3) — last published 4 years ago, React 19 compatibility unverified; direct leaflet.heat integration preferred
-- [9 Data Visualization Techniques for Temporal Mapping — Map Library](https://www.maplibrary.org/1582/data-visualization-techniques-for-temporal-mapping/) — rolling window, accumulation vs snapshot distinction
+- [PredictHQ Event Categories](https://www.predicthq.com/intelligence/data-enrichment/event-categories) — 19 top-level categories, 200+ labels; informed the decision to use a smaller flat taxonomy for a regional app
+- [Filter UI Design Best Practices — insaim.design](https://www.insaim.design/blog/filter-ui-design-best-ux-practices-and-examples) — chip-based filters, clear visual hierarchy, "Clear All" pattern
+- [15 Filter UI Patterns — Bricx Labs](https://bricxlabs.com/blogs/universal-search-and-filters-ui) — horizontal scroll chips for small category sets, sidebar for 20+ options
+- [Carbon Design System — Filtering Patterns](https://carbondesignsystem.com/patterns/filtering/) — multi-select filter best practices, chip display of selected filters
+- [Gemini Structured Output — Google AI Docs](https://ai.google.dev/gemini-api/docs/structured-output) — JSON Schema / Zod enum constraints enforced at parse time
+- [Vercel AI SDK + Gemini — generateObject pattern](https://patloeber.com/gemini-ai-sdk-cheatsheet/) — `generateObject` with Zod schema for structured extraction
+- [Serper — Google Search API](https://serper.dev/) — $1/1000 queries, structured JSON results, suitable for city-scoped event page discovery
+- [Exa AI Search API](https://exa.ai/) — neural search alternative to Serper; better for semantic queries like "venues with live events in Fredericton NB"
+- [DEV — Tech Event Discovery Platform (real-time scraping)](https://dev.to/danishaft/how-i-built-a-tech-event-discovery-platform-with-real-time-scraping-3o4f) — confirmed: no existing platform does automatic venue discovery; all rely on curated or self-submitted sources
+- [Eventbrite UX Analysis — Medium](https://medium.com/@clinagyin_8435/eventbrite-a-ux-analysis-51e11649ad09) — category selection highlighted in orange; consistent selected/unselected visual states
 
 ---
-*Feature research for: Heatmap timelapse mode, East Coast Local v1.1*
+*Feature research for: East Coast Local v1.2 — Event Discovery and Categorization*
 *Researched: 2026-03-14*

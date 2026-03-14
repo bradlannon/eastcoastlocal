@@ -1,19 +1,19 @@
 # Project Research Summary
 
-**Project:** East Coast Local — Atlantic Canada live music discovery app
-**Domain:** Local events aggregation + interactive map + heatmap timelapse visualization
-**Researched:** 2026-03-13 (v1.0 baseline) / 2026-03-14 (v1.1 heatmap timelapse additions)
-**Confidence:** HIGH (stack and architecture), MEDIUM (AI scraping approach and geocoding)
+**Project:** East Coast Local — Atlantic Canada Event Discovery App
+**Domain:** Regional event discovery platform with AI-powered scraping, interactive map, heatmap timelapse, automated source discovery, and event categorization
+**Researched:** 2026-03-13 (v1.0 baseline) / 2026-03-14 (v1.1 heatmap timelapse, v1.2 discovery + categorization)
+**Confidence:** HIGH (stack, architecture, pitfalls), MEDIUM (automated venue discovery approach)
 
 ---
 
 ## Executive Summary
 
-East Coast Local is a hyper-local live music discovery app for Atlantic Canada (NB, NS, PEI, NL) built on Next.js 16 / Vercel / Neon Postgres. The core v1.0 product — pin-cluster map, event list sidebar, AI-powered scraping pipeline — has been researched and is partially implemented. The v1.1 milestone adds a heatmap timelapse mode: an alternative map visualization controlled by a 30-day timeline scrubber that shows event density shifting across time. The mode sits alongside the existing cluster view as a toggle, not a replacement. No new API endpoints, database schema changes, or server infrastructure are required for v1.1 — all time-window filtering runs client-side against the already-loaded event dataset using `useMemo` and `Array.filter`.
+East Coast Local is a serverless Next.js app that aggregates local event listings across Atlantic Canada (NB, NS, PEI, NL) via AI-powered web scraping, displays them on an interactive Leaflet map with pin-cluster and heatmap timelapse modes, and — in the v1.2 milestone — automatically discovers new venue sources and categorizes events by type. The project is already at v1.1 with 26 scraped venue sources, a working pin-cluster map, heatmap timelapse mode, and date/province filters in place. This research synthesizes all three milestone layers (v1.0 core, v1.1 heatmap, v1.2 discovery + categorization) with emphasis on v1.2, which is the current build target.
 
-The recommended implementation for v1.1 uses `leaflet.heat` 0.2.0 directly via a custom `useMap()` + `useEffect()` component (not a third-party wrapper — all existing wrappers target react-leaflet v3/v4 and are incompatible with react-leaflet 5.x). Time position is stored as a normalized 0–1 float in React `useState`, never in the URL. The sidebar event list syncs to the current time window through the same mode-aware filter chain in `HomeContent` that already drives the cluster view. `EventList` itself requires no changes — it receives `sidebarEvents` regardless of mode.
+The recommended v1.2 approach is additive and non-breaking. It extends the existing Gemini extraction schema with a `category` enum field (adding classification to the same Gemini call, not a second pass), introduces a `discovered_sources` staging table as a quality gate before new venues enter the active scrape queue, and adds a second daily discovery cron that runs independently from the existing scrape cron. The category filter UI follows the established nuqs URL-state pattern applied client-side. No new npm packages are required — all v1.2 features extend existing infrastructure.
 
-The highest-risk areas are architectural, not visual: (1) the SSR build failure that `leaflet.heat` triggers when imported at module top level in Next.js must be verified to not exist before any animation logic is written; (2) `leaflet.heat` renders to a flat canvas with no click events — click-through from heatmap hotspots requires a parallel invisible `CircleMarker` layer, not a click handler on the HeatLayer; (3) animation state (`timePosition`, `isPlaying`) must not be routed through nuqs URL state, which cannot keep up with 5-updates-per-second playback. All three are discoverable only through the research — they are not visible from the API surface.
+The primary risks are discovery quality (search results returning irrelevant pages that swamp the scrape queue) and LLM category drift (model returning labels outside the defined taxonomy). Both are solved architecturally: a `discovered_sources` staging table with a pre-screening quality gate prevents junk sources from reaching the scrape queue, and a closed `z.enum()` Zod constraint passed to `generateObject()` forces Gemini to produce only valid category values. The most critical implementation constraint is that the DB migration adding `event_category` and `discovered_sources` must ship first — everything else in v1.2 depends on it.
 
 ---
 
@@ -21,192 +21,197 @@ The highest-risk areas are architectural, not visual: (1) the SSR build failure 
 
 ### Recommended Stack
 
-The stack is fully determined and version-pinned. Next.js 16 with Turbopack, React 19.2, TypeScript 5.x, Neon Postgres with Drizzle ORM, and Vercel AI SDK 5.x form the core. Drizzle is specifically chosen over Prisma to avoid the 1–3 second cold start penalty from Prisma's query engine binary on Vercel serverless functions. The map layer is react-leaflet 5.x + react-leaflet-cluster for pin view, and `leaflet.heat` 0.2.0 (with `@types/leaflet.heat` 0.2.5) for the heatmap. Both map layer components use the custom `useMap()` + `useEffect()` pattern from react-leaflet's core architecture docs, not any third-party wrapper.
-
-For v1.1, no new UI library is needed. The timeline scrubber is a native `<input type="range">` styled with Tailwind — not a custom div slider, which would fail WCAG 2.2 SC 2.5.7 (Dragging Movements, Level AA). The animation loop uses `setInterval` at 200ms (not `requestAnimationFrame` — intentionally lower frequency to prevent 60 React re-renders per second during playback). Time-window filtering uses `date-fns` (already in stack) and `Array.filter` on the in-memory dataset.
+The core stack (Next.js 16 + Neon Postgres + Drizzle ORM + Vercel AI SDK + Gemini + react-leaflet) is already in production. V1.2 requires no new npm packages. Venue discovery uses the Gemini API's native Google Search grounding feature (`useSearchGrounding: true` in `@ai-sdk/google`) — no additional search API or key required. Category filtering extends the existing `nuqs` URL-state pattern. Google Places API (New) and Ticketmaster Discovery API are available as REST endpoints via raw `fetch()` for supplemental venue discovery if Gemini grounding proves insufficient.
 
 **Core technologies:**
-- **Next.js 16 + React 19.2:** Full-stack framework — App Router, Server Components, native Vercel cron wiring, zero-config deployment
-- **Neon Postgres + Drizzle ORM 0.39.x:** Serverless database + lightweight ORM — sub-500ms cold starts vs. Prisma's 1–3s, TypeScript-first schema inference
-- **Vercel AI SDK 5.x + GPT-4o mini:** Event extraction pipeline — `generateObject()` with Zod schemas produces typed, validated JSON from stripped HTML
-- **react-leaflet 5.x + react-leaflet-cluster:** Interactive pin-cluster map — free OSM tiles, no per-load API cost, cluster supports 10k–50k markers
-- **leaflet.heat 0.2.0:** Canvas heatmap layer — official Leaflet org plugin, `setLatLngs()` for dynamic updates without destroying/recreating the canvas element
-- **cheerio 1.x:** HTML preprocessing before LLM — strips scripts/styles/nav/footer to reduce token count 10–25x
-- **Tailwind CSS 4.x + shadcn/ui:** Styling and UI component primitives — zero runtime overhead, React 19 compatible
-- **date-fns 4.x:** Date normalization and timezone handling (Atlantic time, AST/ADT)
+- **Next.js 16 + Vercel:** Full-stack framework — cron jobs, API routes, ISR, zero-config CI/CD; Fluid Compute now default on all plans (Hobby max duration 300s, not 60s)
+- **Neon Postgres + Drizzle ORM 0.39.x:** Serverless Postgres with sub-500ms cold starts; TypeScript-first schema inference; pgEnum must be exported to appear in migrations (confirmed bug #5174)
+- **Vercel AI SDK 5.x + Gemini 2.5 Flash:** `generateObject()` with Zod schemas; `useSearchGrounding` enables web-search-backed venue discovery with no extra credentials
+- **react-leaflet 5.x + react-leaflet-cluster + leaflet.heat:** Pin cluster map and canvas heatmap; custom `useMap()` hook components (no wrapper libraries)
+- **nuqs 2:** URL-persistent filter state for date, province, and category — `parseAsArrayOf(parseAsStringLiteral(...))` for multi-select category filter
+- **cheerio 1.x + date-fns 4.x:** HTML preprocessing (10–25x token reduction) and timezone-aware date normalization (AST/ADT)
+- **Tailwind CSS 4.x + shadcn/ui:** Styling and UI components — filter chip badges, event cards, detail pages
 
 **Critical version constraints:**
-- Do NOT use `leaflet@2.x` — react-leaflet 5.x is not yet compatible; pin to `leaflet@1.9.x`
-- Do NOT mix AI SDK v4 and v5 — breaking API changes between versions
-- Do NOT use `react-leaflet-markercluster` (unmaintained) — use `react-leaflet-cluster`
-- Do NOT use any react-leaflet heatmap wrapper package — all target v3/v4; build directly with `useMap()`
+- `react-leaflet@5.x` is incompatible with `leaflet@2.x` — pin to `leaflet@1.9.x`
+- `ai@5.x` has breaking changes from v4 — do not mix versions
+- Export all Drizzle `pgEnum` definitions; silently omitted from generated migrations otherwise (confirmed open bug #5174)
+- `leaflet.heat` must only be imported inside a `useEffect` (never at module top level) or within a second `dynamic(..., { ssr: false })` boundary — it patches `window.L` at evaluation time
+
+**Discovery APIs available (no new npm packages):**
+- Gemini + Google Search grounding: existing `@ai-sdk/google` key, structured venue URL lists from web search
+- Google Places API (New): raw `fetch()`, `GOOGLE_PLACES_API_KEY`; 5,000 free Pro SKU calls/month post-March 2025
+- Ticketmaster Discovery API: raw `fetch()`, free, 5,000 calls/day; returns structured event data for Ticketmaster-listed events
 
 ### Expected Features
 
-The v1.0 foundation (pin map, sidebar, scraping) covers the table-stakes discovery experience. The v1.1 heatmap timelapse adds a time-dimension visualization mode. Feature research was validated against windy.com, kepler.gl, and ArcGIS Time Slider as reference tools.
+The v1.2 milestone is additive on an existing, deployed app. The scope is bounded.
 
-**Must have (v1.0 — already researched/building):**
-- AI-powered scraping with configurable venue source list
-- Event data storage with geocoded venue coordinates
-- Interactive map with pin clustering across all 4 Atlantic provinces
-- Event list sidebar with date and province filters, viewport-synced
-- Event detail page with performer, venue, date/time, and source link
-- Scheduled nightly rescan via Vercel cron
-- Mobile-responsive UI
+**Must have (table stakes for v1.2 — missing these makes the milestone incomplete):**
+- Category filter chips — horizontal chip row with "All" default and 8 category options; users expect this the moment events span music, comedy, theatre, and community
+- Stable 8-category taxonomy (`live_music`, `comedy`, `theatre`, `festival`, `community`, `arts`, `sports`, `other`) — hard-coded enum, LLM-constrained, not free-form tags
+- Category badge on event cards and detail pages — categories are meaningless if not surfaced on events
+- New sources discovered and appearing without code changes — this is the milestone promise; requiring manual seeding defeats the feature
+- "All" / clear filter option — no filter-chip UI ships without it
 
-**Must have (v1.1 — heatmap timelapse MVP):**
-- Mode toggle: pin/cluster view vs. heatmap timelapse view (mutually exclusive)
-- Heatmap layer rendering event density for current 24-hour time window
-- Timeline scrubber covering 30-day range (native `<input type="range">`, keyboard accessible)
-- Play / pause animation with 6-hour step size and loop at 30-day end
-- Current time position label (human-readable day + time, not epoch)
-- Sidebar event list synced to current time window (updates within 250ms of time position change)
-- Step forward / backward buttons flanking play button
-- Empty time window state message ("No events in this time window")
+**Should have (differentiators):**
+- AI-assigned categories at extraction time via extended `ExtractedEventSchema` — same Gemini call, zero extra cost
+- Automatic venue discovery via Gemini Google Search Grounding — scoped to Atlantic Canada cities, candidates staged in `discovered_sources` for review
+- Human review gate before new sources go live — `pending_review` status prevents junk from hitting the scrape queue and burning Gemini quota
 
-**Should have (v1.1.x — add after core timelapse validated):**
-- Click-through from heatmap hotspot to events (spatial proximity lookup, NOT a HeatLayer click handler)
-- Animation speed control (slow/medium/fast presets — windy.com's lack of this is a top user complaint)
-- Sidebar event count + time context label ("12 events — Friday evening")
-
-**Defer (v2+):**
-- Configurable time window size (24h hard-coded for v1.1)
-- Keyboard shortcuts (spacebar play/pause, arrow keys step)
-- Permalink to specific time position in URL (requires URL state for ephemeral animation position)
-- Genre filtering, artist profiles, PWA, user accounts, in-app ticketing
-
-**Explicit anti-features (documented rationale for not building):**
-- Heatmap as default view — event data is too sparse in rural NL/PEI; heatmap over sparse data communicates nothing
-- Province/location filters active during heatmap mode — geographic heatmap + geo-filter creates invisible restriction that contradicts the map
-- Per-hour time steps — event data only has date + rough time; per-hour steps create false precision
-- Animated particle trails — meaningful for continuous phenomena (wind); misleading for discrete events (gigs)
+**Defer to v1.2.x / v2+:**
+- Multi-select category filter (single-select sufficient for v1.2 launch)
+- Category-aware heatmap mode
+- Full auto-approval for high-confidence discovered sources
+- Category subcategories (Jazz, Celtic under Live Music) — only valuable at higher event volume
+- User-submitted venues — requires moderation infrastructure explicitly out of scope
+- Discovery coverage reporting
 
 ### Architecture Approach
 
-The existing architecture is a single `HomeContent` client component that owns all state and passes derived data down to `MapClientWrapper` (Leaflet, loaded via `dynamic(..., { ssr: false })`) and `EventList`. For v1.1, three new state variables are added to `HomeContent` (`mapMode`, `timePosition`, `isPlaying`), and the filter chain becomes mode-aware: in cluster mode it uses the existing nuqs URL state (date, province, bounds); in timelapse mode it replaces date/province filters with a time-window filter derived from `timePosition` normalized float. The sidebar receives `sidebarEvents` regardless of mode — no internal changes to `EventList`.
+V1.2 adds two concerns to the existing pipeline at well-defined seams. The existing scrape cron, `/api/events` route, `EventList`, and map components require minimal modification. The `event_category` column flows through automatically via `db.select()` (returns all columns) and Drizzle's `InferSelectModel`.
 
-The most important architectural constraint is the SSR boundary. ALL Leaflet-related code — including `leaflet.heat` — must remain inside the `ssr: false` dynamic import boundary. `leaflet.heat` patches the global `L` object at module evaluation time and will cause `ReferenceError: window is not defined` at `next build` if imported at module top level anywhere in the component tree.
+**Major components (v1.2 additions and modifications):**
 
-**Major components (v1.1 additions and modifications):**
-1. `HomeContent` (page.tsx) — state owner for `mapMode`, `timePosition`, `isPlaying`; mode-aware filter chain for `sidebarEvents`; `heatPoints` via `useMemo`; `setInterval` play loop managed by `useRef`
-2. `HeatmapLayer.tsx` — imperative `useMap()` + `useEffect()` wrapper around `leaflet.heat`; accepts pre-computed `{lat, lng, intensity}[]` points; calls `setLatLngs()` for updates (no DOM re-creation); must be inside the `ssr: false` boundary
-3. `HeatmapClickLayer.tsx` — invisible `CircleMarker` components at venue positions; the ONLY mechanism for click events in heatmap mode (HeatLayer canvas has no click support)
-4. `TimelineBar.tsx` — native `<input type="range">` scrubber, play/pause `<button>`, time label; lives outside `MapContainer` as an overlay div inside the map panel
-5. `ModeToggle.tsx` — single button in header switching `mapMode` between `'cluster'` and `'timelapse'`
-6. `lib/timelapse-utils.ts` — pure functions: `positionToTimestamp`, `filterByTimeWindow`, `computeVenueHeatPoints`; no dependencies; build and test first
+1. **`discovered_sources` table (NEW)** — staging area for candidate venues found by discovery; `status: pending | approved | rejected | duplicate`; deduplication gate before promotion to `scrape_sources`
+2. **Discovery pipeline (NEW)** — `/api/cron/discover` at 04:00 UTC; `discovery-orchestrator.ts` iterates Atlantic Canada cities; `discoverer.ts` calls Gemini with Google Search grounding; deduplicates against existing sources by domain; inserts to `discovered_sources`
+3. **Promotion mechanism (NEW)** — script or minimal admin endpoint; moves approved `discovered_sources` rows to `venues` + `scrape_sources`; explicit gate for quality control
+4. **Extended `ExtractedEventSchema` (MODIFIED)** — adds `event_category: z.enum([...]).nullable()` to the existing Zod schema; extractor prompt updated to remove "live music only" constraint and add category classification instruction
+5. **`normalizer.ts` (MODIFIED)** — writes `event_category` in INSERT values and ON CONFLICT SET (enables backfill on re-scrape)
+6. **Category filter (MODIFIED)** — new `?category=` nuqs param in `EventFilters.tsx`; `filterByCategory()` utility applied in `HomeContent` filter chain to both sidebar and map layer (both must receive the same filtered set)
 
-**Build order for v1.1 (strict dependency sequence):**
-1. `lib/timelapse-utils.ts` → pure functions, no deps, fully testable
-2. `HeatmapLayer.tsx` → verify `next build` passes before any animation logic
-3. `TimelineBar.tsx` + `ModeToggle.tsx` → pure UI, stub props/callbacks
-4. `HeatmapClickLayer.tsx` → invisible CircleMarkers at venue positions
-5. `HomeContent` wiring → state, play interval, `useMemo` chains, mode-aware filter
-6. `MapClient.tsx` + `MapClientWrapper.tsx` → prop threading, conditional layer rendering
-7. Integration testing → full checklist from PITFALLS.md
+**Build order (strict dependency sequence):**
+1. DB migration — `event_category` column on `events`, `discovered_sources` table (prerequisite for everything)
+2. `ExtractedEventSchema` extension + `extractor.ts` prompt update (parallelizable with step 6)
+3. `normalizer.ts` write of `event_category` (depends on steps 1 + 2)
+4. `filterByCategory()` utility (pure function, no deps — can be done anytime)
+5. `EventFilters.tsx` + `HomeContent` category filter wiring (depends on step 4)
+6. `discoverer.ts` + `discovery-orchestrator.ts` (depends on step 1 for `discovered_sources` table; independent of steps 2–5)
+7. `/api/cron/discover` route + `vercel.json` cron entry (depends on step 6)
+8. Promotion mechanism (depends on step 7 having produced real `discovered_sources` data)
 
 ### Critical Pitfalls
 
-**v1.0 — Scraping pipeline:**
+**v1.2 — Discovery and categorization (top priority for this milestone):**
 
-1. **Chromium binary blows Vercel's 50MB function size limit** — Playwright/Puppeteer's Chromium binary is ~280MB. Never run headless browser scraping inside a Vercel function. Decouple to a separate process (GitHub Actions scheduled workflow, Fly.io) that writes results to Neon. The Vercel app reads from DB only.
+1. **Discovery pulls irrelevant pages that swamp the scrape queue** — Use `discovered_sources` staging table; pre-screen candidates with keyword check before any Gemini call; run a single Gemini Flash-Lite YES/NO call ("does this page list upcoming events with specific dates?") before promoting; cap discovery batch at 10 candidates per cron run regardless of search result count.
 
-2. **LLM hallucinates dates and times not present on the page** — JSON schema mode constrains format, not factual accuracy. Instruct explicitly: "If a field is not clearly present, return null — do not infer or guess." Use nullable schema fields. Post-process: reject events with null dates; sanity-check that date is in future and within 90 days.
+2. **AI category labels drift across scrape runs** — Enforce the taxonomy via `z.enum([...])` in the Zod schema passed to `generateObject()`; validate returned category against allowlist post-extraction; map any invalid value to `'other'`; store slugs in DB, resolve to display labels in the frontend only.
 
-3. **Token costs scale unexpectedly with raw HTML** — A single venue page can be 50,000–100,000 tokens. Strip `<script>`, `<style>`, nav, footer before sending to LLM. `mozilla/readability` or targeted cheerio selectors reduce token count 10–25x. Log per-run token usage and alert above $1/run.
+3. **Categorization added as a separate Gemini call** — Add `event_category` to `ExtractedEventSchema`; extract and classify in the same call. A separate categorization pass doubles Gemini call count, doubles scrape duration, and risks Vercel function timeout.
 
-4. **Duplicate events from multiple sources** — The same show scraped from venue site + Eventbrite + Bandsintown = 3 database rows = 3 map pins. Design a composite deduplication key at schema time: `normalize(venue_name) + normalize(event_date) + normalize(performer)`. Use upsert. Add before ingesting from a second source — retrofitting is painful.
+4. **Drizzle `pgEnum` not exported from schema file** — Confirmed open bug (#5174): `pgEnum` not exported from `schema.ts` is silently omitted from migration SQL, causing deploy-time "type does not exist" failure. Always `export const` every enum.
 
-5. **Geocoding failures for Atlantic Canada addresses** — Nominatim public API prohibits production use and has limited coverage of small Maritime addresses. Use OpenCage, Google Maps Geocoding, or Positionstack. Geocode once at venue creation time; store lat/lng on the `venues` record; allow manual lat/lng override for problematic addresses.
+5. **Discovery cron hitting function timeout** — Use a separate `/api/cron/discover` route with `export const maxDuration = 300`. Confirm Fluid Compute is enabled in Vercel project settings. Do not reuse the existing scrape cron. The existing `maxDuration = 60` in the scrape cron was set before Fluid Compute and is artificially conservative — update it, but keep the routes separate.
 
-**v1.1 — Heatmap timelapse:**
+6. **Existing events have null category after migration** — Plan a one-time backfill script as part of the Phase 2 deliverable. Run it immediately after migration deploys, before the feature is announced. Without it, category filter returns zero results until the next scrape cycle.
 
-6. **`leaflet.heat` has no click-through support** — The HeatLayer renders to a flat canvas with no spatial index. GitHub issue #61 (open since the plugin began) confirms this will never change. Never attach click handlers to the HeatLayer. Implement click-through via `HeatmapClickLayer` — invisible `CircleMarker` components at venue positions that receive native Leaflet click events.
+7. **Duplicate venues discovered from multiple search queries** — Dedup at candidate insertion: extract and normalize the domain from each discovered URL; check if a venue with that domain already exists in `venues` table; if yes, link to existing venue instead of creating a duplicate. Add unique constraint on `venues.website` domain.
 
-7. **SSR build failure from `leaflet.heat` import** — `leaflet.heat` calls `window` and `document` at module evaluation time. Never `import 'leaflet.heat'` at module top level. Import inside `useEffect` with `await import('leaflet.heat')`, or keep `HeatmapLayer` inside a second `dynamic(..., { ssr: false })` boundary. Test `next build && next start` immediately after `HeatmapLayer` setup — before any animation logic.
+8. **Map and sidebar showing different filtered sets after category filter** — Apply `filterByCategory()` to both `sidebarEvents` and the events passed to `MapClientWrapper`. Derive `mapEvents = filterByCategory(allEvents, category)` separately. Map and sidebar must always show the same filtered set.
 
-8. **Animation loop memory leak on mode toggle** — The rAF/interval ID must be stored in `useRef`, never a local variable. Use `useLayoutEffect` for synchronous cleanup. Always call `map.removeLayer(heatLayerRef.current)` in `useEffect` cleanup. An empirical study of React repos found 86% had missing cleanup; rAF loops leaked ~8 KB per mount/unmount cycle. Verify with DevTools heap snapshots across 10 toggle cycles.
+**v1.0/v1.1 — still relevant (not resolved by v1.2 work):**
 
-9. **Time position state must NOT go in the URL** — Animation advances 5 times/second during playback. Writing `timePosition` to nuqs causes browser History API rate-limit errors (~100 pushState/30s Chrome limit), URL thrashing visible to users, and sidebar lag from nuqs's debouncing. Keep `timePosition` in `useState`. Only write to URL on pause or scrub-end if shareability is needed later.
+9. **LLM hallucinates dates and times** — The v1.2 extractor prompt update must preserve the "return null, do not infer or guess" discipline. Removing the "live music only" constraint expands scope — re-validate that the updated prompt still produces null for ambiguous dates, not guesses.
 
-10. **Sidebar desync from heatmap time window** — nuqs URL state (date, province) updates asynchronously and is rate-limited. Heatmap time position changes multiple times per second. These must be separate state channels. Derive sidebar events from the same `timePosition` `useState` that drives `heatPoints` — never route heatmap time through nuqs.
+10. **Leaflet.heat SSR build failure** — `import 'leaflet.heat'` at module top level causes `next build` failure even within `dynamic(..., { ssr: false })` wrapper. Import inside `useEffect` or keep `HeatmapLayer` in a second `dynamic()` boundary. Test with `next build && next start` immediately on any HeatLayer change.
 
 ---
 
 ## Implications for Roadmap
 
-This project has two milestone layers: the v1.0 scraping + discovery foundation, and the v1.1 heatmap timelapse addition. The v1.0 phases establish the critical path (no display without data); the v1.1 phases follow strict internal dependency order within the milestone.
-
-### Phase 1: Foundation and Database Schema
-**Rationale:** Every component depends on schema decisions that are expensive to change. Deduplication key, geocoding column placement (on `venues`, not `events`), and `event_date` index must be designed before any data is written. The execution environment decision (headless browser decoupled from Vercel) must also be resolved before any scraper logic is written.
-**Delivers:** Scaffolded Next.js project on Vercel, Neon database connected, Drizzle schema with `events`, `venues`, and `scrape_sources` tables, migrations running, `event_date` index in place.
-**Avoids:** Stale event accumulation (date index + cleanup job in schema), duplicate events (upsert key defined in schema), Chromium/Vercel size limit (execution environment decided upfront).
+### Phase 1: Foundation and Database Schema (v1.0)
+**Rationale:** Schema decisions are expensive to change once data is written. Dedup key, geocoding placement, and `event_date` index must be resolved before any scraping starts.
+**Delivers:** Scaffolded Next.js + Vercel + Neon + Drizzle; `events`, `venues`, `scrape_sources` tables; migrations running; `event_date` index; geocoder selected.
+**Avoids:** Duplicate events (upsert key defined upfront), stale events (date index + cleanup job), geocoding failures (paid geocoder with confidence threshold)
 **Research flag:** Standard patterns — well-documented Drizzle + Neon setup. No additional research needed.
 
-### Phase 2: Scraping Pipeline and Data Ingestion
-**Rationale:** The scraper is the engine. Without events in the database, there is nothing to display. Build the fetch → extract → normalize → geocode → upsert pipeline as isolated library functions before wiring to cron. Token cost and LLM quality pitfalls must be addressed here — retrofitting is expensive.
-**Delivers:** Working scraper processing at least 5 real Atlantic Canada venue URLs, extracting structured event data via GPT-4o mini, geocoding venues, upserting idempotently, logging token usage per run.
-**Uses:** cheerio (HTML preprocessing), Vercel AI SDK + GPT-4o mini, Zod, date-fns, Neon + Drizzle, production geocoder (OpenCage or Google).
-**Avoids:** LLM date hallucination (nullable fields, null-rejection validation), token cost explosion (cheerio preprocessing), duplicate events (upsert on composite key), geocoding failures (paid geocoder with confidence threshold + manual override).
-**Research flag:** Needs deeper research during planning — LLM extraction prompt design, HTML preprocessing approach, and geocoder selection for Atlantic Canada venue variety are non-trivial decisions with cost implications.
+### Phase 2: Scraping Pipeline and Data Ingestion (v1.0)
+**Rationale:** No display without data. Build fetch → extract → normalize → geocode → upsert as isolated library functions before wiring to cron. LLM quality and token cost pitfalls must be addressed here — retrofitting is expensive.
+**Delivers:** Working scraper on 5+ real Atlantic Canada venue URLs; GPT-4o mini / Gemini extraction; upsert; token logging.
+**Avoids:** LLM date hallucination (nullable fields, null-rejection), token cost explosion (cheerio preprocessing), geocoding failures (paid geocoder).
+**Research flag:** Needs deeper research during planning — LLM extraction prompt design for heterogeneous Atlantic Canada venue HTML is non-trivial.
 
-### Phase 3: Cron Wiring and Automated Rescan
-**Rationale:** Once the scraper library works end-to-end, cron wiring is a thin integration step. This phase makes the app hands-off and validates the full pipeline against Vercel's function timeout constraints.
-**Delivers:** `/api/cron/scrape` route, `vercel.json` cron config, per-source error isolation, `last_scraped` timestamps, basic source health logging.
-**Avoids:** Vercel function timeout (sequential scraping tested against realistic source count; batching added if needed), non-idempotency (upsert already in place from Phase 2).
-**Research flag:** Standard patterns — Vercel cron docs are HIGH confidence and comprehensive.
+### Phase 3: Cron Wiring and Automated Rescan (v1.0)
+**Rationale:** Thin integration step after scraper library works end-to-end. Validates full pipeline against Vercel timeout constraints.
+**Delivers:** `/api/cron/scrape` route, `vercel.json` cron config, per-source error isolation, source health logging.
+**Research flag:** Standard patterns — Vercel cron docs are HIGH confidence.
 
-### Phase 4: Events API
-**Rationale:** The frontend cannot be built until read-only API endpoints exist. Thin but necessary — parameterized endpoints accepting bounding box and date range. Default filter enforces `event_date >= NOW()` at the query layer.
-**Delivers:** `GET /api/events`, `GET /api/events/[id]`, `GET /api/venues` — JSON with coordinates, future events only.
-**Avoids:** Unbounded queries (date filter enforced in Drizzle query, not optionally at frontend), stale events leaking through (API layer enforces the filter).
+### Phase 4: Events API (v1.0)
+**Rationale:** Frontend cannot be built without read-only endpoints. Default filter enforces `event_date >= NOW()` at query layer.
+**Delivers:** `GET /api/events`, `GET /api/events/[id]`, `GET /api/venues`; future events only.
 **Research flag:** Standard patterns. No additional research needed.
 
-### Phase 5: Map Frontend and Event Display
-**Rationale:** With real geocoded events and a working API, the map and list can be built and validated with actual data. The map is the primary differentiator; the list and detail page are supporting surfaces.
-**Delivers:** Interactive map with clustered event pins, event list with date/province filter and viewport sync, event detail panel, mobile-responsive, empty state handling.
-**Uses:** react-leaflet 5.x, react-leaflet-cluster (with manual CSS import), shadcn/ui event cards and filter sidebar, Tailwind CSS 4.x.
-**Avoids:** Map clustering performance issues (test with 500+ pins on mobile at zoom 6–7), missing empty states, default extent too zoomed out (default to densest event area, not all of Atlantic Canada).
-**Research flag:** Standard patterns. react-leaflet CSS import gotcha is documented in STACK.md and known upfront.
+### Phase 5: Map Frontend and Event Display (v1.0)
+**Rationale:** With real geocoded events and a working API, the map and list can be built and validated with actual data.
+**Delivers:** Interactive map with clustered pins, event list with date/province filter and viewport sync, event detail panel, mobile-responsive.
+**Research flag:** Standard patterns. react-leaflet CSS import requirement for cluster is documented in STACK.md.
 
-### Phase 6: Heatmap Timelapse (v1.1) — Core Layer
-**Rationale:** The timelapse feature builds on the existing map foundation. The dependency order within this milestone is strict: pure logic first, then the Leaflet layer, then UI, then integration. The SSR guard verification must happen at the start of this phase — before any animation logic.
-**Delivers:** Working timelapse mode: mode toggle, heatmap renders for current 24-hour time window, timeline scrubber (30-day range), play/pause animation with loop, current time label, sidebar synced to time window, step controls, empty window state.
-**Uses:** leaflet.heat 0.2.0, @types/leaflet.heat 0.2.5, react-leaflet `useMap()` hook, native `<input type="range">`, `setInterval` play loop.
-**Avoids:** SSR build failure (HeatLayer in dynamic import boundary; `next build` verified first), animation memory leak (useRef + useLayoutEffect cleanup), timePosition in URL (useState only), sidebar desync (same timePosition drives both heatPoints and sidebarEvents), HeatLayer click handlers (spatial lookup via HeatmapClickLayer stub instead).
-**Research flag:** Research is complete and HIGH confidence. ARCHITECTURE.md provides exact implementation patterns for all new components. No additional research needed — reference existing research files during implementation.
+### Phase 6: Heatmap Timelapse Core (v1.1)
+**Rationale:** Builds on existing map foundation. SSR guard verification must happen before any animation logic is written.
+**Delivers:** Mode toggle, heatmap renders for current 24-hour time window, 30-day timeline scrubber, play/pause animation, time label, sidebar synced to time window.
+**Avoids:** SSR build failure (HeatLayer in dynamic import boundary), animation memory leak (useRef + useLayoutEffect cleanup), timePosition in URL (useState only), sidebar desync.
+**Research flag:** Research complete and HIGH confidence. ARCHITECTURE.md provides exact implementation patterns.
 
-### Phase 7: Heatmap Timelapse (v1.1) — Interaction and Validation
-**Rationale:** After core timelapse is working, add the highest-value interaction (click-through) and run the full verification checklist from PITFALLS.md. Mobile scrubber behavior and heap stability across repeated mode toggles are the highest-risk items.
-**Delivers:** Click-through from heatmap hotspot (spatial proximity lookup, not HeatLayer click handler), animation speed control if user testing reveals need, full PITFALLS.md checklist verified (8 items), mobile-validated.
-**Avoids:** All v1.1 pitfalls (Pitfalls 8–14) systematically verified against the "looks done but isn't" checklist.
-**Research flag:** PITFALLS.md provides the complete verification checklist. No additional research needed.
+### Phase 7: Heatmap Validation and Interaction (v1.1)
+**Rationale:** After core timelapse works, add click-through and validate against the PITFALLS.md checklist. Mobile scrubber behavior and heap stability are highest-risk items.
+**Delivers:** Click-through from hotspot (spatial lookup, not HeatLayer click handler), animation speed control, full pitfalls checklist verified, mobile-validated.
+**Research flag:** PITFALLS.md provides the complete verification checklist.
 
-### Phase 8: Polish, Monitoring, and Source Expansion
-**Rationale:** Once the core product works end-to-end with a small venue set, harden operational monitoring and expand coverage to the full Atlantic Canada target.
-**Delivers:** Source health monitoring (alert on 3+ consecutive empty scrape runs), stale data indicator on event cards, expanded venue source list (NB, NS, PEI, NL), token cost reporting.
-**Research flag:** Per-venue scraping challenges (JS-rendered sites, anti-bot measures) will surface as venues are added. Light venue-specific research as needed; not a wholesale phase-level research requirement.
+### Phase 8: DB Migration and Category Schema (v1.2 Gate)
+**Rationale:** Hard gate for all v1.2 work. No other v1.2 phase can produce useful output without the schema in place. Ship independently.
+**Delivers:** `event_category TEXT` on `events` table; `discovered_sources` table; Drizzle migration files; verified in production Neon; backfill script ready to run immediately post-deploy.
+**Avoids:** pgEnum export bug (use `text` column for flexibility, or correctly export enum), null category on existing events at feature launch.
+**Research flag:** Standard patterns — additive migration is low-risk. Backfill cost estimate: ~5,000 events × 200 tokens ≈ 1M tokens at Gemini Flash pricing, well under $1.
+
+### Phase 9: AI Extraction Extension + Categorization (v1.2)
+**Rationale:** Extends the working scraper without new infrastructure. Highest value-to-effort ratio of all v1.2 phases.
+**Delivers:** `event_category` written on all newly scraped events; extractor prompt updated to include all event types (not just live music); `normalizer.ts` stores category via ON CONFLICT DO UPDATE (backfills on re-scrape).
+**Avoids:** Two-Gemini-call anti-pattern (one call extracts and classifies), category drift (`z.enum()` constraint), LLM date hallucination regression (preserve null-over-guess discipline through prompt rewrite).
+**Research flag:** No additional research needed — STACK.md and ARCHITECTURE.md provide exact Zod schema extension and prompt update patterns.
+
+### Phase 10: Category Filter UI (v1.2)
+**Rationale:** Can be built with mock/null category data while Phase 9 populates real categories. Clean nuqs extension.
+**Delivers:** Horizontal chip row in `EventFilters`, `?category=` nuqs param, `filterByCategory()` utility applied to both sidebar and `MapClientWrapper`, category badge on event cards and detail pages.
+**Avoids:** Map/sidebar desync (both receive the same `filterByCategory(allEvents, category)` result).
+**Research flag:** Standard patterns — identical to existing nuqs date/province filter implementation.
+
+### Phase 11: Venue Discovery Pipeline (v1.2)
+**Rationale:** Independent of Phases 9–10 (only requires `discovered_sources` table from Phase 8). Highest complexity deliverable in v1.2.
+**Delivers:** `/api/cron/discover` route with `maxDuration = 300`; `discoverer.ts` with Gemini + Google Search grounding; domain-based deduplication; insertion to `discovered_sources` with `pending` status; `vercel.json` discovery cron entry at 04:00 UTC.
+**Avoids:** Discovery timeout (separate route, maxDuration 300), irrelevant page accumulation (pre-screening quality gate), duplicate venue creation (domain-based dedup at candidate insertion).
+**Research flag:** Needs validation — Gemini grounding output structure for venue URL discovery should be tested on a single city (Halifax) before building the full orchestrator. Verify that `@ai-sdk/google` exposes `useSearchGrounding` in the current installed version.
+
+### Phase 12: Source Promotion and First Discovery Validation (v1.2)
+**Rationale:** Requires Phase 11 to have run and populated `discovered_sources` with real data before promotion mechanics can be validated against actual candidates.
+**Delivers:** Promotion script or minimal admin endpoint; first real discovered venues promoted to `scrape_sources`; discovery query tuning based on first-run false positive rate.
+**Research flag:** No canonical pattern at this scale — prototype and iterate based on actual discovery output quality.
 
 ### Phase Ordering Rationale
 
-- Database schema first (Phase 1): deduplication key, geocoding placement, and date indexing decisions are expensive to change after data is written. Must be resolved before any scraping.
-- Scraper before API before frontend (Phases 2–5): the frontend has nothing to display without real data. Scaffolding is fine; validation is not possible until the pipeline produces real events.
-- Cron wiring is thin (Phase 3 is short): separating it from the scraper library makes Phase 2 testable without a live cron setup. The orchestrator is called directly during development.
-- Map before heatmap (Phase 5 before Phase 6): the heatmap depends on the existing cluster map infrastructure (`MapContainer`, `MapClient`, `allEvents` data flow). Build that first.
-- Pure logic before components within v1.1 (within Phase 6): `timelapse-utils.ts` has no dependencies and enables all other components; `HeatmapLayer.tsx` SSR verification gates all animation work.
+- **Phase 8 is a hard gate for all v1.2 work:** Schema first, always. Ship independently.
+- **Phases 9 and 10 are parallelizable after Phase 8:** Extractor changes improve the existing scraper immediately (high value, low risk). The UI can be built with mock data while waiting for real categories.
+- **Phase 11 is independent of Phases 9–10:** Discovery does not depend on categorization. Both tracks can run in parallel after Phase 8.
+- **Phase 12 gates on real discovery data:** Promotion logic can be designed in Phase 11, but must be validated against actual `discovered_sources` rows from a real discovery run.
+- **Backfill (Phase 8 deliverable) must run before feature is announced:** Not a deferred task — include in Phase 8 definition of done.
 
 ### Research Flags
 
 Phases needing deeper research during planning:
-- **Phase 2 (Scraping Pipeline):** LLM extraction prompt engineering for heterogeneous Atlantic Canada venue HTML, HTML preprocessing library selection, geocoder selection and pricing for ~50–200 venues, scraper response validation patterns.
+- **Phase 2 (Scraping Pipeline):** LLM extraction prompt engineering for heterogeneous Atlantic Canada venue HTML; geocoder selection and pricing for ~50–200 venues.
+- **Phase 11 (Discovery Pipeline):** Gemini grounding output structure for venue URL discovery needs empirical validation on a single city before building the full orchestrator. Also confirm `useSearchGrounding` availability in current `@ai-sdk/google` version.
 
 Phases with complete research (reference existing files, no additional research needed):
-- **Phase 1 (Foundation):** Drizzle + Neon setup is well-documented. Next.js scaffolding is zero-config.
-- **Phase 3 (Cron Wiring):** Vercel cron documentation is HIGH confidence.
-- **Phase 4 (Events API):** Standard Next.js Route Handler + Drizzle read query patterns.
-- **Phase 5 (Map Frontend):** react-leaflet + react-leaflet-cluster patterns well-documented; CSS import gotcha known.
-- **Phase 6 (Heatmap Core):** ARCHITECTURE.md and STACK.md provide exact implementation patterns for all new components.
+- **Phase 1 (Foundation):** Drizzle + Neon setup well-documented.
+- **Phase 3 (Cron Wiring):** Vercel cron docs are HIGH confidence.
+- **Phase 4 (Events API):** Standard Next.js Route Handler + Drizzle read queries.
+- **Phase 5 (Map Frontend):** react-leaflet + react-leaflet-cluster patterns well-documented.
+- **Phase 6 (Heatmap Core):** ARCHITECTURE.md provides exact implementation patterns.
 - **Phase 7 (Heatmap Validation):** PITFALLS.md provides the complete verification checklist.
-- **Phase 8 (Polish):** Incremental additions to existing patterns.
+- **Phase 8 (DB Migration):** Additive migration, low-risk, established pattern.
+- **Phase 9 (Extraction Extension):** STACK.md and ARCHITECTURE.md provide exact Zod schema extension pattern.
+- **Phase 10 (Category Filter UI):** Identical to existing nuqs date/province filter.
+- **Phase 12 (Source Promotion):** Prototype-and-iterate based on real discovery output.
 
 ---
 
@@ -214,51 +219,66 @@ Phases with complete research (reference existing files, no additional research 
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Core choices verified against official sources and npm registry. react-leaflet 5.x + leaflet.heat compatibility confirmed by direct npm inspection and official docs. AI SDK 5 recently released but core `generateObject()` API confirmed. |
-| Features | HIGH | UX patterns verified against windy.com, kepler.gl, ArcGIS Time Slider. Anti-features have documented rationale from real user behavior (windy.com community discussions). MVP scope is well-defined and prioritized. |
-| Architecture | HIGH | Based on direct codebase inspection of existing components plus react-leaflet 5.x core API verification against official docs. All implementation patterns are explicit and verified, including exact component code. |
-| Pitfalls | HIGH | v1.0 pitfalls from multiple industry sources; v1.1 pitfalls verified via Leaflet.heat GitHub source, WCAG 2.2 spec, empirical React memory leak research, react-leaflet GitHub issue tracker, and nuqs source code. |
+| Stack | HIGH | Core stack in production; v1.2 additions verified via official docs and npm registry. AI SDK 5 `generateObject` pattern is well-documented. No new packages needed. |
+| Features | HIGH (categorization + filter), MEDIUM (discovery) | Category taxonomy and filter UX are established patterns. Automated venue discovery via Gemini grounding has no canonical precedent — the approach is architecturally sound but real-world yield in Atlantic Canada is unverified. |
+| Architecture | HIGH | Based on direct codebase inspection; integration points are verified, not inferred. Build order respects strict dependency chain. |
+| Pitfalls | HIGH | v1.0–v1.1 pitfalls empirically grounded; v1.2 pitfalls verified via Vercel docs, confirmed open issues, Gemini API pricing docs, and LLM drift empirical research. |
 
-**Overall confidence: HIGH**
+**Overall confidence:** HIGH for execution plan; MEDIUM for discovery pipeline real-world yield in Atlantic Canada specifically.
 
 ### Gaps to Address
 
-- **LLM extraction prompt tuning:** Research establishes the structural approach (nullable fields, null-not-infer instruction) but does not validate extraction quality against real Atlantic Canada venue HTML. First real scrape runs will reveal prompt adjustments. Budget 1–2 iteration cycles during Phase 2.
-- **Geocoding service selection:** OpenCage, Google Maps Geocoding, and Positionstack are all flagged as options. Best fit for Atlantic Canada small-town and rural addresses has not been empirically benchmarked. Test OpenCage on a sample of 10–15 rural venue addresses before committing.
-- **Atlantic Canada venue site variety:** The percentage of target venues using JS rendering vs. static HTML, or protected by Cloudflare, is unknown without actual scraping. Expect 1–3 venues per province that require the headless browser path or manual data entry.
-- **Animation performance threshold:** The pre-bucketing optimization (replace `Array.filter` per scrubber event with an O(1) bucket lookup) is documented as the escape hatch if filter performance becomes sluggish. At current Atlantic Canada volume (hundreds of events), `Array.filter` is fine. Revisit if event count grows past ~500.
-- **Vercel Hobby vs. Pro cron limits:** Hobby plan allows one cron execution per day. Sufficient for initial validation; may be insufficient above ~20 venues per scrape run. Monitor scrape run duration against function timeout; escalate to Pro or GitHub Actions cron trigger if needed.
+- **Gemini grounding output quality for venue discovery:** The model may return inconsistent structure, non-Atlantic results, or duplicate domains across city queries. Test on a single city (Halifax) and inspect raw output before building the orchestrator. Budget for 1–2 prompt iteration cycles.
+
+- **Google Places API field mask billing:** Research notes requesting only Basic fields may qualify for lower billing. Validate the actual field mask + billing tier before using at scale. This API is a fallback if Gemini grounding underperforms — may not be needed at all.
+
+- **Category backfill scope and cost:** Estimate ~5,000 events × 200 tokens ≈ 1M tokens at Gemini Flash pricing ≈ well under $1. Validate before running. Run immediately post-migration, before feature announcement.
+
+- **Discovery cron cadence:** Research recommends daily (04:00 UTC), but Atlantic Canada's venue landscape doesn't change daily. Weekly cadence may be more appropriate initially. Confirm with team before locking in `vercel.json` schedule.
+
+- **LLM extraction prompt regression:** The v1.2 prompt update removes the "live music only" constraint. Re-validate that the updated prompt still produces null for ambiguous dates and correctly handles all-event-type HTML (breweries running markets, theatres running both plays and concerts, etc.). Run against 5–10 real venue URLs before deploying.
+
+- **Animation performance at higher event volume:** The pre-bucketing optimization (O(1) lookup instead of O(n) `Array.filter` per animation frame) is documented as the escape hatch. At current Atlantic Canada scale (hundreds of events), `Array.filter` is fine. Revisit if event count grows past ~500 events in the 30-day window.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- `npm info react-leaflet`, `npm info leaflet.heat`, `npm info @types/leaflet.heat`, `npm info react-leaflet-cluster` — npm registry version and compatibility verification
-- [react-leaflet Core Architecture docs](https://react-leaflet.js.org/docs/core-architecture/) — useMap hook, useLayerLifecycle, official patterns for custom Leaflet plugin wrapping
-- [Leaflet.heat GitHub (Leaflet org)](https://github.com/Leaflet/Leaflet.heat) — setLatLngs API, canvas rendering, Issue #61 (no click events — confirmed open and unresolved)
-- [react-leaflet GitHub Issue #941](https://github.com/PaulLeCam/react-leaflet/issues/941) — layer leak on unmount without explicit removeLayer
-- [WCAG 2.2 SC 2.5.7 — Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) — native range input requirement
-- [Vercel Cron Jobs docs](https://vercel.com/docs/cron-jobs) + [usage and pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) — Hobby (daily) vs. Pro (per-minute) limits
-- [Neon for Vercel marketplace](https://vercel.com/marketplace/neon) — official integration, confirmed Vercel Postgres → Neon migration
-- Direct codebase inspection: `src/components/map/`, `src/app/page.tsx`, `src/lib/filter-utils.ts`, `package.json` — existing component tree and state inventory
+- Direct codebase inspection (`src/lib/scraper/`, `src/lib/db/schema.ts`, `src/app/api/cron/`, `src/components/`, `vercel.json`) — existing architecture, verified integration points
+- `npm info react-leaflet`, `npm info leaflet.heat`, `npm info @types/leaflet.heat`, `npm info react-leaflet-cluster` — version and compatibility verification
+- [react-leaflet Core Architecture docs](https://react-leaflet.js.org/docs/core-architecture/) — `useMap` hook, `useLayerLifecycle`, official patterns
+- [Leaflet.heat GitHub (Leaflet org)](https://github.com/Leaflet/Leaflet.heat) — `setLatLngs()` API, canvas rendering, Issue #61 (no click events)
+- [Vercel Fluid Compute docs](https://vercel.com/docs/fluid-compute) — Hobby 300s max duration confirmed
+- [Vercel Cron Jobs docs](https://vercel.com/docs/cron-jobs/usage-and-pricing) — Hobby plan: 100 cron jobs, once per day
+- [Drizzle ORM pgEnum export bug #5174](https://github.com/drizzle-team/drizzle-orm/issues/5174) — confirmed open issue, enum silently omitted from migration SQL
+- [Google Places API (New): Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search) — place types, field masks, pricing
+- [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — Atlantic Canada stateCode filter, 5,000 calls/day free
+- [Gemini API Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search) — grounding as first-class Gemini API feature
+- [Gemini Structured Output](https://ai.google.dev/gemini-api/docs/structured-output) — enum constraints in schema for classification tasks
+- [nuqs parseAsArrayOf docs](https://nuqs.dev/) — multi-select URL state pattern
+- [Vercel AI SDK: generateObject](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) — Zod enum output constraint
 
 ### Secondary (MEDIUM confidence)
 - [Drizzle vs Prisma 2026 comparison (Bytebase)](https://www.bytebase.com/blog/drizzle-vs-prisma/) — cold start benchmarks, bundle sizes
 - [AI SDK Core: generateObject](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-object) — structured output API (docs in transition for AI SDK 5)
-- [kepler.gl Time Playback docs](https://docs.kepler.gl/docs/user-guides/h-playback) — speed control patterns, window selection
-- [windy.com community discussions](https://community.windy.com) — speed control user frustration; timeline UX as established conventions
-- [ArcGIS Timeline Widget](https://developers.arcgis.com/experience-builder/guide/timeline-widget/) — sidebar sync pattern (connected list widgets via shared data source)
+- [kepler.gl Time Playback docs](https://docs.kepler.gl/docs/user-guides/h-playback) — speed control patterns
+- [nuqs GitHub (47ng/nuqs)](https://github.com/47ng/nuqs) — browser rate-limit on URL updates
 - [Frontend Memory Leaks empirical study (stackinsight.dev)](https://stackinsight.dev/blog/memory-leak-empirical-study/) — 86% missing cleanup; ~8 KB/cycle rAF leak quantification
-- [nuqs GitHub (47ng/nuqs)](https://github.com/47ng/nuqs) — browser rate-limit on URL updates; throttle/debounce capabilities
+- [Eventbrite location search removal](https://groups.google.com/g/eventbrite-api/c/ZD9rP1dQGag) — confirmed via community report and absence from current API docs
+- [Bandsintown API documentation](https://help.artists.bandsintown.com/) — region search unavailable, new key applications suspended
+- [Filter UI Design Best Practices](https://www.insaim.design/blog/filter-ui-design-best-ux-practices-and-examples) — chip-based filter patterns, "Clear All" convention
+- [react-leaflet GitHub Issue #941](https://github.com/PaulLeCam/react-leaflet/issues/941) — layer leak on unmount without explicit `removeLayer`
+- [WCAG 2.2 SC 2.5.7 — Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) — native range input requirement
 
-### Tertiary (LOW confidence — validates assumptions, needs runtime verification)
-- [OpenAI pricing](https://openai.com/api/pricing/) — GPT-4o mini token costs (subject to change)
+### Tertiary (informational / needs runtime validation)
+- [PredictHQ Event Categories](https://www.predicthq.com/intelligence/data-enrichment/event-categories) — informed decision to use small flat taxonomy vs. 19+ categories
+- [DEV: Tech Event Discovery Platform](https://dev.to/danishaft/how-i-built-a-tech-event-discovery-platform-with-real-time-scraping-3o4f) — confirmed no existing platform does automated venue discovery; all rely on curated or self-submitted sources
+- [OpenAI pricing](https://openai.com/api/pricing/) — GPT-4o mini token costs (subject to change; Gemini now primary)
 - [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) — 1 req/sec public limit; confirms must use paid geocoder for production
-- [ZenRows: Playwright on Vercel](https://www.zenrows.com/blog/playwright-vercel) — @sparticuz/chromium workaround (decoupling scraper to external process is the cleaner path)
-- Atlantic Canada event platform gap: inferred from competitor coverage analysis — needs validation with actual venue outreach
 
 ---
 
 *Research completed: 2026-03-14*
+*Covers: v1.0 core scraping + map, v1.1 heatmap timelapse, v1.2 discovery + categorization*
 *Ready for roadmap: yes*

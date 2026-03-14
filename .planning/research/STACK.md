@@ -1,7 +1,7 @@
 # Stack Research
 
 **Domain:** Local events discovery app with AI-powered web scraping and interactive map
-**Researched:** 2026-03-13 (v1.0 baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse additions)
+**Researched:** 2026-03-13 (v1.0 baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse additions, v1.2 event discovery and categorization)
 **Confidence:** HIGH (core framework/DB/UI), MEDIUM (AI scraping approach), MEDIUM (mapping)
 
 ## Recommended Stack
@@ -242,6 +242,234 @@ Atlantic Canada event volume (hundreds of events over 30 days) makes this filter
 
 ---
 
+## v1.2 Additions: Event Discovery and Categorization
+
+*Added: 2026-03-14. Stack additions for automatic venue/source discovery, all-event-types support, AI categorization, and category filtering UI.*
+
+### Discovery APIs: What to Use and What Limits Apply
+
+The core need is: given a city or province in Atlantic Canada, find all venues that host events (pubs, theatres, concert halls, clubs, etc.) and surface their websites as candidate scrape targets.
+
+#### Google Places API (New) — PRIMARY recommendation for venue discovery
+
+**What it does:** Given a location + place type(s), returns venues with name, website URL, address, coordinates, and phone. The `website` field is exactly what the scraping pipeline needs as a new `scrape_sources` entry.
+
+**Relevant place types for Atlantic Canada event venues:**
+
+```
+live_music_venue, concert_hall, bar, pub, nightclub, comedy_club,
+event_venue, performing_arts_theater, amphitheatre, dance_hall
+```
+
+These are all filterable `includedType` values in the Places API (New). A single Nearby Search with multiple types (using multiple requests or `includedTypes` array) covers the full venue landscape.
+
+**Pricing (post-March 2025 restructure — HIGH confidence):**
+- Free tier: **5,000 requests/month per Pro SKU** (Nearby Search is a Pro SKU)
+- After free tier: **$32.00 per 1,000 requests** with automatic volume discounts above 100k
+- A one-time discovery pass over all four Atlantic provinces hitting every city: ~50–200 API calls total. Well within the 5,000/month free tier — effectively free.
+
+**Key parameters:**
+
+```typescript
+// POST https://places.googleapis.com/v1/places:searchNearby
+{
+  "includedTypes": ["bar", "pub", "live_music_venue", "concert_hall", "nightclub"],
+  "locationRestriction": {
+    "circle": {
+      "center": { "latitude": 44.6488, "longitude": -63.5752 }, // Halifax
+      "radius": 30000.0 // 30km radius
+    }
+  },
+  "maxResultCount": 20
+}
+// Header: X-Goog-FieldMask: places.displayName,places.websiteUri,places.formattedAddress,places.location
+```
+
+**Why use the `X-Goog-FieldMask` header:** You pay the Pro SKU price only when you request Pro fields. Requesting only `displayName`, `websiteUri`, `formattedAddress`, and `location` qualifies as "Basic" fields — billed at **$17/1,000** instead of $32/1,000. See Alternatives section below for field mask billing nuance.
+
+**Authentication:** API key via `key` query param or `X-Goog-Api-Key` header. Enable "Places API (New)" in GCP Console (distinct from legacy Places API).
+
+**No new npm package needed.** Call the REST endpoint directly with `fetch()`. The `@googlemaps/google-maps-services-js` SDK wraps the legacy API and has incomplete coverage of the new Places API (New) endpoints. Use raw fetch + TypeScript types.
+
+#### Ticketmaster Discovery API — SECONDARY for event discovery (not venue discovery)
+
+**What it does:** Search events by city/province/country that are listed on Ticketmaster. Returns structured event data (performer, date, venue, ticket URL) — no scraping needed for these.
+
+**Atlantic Canada coverage:** Use `countryCode=CA` with `stateCode=NS` (or NB, PE, NL). Returns events with full venue details in the response JSON.
+
+**Free tier:** 5,000 API calls/day, 5 requests/second — no cost, just register for an API key at developer.ticketmaster.com.
+
+**When to use:** For events that are Ticketmaster-ticketed (large concerts, major theatre productions). Complements venue-website scraping, which covers the long tail of pub gigs and smaller shows Ticketmaster doesn't list.
+
+**No new npm package.** Raw `fetch()` to `https://app.ticketmaster.com/discovery/v2/events.json?apikey=...&countryCode=CA&stateCode=NS`.
+
+#### What NOT to Use for Discovery
+
+| API | Status | Why Not |
+|-----|--------|---------|
+| Eventbrite event search API | Location-based search removed ~2020 | Eventbrite's API no longer supports searching events by city/region. You can still pull events for a specific known venue (by venue ID), but you can't discover new venues or do region-wide search. Use only for already-configured Eventbrite source URLs. |
+| Bandsintown region search | No region search endpoint | Bandsintown's public API is artist-centric (events for a given artist), not venue or location-centric. New API key applications are currently suspended for non-partnership use. Not viable for discovery. |
+| Songkick API | New key applications suspended | Songkick has geo-based search (`location=geo:lat,lng`) but new developer API key applications are currently not being processed. Cannot rely on this for new builds. |
+| Overpass API (OpenStreetMap) | Data quality too low for Atlantic Canada | OSM venue data in smaller Atlantic Canada cities is sparse and frequently out of date. Bar/pub coverage in rural NB or PEI is thin. Google Places has significantly better coverage in this region. |
+
+### Schema Changes for v1.2
+
+Two schema additions required. No existing columns change.
+
+#### 1. Add `category` column to `events` table
+
+Use a Postgres enum (not a `text` column) to constrain values and enable efficient indexing.
+
+**New Drizzle schema additions:**
+
+```typescript
+// src/lib/db/schema.ts — additions only
+
+import { pgEnum } from 'drizzle-orm/pg-core'
+
+// CRITICAL: Must be exported for drizzle-kit generate to include the
+// CREATE TYPE statement in the migration SQL. See pitfall below.
+export const eventCategoryEnum = pgEnum('event_category', [
+  'live_music',
+  'comedy',
+  'theatre',
+  'festival',
+  'film',
+  'community',
+  'sports',
+  'arts_and_craft',
+  'market',
+  'other',
+])
+
+// In the events table definition, add:
+// category: eventCategoryEnum('category').default('other'),
+```
+
+**Why enum over text:** A Postgres enum column enforces valid values at the DB level, enables `WHERE category = 'live_music'` index scans without a full-table check constraint, and signals intent clearly in the schema. The downside is that adding a new category requires a migration (`ALTER TYPE event_category ADD VALUE 'new_value'`) — acceptable given Atlantic Canada's limited event type diversity.
+
+**Why `default('other')` not `notNull()`:** During the migration period, existing events won't have a category. The default allows old rows to read as `'other'` without a backfill migration. Backfill can be done as a one-time job after the categorization pipeline runs.
+
+**Drizzle pgEnum export pitfall:** Drizzle-kit has a confirmed bug (issue #5174, unfixed as of 2026) where `pgEnum` not exported from the schema file is silently omitted from generated migrations. The `CREATE TYPE event_category AS ENUM (...)` statement is missing from the SQL file, causing the migration to fail at deploy time with "type does not exist". Always `export const` your enums.
+
+#### 2. Add `event_type` to `scrape_sources` (optional, low priority)
+
+No schema change strictly required for v1.2. The existing `source_type` column (`venue_website`, `eventbrite`, `bandsintown`) already distinguishes source types. No new column needed for discovery-added sources — they use the same `venue_website` source type.
+
+#### Migration approach
+
+```typescript
+// drizzle-kit generate will produce:
+// 1. CREATE TYPE event_category AS ENUM ('live_music', 'comedy', ...)
+// 2. ALTER TABLE events ADD COLUMN category event_category DEFAULT 'other'
+// No data migration required — existing rows get 'other' by default.
+```
+
+### AI Categorization: Extending Existing Gemini Extraction
+
+The existing scraping pipeline uses Gemini 2.5 Flash via Vercel AI SDK's `generateObject()` to extract event fields from HTML. Adding categorization is a **schema extension, not a new pipeline** — add `category` to the Zod extraction schema and the prompt.
+
+**Pattern: extend existing Zod schema**
+
+```typescript
+// Add to the existing event extraction Zod schema
+import { z } from 'zod'
+
+const EventCategory = z.enum([
+  'live_music', 'comedy', 'theatre', 'festival',
+  'film', 'community', 'sports', 'arts_and_craft', 'market', 'other'
+])
+
+// In the existing extractedEventSchema, add:
+// category: EventCategory.describe(
+//   'Event type. Use live_music for concerts/gigs/bands. Use other if unclear.'
+// )
+```
+
+**Why extend the extraction schema rather than a separate categorization call:** One Gemini call per scraped page extracts all fields including category. A separate classification pass would double API calls and latency. Gemini 2.5 Flash handles multi-field extraction + classification in one shot reliably.
+
+**Prompt addition (minimal):** The existing prompt extracts performer, date, time, description. Add one line: "Classify each event using the category enum. Default to 'live_music' when the venue is a pub or bar with no other event type indicators." Gemini's `z.enum()` field constraint forces a valid value.
+
+**No new npm packages for categorization.** The existing `ai` (Vercel AI SDK) + `@ai-sdk/google` + `zod` combination handles this. `generateObject` with a Zod schema that includes `z.enum([...])` produces validated category output.
+
+### Category Filtering UI: Extending Existing nuqs Filters
+
+The existing app uses `nuqs` for URL-based filter state (date, location). Category filtering follows the same pattern.
+
+**Pattern: parseAsArrayOf for multi-select category filter**
+
+```typescript
+import { parseAsArrayOf, parseAsStringLiteral, useQueryState } from 'nuqs'
+
+const CATEGORIES = ['live_music', 'comedy', 'theatre', 'festival', 'film',
+  'community', 'sports', 'arts_and_craft', 'market', 'other'] as const
+
+const [categories, setCategories] = useQueryState(
+  'categories',
+  parseAsArrayOf(parseAsStringLiteral(CATEGORIES)).withDefault([])
+)
+// URL: ?categories=live_music,comedy
+// Empty array = show all (no filter)
+```
+
+**No new library.** nuqs `parseAsArrayOf` with `parseAsStringLiteral` is the correct parser for multi-select enum filters. Already in the stack.
+
+**Filter chip UI:** shadcn/ui `Badge` components as toggle buttons. Already in the stack. No new packages.
+
+### Installation: v1.2 Additions Only
+
+```bash
+# No new npm packages required for v1.2.
+# Google Places API: raw fetch() to REST endpoint — no SDK needed
+# Ticketmaster Discovery API: raw fetch() to REST endpoint — no SDK needed
+# AI categorization: extends existing ai + @ai-sdk/google + zod
+# Category filter UI: extends existing nuqs + shadcn/ui
+```
+
+**New environment variables required:**
+
+```bash
+GOOGLE_PLACES_API_KEY=   # Enable "Places API (New)" in GCP Console
+TICKETMASTER_API_KEY=    # Register at developer.ticketmaster.com (free)
+# Gemini key already present from v1.0 scraping pipeline
+```
+
+### Alternatives Considered for v1.2
+
+| Recommended | Alternative | When to Use Alternative |
+|-------------|-------------|-------------------------|
+| Google Places API (New) Nearby Search | `@googlemaps/google-maps-services-js` SDK | If you need the full Places API surface (directions, geocoding, etc.). For discovery-only (one-time or infrequent cron), the SDK adds 15KB bundle weight and wraps an API that's simpler to call directly. |
+| Google Places API (New) Nearby Search | Overpass API (OpenStreetMap) | If cost is a hard constraint and Atlantic Canada OSM data quality were sufficient. It isn't — OSM venue coverage in rural Atlantic Canada is sparse. |
+| Ticketmaster Discovery API | Eventbrite API | If your event sources are primarily Eventbrite-hosted. Eventbrite can still pull events for a known Eventbrite venue URL — just not for region-wide discovery of new venues. |
+| pgEnum for category | `text` column with check constraint | If you anticipate frequent category additions (more than once per quarter). Altering a Postgres enum requires a migration; a check constraint is easier to update. For a stable 10-category taxonomy, enum is cleaner. |
+| Single extended Gemini extraction call | Separate classification API call | If extraction and categorization accuracy diverge (e.g., categorization needs more context than what's in the raw HTML). For now, combined extraction is simpler and cheaper. |
+
+### What NOT to Add for v1.2
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `@googlemaps/google-maps-services-js` | SDK targets legacy Places API, incomplete coverage of Places API (New). Adds bundle weight. | Raw `fetch()` to Places API (New) REST endpoints |
+| Eventbrite region search | Location-based search endpoint removed ~2020. Does not work for discovering new venues. | Google Places API (New) for discovery; continue scraping known Eventbrite URLs directly |
+| Bandsintown API | New key applications suspended. Region/city search not available anyway — API is artist-centric only. | Google Places API (New) + Ticketmaster Discovery API |
+| Songkick API | New developer key applications not being processed as of 2025–2026. | Google Places API (New) |
+| A separate AI classification microservice | Overkill for adding one enum field to an existing extraction schema. | Extend the existing Zod schema passed to `generateObject` |
+| Vector embeddings / semantic search for categorization | Massive overengineering for a 10-value flat taxonomy. Gemini constrained to `z.enum([...])` achieves 95%+ accuracy with zero infrastructure. | `z.enum` field in existing `generateObject` call |
+| `react-select` or similar for category filter UI | 40KB+ bundle for a filter that needs 10 toggle buttons. | shadcn/ui `Badge` components + existing nuqs state |
+
+### Version Compatibility: v1.2 Additions
+
+No new packages, so no new compatibility constraints. Existing compatibility notes from v1.0 apply.
+
+| Integration | Compatible With | Notes |
+|-------------|-----------------|-------|
+| Google Places API (New) REST | fetch (native) | Use `X-Goog-FieldMask` header to control which fields are returned — only pay for what you request |
+| Ticketmaster Discovery API REST | fetch (native) | Pass `apikey` as query param. Rate limit: 5 req/sec, 5,000/day. Space discovery cron calls with `setTimeout` if batching many province/city combos. |
+| `eventCategoryEnum` (pgEnum) | drizzle-orm@0.39.x, drizzle-kit@0.30.x | Must export the enum from schema.ts — see pitfall above. Adding new enum values later requires `ALTER TYPE ... ADD VALUE` migration. |
+| `z.enum([...])` in generateObject | ai@5.x, @ai-sdk/google@latest, zod@3.x | Vercel AI SDK constrains the model output to valid enum values. If Gemini returns an invalid value, `generateObject` throws — wrap in try/catch and default to `'other'`. |
+| `parseAsArrayOf(parseAsStringLiteral(...))` | nuqs@2.x | Multi-select URL state for category filter. Produces comma-separated values in query string: `?categories=live_music,comedy`. |
+
+---
+
 ## Sources
 
 - [Next.js 16 blog post](https://nextjs.org/blog/next-16) — Version confirmed, Turbopack stable
@@ -263,7 +491,18 @@ Atlantic Canada event volume (hundreds of events over 30 days) makes this filter
 - `npm info react-leaflet-heat-layer` — version 1.1.1, published 2024-07-30, peer dep react-leaflet@>=4.0.0 (HIGH confidence — technically compatible but thin wrapper not worth the dependency)
 - [react-leaflet Core Architecture docs](https://react-leaflet.js.org/docs/core-architecture/) — useMap hook pattern, createElementHook, useLayerLifecycle (HIGH confidence — official docs)
 - [Leaflet.heat GitHub](https://github.com/Leaflet/Leaflet.heat) — setLatLngs() API for dynamic updates (HIGH confidence — official Leaflet org repo)
+- [Google Places API (New): Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search) — includedType parameter, locationRestriction (HIGH confidence — official docs)
+- [Google Places API (New): Place Types](https://developers.google.com/maps/documentation/places/web-service/place-types) — live_music_venue, bar, pub, concert_hall, nightclub types confirmed (HIGH confidence — official docs)
+- [Google Maps Platform pricing (March 2025 restructure)](https://developers.google.com/maps/billing-and-pricing/march-2025) — $200 credit replaced by 5,000 free Pro SKU calls/month (HIGH confidence — official billing docs)
+- [Google Maps Platform pricing list](https://developers.google.com/maps/billing-and-pricing/pricing) — Nearby Search Pro: $32/1,000; Place Details Pro: $17/1,000 (HIGH confidence — official pricing page)
+- [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — stateCode, countryCode parameters; 5,000 calls/day free (HIGH confidence — official docs)
+- [Eventbrite API location search status](https://groups.google.com/g/eventbrite-api/c/ZD9rP1dQGag) — Location-based search removed ~2020 (MEDIUM confidence — community report, corroborated by absence from current API docs)
+- [Bandsintown API documentation](https://help.artists.bandsintown.com/en/articles/9186477-api-documentation) — Artist-centric API, no region search; new applications suspended (MEDIUM confidence — official help article)
+- [Songkick API key status](https://support.songkick.com/hc/en-us/articles/360012423194-Access-the-Songkick-API) — New applications suspended as of 2025 (MEDIUM confidence — official support article)
+- [Drizzle ORM pgEnum export bug #5174](https://github.com/drizzle-team/drizzle-orm/issues/5174) — enum not exported = silently missing from migration SQL (HIGH confidence — confirmed open GitHub issue)
+- [nuqs parseAsArrayOf docs](https://nuqs.dev/) — Multi-select enum filter pattern (HIGH confidence — official nuqs docs)
+- [Vercel AI SDK: generateObject with z.enum](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) — enum output constrained via Zod schema (HIGH confidence — official AI SDK docs)
 
 ---
 *Stack research for: East Coast Local — local live music discovery app*
-*Researched: 2026-03-13 (baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse)*
+*Researched: 2026-03-13 (baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse, v1.2 event discovery and categorization)*

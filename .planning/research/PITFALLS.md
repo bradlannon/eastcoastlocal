@@ -1,8 +1,8 @@
 # Pitfalls Research
 
 **Domain:** Local events discovery app with AI-powered web scraping (Atlantic Canada live music)
-**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added)
-**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research)
+**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added) · 2026-03-14 (v1.2 discovery + categorization pitfalls added)
+**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research), HIGH (v1.2 discovery/categorization pitfalls — verified via Vercel official docs, Gemini API pricing docs, LLM drift empirical research)
 
 ---
 
@@ -356,6 +356,182 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 
 ---
 
+## v1.2 — Discovery & Categorization Pitfalls
+
+### Pitfall 15: Discovery Pulls Irrelevant Pages That Swamp the Scrape Queue
+
+**What goes wrong:**
+Automated discovery via search queries (e.g., "live music Halifax", "events Moncton NB") returns results that look plausible but are not scrapeable event sources: news articles about past events, Facebook pages (login-gated), social media aggregators, ticket reseller pages, and directory listings that link to venues but don't host event calendars. Every candidate URL is added to the scrape queue. The scraper runs against them, gets zero events, burns Gemini calls, and marks them as failed sources. The failed-source list grows until it is manually pruned.
+
+**Why it happens:**
+Search APIs return ranked results but have no concept of "has a structured event calendar." The search query optimization happens independently from the scraping pipeline's requirements. Discovery and ingestion are conflated — discovered URLs go directly to the scrape queue rather than a pending-review holding area.
+
+**How to avoid:**
+- Introduce a `discovery_candidates` staging table separate from `scrape_sources`. Discovered URLs land in staging and only graduate to active sources after passing a quality gate.
+- Quality gate criteria: fetch the candidate URL, run a lightweight pre-screening check (does the page contain event-related keywords: "upcoming", "tickets", "show", "perform"?). If not, mark as rejected and skip the Gemini call.
+- After pre-screening, run a single low-cost Gemini call: "Does this page list upcoming events with specific dates? Answer YES or NO." Use Gemini 2.0 Flash-Lite ($0.10/1M tokens) for this check, not the full extraction model.
+- Set a minimum confidence threshold: if the pre-screening LLM says NO, mark the candidate as `rejected` and do not promote to active sources.
+- Cap discovery batch size per run (e.g., evaluate at most 10 new candidates per daily cron cycle). This bounds discovery cost regardless of how many results the search API returns.
+
+**Warning signs:**
+- `scrape_sources` table growing rapidly with sources that always return zero events
+- High Gemini call count with low event extraction yield
+- Discovery cron taking significantly longer than the scraping cron
+
+**Phase to address:**
+Discovery pipeline phase. The staging table and quality gate must be designed before any discovery search queries are run in production.
+
+---
+
+### Pitfall 16: Duplicate Venues Discovered From Multiple Searches
+
+**What goes wrong:**
+The same venue gets added multiple times to the candidate pool — once from a "live music Halifax" query, once from "concerts Nova Scotia", once from a city events directory. Each discovery produces a slightly different URL (e.g., `venue.com/events`, `venue.com/schedule`, `venue.com/calendar`) for the same venue. Three active scrape sources point to the same venue; events are scraped three times and the dedup key (venue_id + date + performer) can catch duplicates only if all three URLs resolve to the same venue_id — which they won't if three venue records are created.
+
+**Why it happens:**
+Discovery treats each unique URL as a distinct potential source. Venue identity (same physical venue) is not checked during candidate evaluation. The existing dedup key protects against duplicate events within the same venue, but not against creating duplicate venue records that produce triple-ingestion.
+
+**How to avoid:**
+- Before inserting a discovered candidate into `discovery_candidates`, normalize the domain: extract `venue.com` from any discovered URL and check if a venue with that website domain already exists in the `venues` table. If found, link to the existing venue rather than creating a new one.
+- Add a unique constraint on the `venues` table's `website` field (domain-normalized, no trailing slash, lowercase) to make duplicate venue creation a database error rather than a silent data problem.
+- When evaluating multiple URLs from the same domain, keep only the highest-value URL (typically the one most resembling `/events`, `/calendar`, or `/shows`).
+- Run a dedup pass on `discovery_candidates` before the quality gate: group by domain, pick the most promising URL per domain.
+
+**Warning signs:**
+- Multiple `scrape_sources` rows with the same domain in their URLs
+- Events appearing with near-duplicate venue names (e.g., "The Carleton" and "Carleton Halifax")
+- Database venue count growing faster than expected for the region's actual venue count
+
+**Phase to address:**
+Discovery pipeline phase. Domain-based dedup must happen at candidate insertion, not retroactively after venue records exist.
+
+---
+
+### Pitfall 17: AI Category Labels Are Inconsistent Across Scrape Runs
+
+**What goes wrong:**
+Gemini assigns "Live Music" to an event on Monday's scrape, then "Concert" to the same event type on Wednesday's scrape because the page content changed slightly or the model exhibited non-deterministic output. The category filter on the frontend shows both "Live Music" and "Concert" as distinct options. Users filter by "Live Music" and miss events tagged "Concert". The category taxonomy grows unbounded as the model invents new label variants ("Acoustic Music", "Singer-Songwriter", "Live Band", etc.).
+
+**Why it happens:**
+LLMs are probabilistic. Even with temperature=0, minor differences in input text, context window state, or model version updates cause label drift. Without a closed, enforced taxonomy, the model generates category labels from its own vocabulary rather than a fixed set. Empirical LLM monitoring research shows consecutive runs on the same model can yield a drift score of 0.575 due to capitalization and formatting regressions alone.
+
+**How to avoid:**
+- Define a closed category taxonomy in the extraction prompt with the exact allowed values and instruct the model to choose only from that list. Example: `["live-music", "comedy", "theatre", "festival", "community", "arts", "sports", "other"]`. Use lowercase hyphenated slugs, not display names, to make matching deterministic.
+- Include few-shot examples in the prompt for each category showing what qualifies: "A band playing original songs at a pub = live-music. A stand-up comedian performing = comedy."
+- Post-extraction: validate the returned category against the allowlist. If the model returns a value not in the list, map it to "other" rather than accepting the novel value.
+- Store categories as slugs in the database; resolve to display names in the frontend. This means changing display names (e.g., "live-music" → "Live Music") never requires a DB migration.
+- Run a periodic audit: query the distinct category values in the database and alert if any value outside the taxonomy appears.
+
+**Warning signs:**
+- `SELECT DISTINCT category FROM events` returns more than the expected number of taxonomy values
+- Filter UI showing "Live Music" and "Concert" as separate options
+- Category distribution shifts noticeably between weekly scrape runs without source changes
+
+**Phase to address:**
+Categorization phase. The closed taxonomy must be defined and enforced before any category data is written to production. Retrofitting a taxonomy onto inconsistently labeled data requires a full backfill.
+
+---
+
+### Pitfall 18: Adding Categorization as a Separate LLM Pass Doubles Gemini Call Count
+
+**What goes wrong:**
+Categorization is implemented as a second Gemini call after event extraction: first call extracts events, second call categorizes each extracted event. With 26 sources and 4-second throttle delays between AI calls, the scrape cron that previously completed in ~110 seconds now takes ~220 seconds per source batch. The job approaches the Vercel function timeout. Gemini API costs double. The throttle delay that was tuned for extraction now applies twice per source.
+
+**Why it happens:**
+It is natural to treat categorization as a separate concern and implement it as a post-processing step. The existing extraction pipeline is already working and touched; adding a new pass feels clean. The multiplicative cost on both time and API calls is not immediately obvious.
+
+**How to avoid:**
+- Add `category` as a field in the existing `ExtractedEventSchema` and include it in the same Gemini call that extracts event details. One call does extraction and categorization simultaneously.
+- The extraction prompt already sends the full page text to Gemini; categorization from that same text adds only a few tokens to the output schema, not a second context ingestion.
+- This approach adds near-zero marginal cost: one additional output field per event, not one additional API call per source.
+- Include the category taxonomy directly in the existing extraction prompt as an additional instruction block.
+
+**Warning signs:**
+- Two separate Gemini API calls per source in the scraper code — one for extraction, one for category
+- Scrape cron duration doubling after categorization is added
+- Gemini API billing showing 2× the pre-categorization call count with the same source count
+
+**Phase to address:**
+Categorization phase. Design the schema extension and prompt update before writing any categorization code. Do not create a separate categorization function.
+
+---
+
+### Pitfall 19: Discovery Job Hits Vercel Function Timeout Under Fluid Compute
+
+**What goes wrong:**
+Discovery involves: search API calls to find candidates, fetching each candidate URL, running a pre-screening LLM call per candidate, and writing results to the database. With 20 candidates and 4-second throttle between LLM calls, the discovery job runs for 80+ seconds on the LLM calls alone, plus network time for fetches and DB writes. The discovery cron hits the Vercel function timeout and is terminated mid-run, leaving partial candidate batches — some candidates written to the DB, some not.
+
+**Why it happens:**
+The timeout constraint is misunderstood. With Fluid Compute enabled (now the default on all Vercel plans as of 2025), Hobby plan functions can run up to 300 seconds. However, if Fluid Compute is disabled, the Hobby limit is 60 seconds. The cron job in `vercel.json` currently sets `maxDuration=60` — that value was written before Fluid Compute and is now artificially conservative, but it remains the enforced limit until changed. Discovery adds substantially more work per cron invocation than scraping did.
+
+**How to avoid:**
+- Run discovery as a separate cron endpoint (`/api/cron/discover`) distinct from the scraping cron (`/api/cron/scrape`). This allows independent scheduling (discovery can run weekly, scraping daily) and independent `maxDuration` configuration.
+- Update `maxDuration` on the discovery endpoint to 300 (the Hobby ceiling with Fluid Compute enabled). Confirm Fluid Compute is enabled in Vercel project settings before relying on the 300s limit.
+- Cap the discovery batch per run to a fixed maximum (e.g., 10 new candidates per run) regardless of how many search results are returned. This provides a hard ceiling on run time even if candidates increase.
+- Design for idempotency: if the discovery cron is interrupted mid-run, the next run should safely re-evaluate candidates that were partially processed without creating duplicate records.
+- Do not run discovery and scraping in the same cron invocation — combined time will reliably exceed any reasonable timeout.
+
+**Warning signs:**
+- Discovery cron logs showing incomplete runs (some candidates written, job terminated without summary log)
+- `maxDuration` export still set to 60 in the discovery route handler
+- Vercel function logs showing "FUNCTION_INVOCATION_TIMEOUT" for the discovery endpoint
+- The `discover` and `scrape` jobs sharing the same `/api/cron/scrape` route
+
+**Phase to address:**
+Discovery pipeline phase. Separate cron endpoint and `maxDuration` configuration must be in place before the discovery job runs in production. Do not reuse the existing scrape cron endpoint.
+
+---
+
+### Pitfall 20: Backfilling Categories on Existing Events Requires a Dedicated Migration
+
+**What goes wrong:**
+The `category` column is added to the `events` table via a migration. All existing events (the ~5,000+ events already in the database from v1.0/v1.1) have `category = NULL`. The category filter UI shows an empty "All categories" dropdown or produces misleading counts. Filtering by "Live Music" returns zero results until the next scrape run. The category backfill is treated as a future task and is never completed.
+
+**Why it happens:**
+Schema migrations add columns but don't populate data. The team ships the feature thinking the next scrape cron will populate categories. But the next cron only categorizes new events extracted after the code deployment — it does not retroactively categorize events that were already in the database without a `category` field.
+
+**How to avoid:**
+- Plan for a one-time backfill script as part of the categorization phase deliverable, not as a deferred task.
+- The backfill script iterates existing events in batches (e.g., 50 at a time), sends each event's `performer` + `description` + `venue_type` to Gemini for classification, and updates the `category` column. Batch with delays to stay within Gemini rate limits.
+- Run the backfill immediately after deploying the migration, before the feature is announced publicly.
+- Add a database constraint or application-level check: the category filter UI should show a "(unclassified)" option or hide events with null category rather than silently excluding them.
+- After the initial backfill, the ongoing scrape pipeline ensures new events are categorized at extraction time — no ongoing backfill needed.
+
+**Warning signs:**
+- `category` column exists in schema but `SELECT COUNT(*) FROM events WHERE category IS NULL` returns a large number after deployment
+- Category filter UI showing all options but returning zero events
+- No backfill script in the codebase at the time the migration is merged
+
+**Phase to address:**
+Categorization phase. Backfill script is a required deliverable for the phase that adds the `category` column. It is not optional post-launch work.
+
+---
+
+### Pitfall 21: Discovery Search API Has Hard Daily Query Limits That Block Production Use
+
+**What goes wrong:**
+The Google Custom Search JSON API (one natural choice for "find venues near Halifax") has a hard limit of 100 free queries per day. A discovery job that runs searches across 4 provinces with multiple query variations (e.g., "live music Halifax", "concerts Halifax", "Halifax pub events") easily burns 20–40 queries per run. At daily cron frequency, the free tier is exhausted in 2–5 days. Paid queries cost $5 per 1,000, but the API has been closed to new customers as of 2025 with a sunset date of January 2027. Alternative APIs (Tavily, SerpAPI) have their own limits and require separate API keys.
+
+**Why it happens:**
+Discovery via search is conceptually simple but the API economics are not checked before implementation. Developers assume search APIs are either free or trivially cheap. The daily limit structure (100 free, then paid) is not visible until production traffic begins. The Google Custom Search API sunset announcement is recent and easy to miss.
+
+**How to avoid:**
+- Run discovery at weekly frequency, not daily — venue discovery is not time-sensitive. Weekly runs dramatically reduce API query consumption (7× reduction).
+- Pre-curate seed queries rather than running broad searches: use targeted queries like `"site:*.ca events Halifax pub"` or `"events Charlottetown PEI"` — fewer, higher-precision queries that return scrapeable venue pages rather than news articles.
+- Consider curated seed lists as an alternative to live search: compile an initial list of 20–30 regional event directories and community calendars (e.g., local newspaper event listings, city.ca event pages), add them as static discovery seeds, and use the search API only for expansion beyond the seed list.
+- Budget the search API explicitly: if using paid queries, set a monthly spend cap. Alert when approaching the cap.
+- Use Tavily API as an alternative to Google Custom Search — 1,000 free searches per month, purpose-built for AI pipelines, and does not have the Google sunset risk.
+
+**Warning signs:**
+- Discovery job returning HTTP 429 "Quota Exceeded" from the search API
+- Events listing showing no new sources despite discovery running successfully
+- Search API cost line appearing on the billing dashboard for a job expected to be free
+
+**Phase to address:**
+Discovery pipeline phase. Confirm search API choice, limits, and query budget before writing the discovery cron logic. Run a manual test of the full query set to measure actual query count before automating.
+
+---
+
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
@@ -373,6 +549,12 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Top-level `import 'leaflet.heat'` instead of dynamic import | One fewer dynamic() call | SSR build failures in production | Never in Next.js |
 | Filter events per-frame with `Array.filter` | Simple to read | O(n) work every 16 ms, grows with dataset | Never — pre-bucket at load time |
 | Skip `map.removeLayer()` cleanup on HeatLayer unmount | Less boilerplate | Ghost layers, memory leak, duplicate event handlers | Never |
+| Send discovered URLs directly to scrape queue without quality gate | Simpler pipeline | Queue fills with irrelevant sources; wastes Gemini calls | Never — staging table is mandatory |
+| Open-ended category taxonomy (no fixed list) | Flexible, no upfront design | Label drift, unbounded category growth, broken filters | Never — define closed taxonomy first |
+| Second LLM call for categorization after extraction | Separation of concerns | Doubles API call count, doubles scrape duration | Never — add category to extraction schema |
+| Run discovery and scraping in one cron job | Single invocation | Combined timeout risk; can't tune independently | Never — separate endpoints |
+| Skip category backfill for existing events | Faster to ship | Old events invisible to category filters | Never — backfill is mandatory before launch |
+| Daily discovery search queries | More frequent updates | Exhausts free API quota in days | Never — weekly discovery is sufficient |
 
 ---
 
@@ -392,6 +574,10 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | nuqs + animation state | Write time position to URL on every animation tick | Keep in `useRef`/Zustand; only commit to nuqs on pause or scrub-end |
 | HeatLayer + MapContainer | Assume React reconciliation removes the Leaflet layer | Explicitly call `map.removeLayer()` in `useEffect` cleanup |
 | `next build` + Leaflet plugins | Test only in `next dev` where SSR is more forgiving | Always test `next build && next start` before considering any integration done |
+| Google Custom Search JSON API | Treat as production-ready discovery tool | API closed to new customers (sunset Jan 2027); prefer Tavily or curated seeds |
+| Gemini for categorization | Separate categorization API call after extraction | Add `category` field to extraction schema — one call does both |
+| Vercel maxDuration | Leave at 60s for discovery job | Update to 300s and confirm Fluid Compute is enabled; separate discovery endpoint |
+| Discovery → scrape_sources | Write all discovered URLs directly to scrape_sources | Stage in `discovery_candidates`, quality-gate before promotion |
 
 ---
 
@@ -409,6 +595,9 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Sidebar re-renders every animation frame | UI flicker; React reconciliation overhead | Throttle sidebar updates to 250 ms during playback | Immediately visible in React DevTools Profiler |
 | Multiple competing rAF loops after mode toggle | CPU stays high after leaving heatmap mode | Strict rAF cleanup via `useRef` + `useLayoutEffect` | After first toggle cycle |
 | Fetching full event objects for heatmap points | Slow initial load; memory pressure | Fetch only lat/lng/timestamp for heatmap; fetch detail on click | Noticeable above ~1,000 events on mobile |
+| Two LLM calls per source (extract + categorize) | Scrape cron 2× longer; API cost doubles | Combine categorization into extraction schema | Immediately — doubles cost from day one |
+| Discovery + scraping in one cron invocation | Combined time exceeds maxDuration | Separate `/api/cron/discover` and `/api/cron/scrape` | At 10+ discovery candidates + 26 scrape sources |
+| Evaluating all discovered candidates in one batch | Discovery cron times out | Cap candidates evaluated per run (e.g., 10/run) | At ~15+ candidates with 4s LLM throttle |
 
 ---
 
@@ -420,6 +609,7 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Storing LLM API keys without rotation plan | Key leakage exposes billing to abuse | Use Vercel env vars; never commit keys; set spend alerts |
 | No rate limiting on outbound scraper requests | IP ban risk; could be construed as DoS | Enforce minimum 2-second delay per domain; honor `Crawl-delay` |
 | No validation of LLM output before DB insert | Malformed strings breaking queries or display | Validate all extracted fields against schema; reject null dates |
+| Discovery scraping sites that block AI crawlers | Cloudflare AI crawler block; potential legal risk | Check `robots.txt` `User-agent: *` and `User-agent: GPTBot` disallow rules before fetching |
 
 ---
 
@@ -438,6 +628,9 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Play advances time but map doesn't visibly change | User thinks feature is broken | Ensure at least one visible heatmap change per play tick |
 | Timeline scrubber jumps on touch tap (not drag) | Disorienting on mobile — position teleports | Distinguish tap-to-seek from drag-to-scrub; show time tooltip during drag |
 | Heatmap and cluster mode both active simultaneously | Confusing visual overlap | Modes are mutually exclusive; hide cluster layer entirely in heatmap mode |
+| Category filter shows "Other" as dominant category | Users can't find specific event types | Review taxonomy; common event types should be first-class categories, not "other" |
+| Category filter shows too many options (10+) | Filter UI becomes overwhelming | Keep taxonomy to 6–8 categories; "other" is a catch-all |
+| Events with null category invisible to category filter | Users miss real events | Show uncategorized events under "All" but exclude from specific category filters, or default to "other" |
 
 ---
 
@@ -464,6 +657,17 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 - [ ] **Empty time window:** Advance to a time with no events — empty state message appears; no crash or frozen UI
 - [ ] **Ghost layer:** Switch to cluster mode; DevTools Elements panel must show no heatmap canvas element in the DOM
 
+**v1.2 Discovery & Categorization:**
+- [ ] **Staging table:** Discovered URLs land in `discovery_candidates`, not directly in `scrape_sources` — verify no direct insert
+- [ ] **Venue dedup:** Two search queries returning the same domain result in one candidate entry, not two — check domain normalization logic
+- [ ] **Quality gate:** A non-event page (e.g., a news article about a concert) is rejected before a Gemini call is made — test with a known non-event URL
+- [ ] **Category taxonomy enforcement:** `SELECT DISTINCT category FROM events` returns only values in the defined taxonomy — zero novel labels
+- [ ] **Combined extraction+categorization:** Scrape cron logs show one Gemini call per source, not two — verify no separate categorization call
+- [ ] **Backfill complete:** `SELECT COUNT(*) FROM events WHERE category IS NULL` returns zero before the feature is announced
+- [ ] **Discovery timeout:** Discovery cron completes without `FUNCTION_INVOCATION_TIMEOUT` — verify `maxDuration=300` on discovery endpoint and Fluid Compute is enabled
+- [ ] **Search API budget:** Discovery job does not exhaust daily search API quota — test a full weekly discovery batch manually and count queries used
+- [ ] **Separate cron endpoints:** `/api/cron/discover` and `/api/cron/scrape` are independent routes with independent `maxDuration` settings
+
 ---
 
 ## Recovery Strategies
@@ -483,6 +687,12 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Sidebar desync | MEDIUM | Lift time window state to shared Zustand atom; rewire both consumers |
 | Scrubber keyboard inaccessible | LOW | Replace `div` slider with styled `<input type="range">` + `aria-valuetext` |
 | Per-frame filter performance | MEDIUM | Pre-bucket events at load; replace Array.filter with O(1) lookup; measure in Performance panel |
+| Irrelevant sources in scrape queue | MEDIUM | Write a one-time script to evaluate existing `scrape_sources` for zero-event history; disable confirmed duds; add quality gate going forward |
+| Inconsistent category labels in DB | HIGH | Write a one-time normalization migration: map known variants to canonical taxonomy slugs; re-run extraction for remaining nulls |
+| Double LLM calls for categorization | LOW | Merge categorization into extraction schema; redeploy; no data migration needed |
+| Discovery cron timeout | LOW | Reduce batch size per run; update `maxDuration`; split into separate endpoint |
+| Uncategorized events after schema migration | MEDIUM | Run backfill script in batches with delay; verify zero null categories before announcing feature |
+| Search API quota exhausted | LOW | Switch to weekly schedule; reduce query count per run; evaluate Tavily as alternative |
 
 ---
 
@@ -506,6 +716,13 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 | Scrubber keyboard inaccessibility | Phase 4: Timeline scrubber UI | Arrow keys control time; Tab reaches scrubber; screen reader announces value |
 | Sidebar/heatmap time desync | Phase 4: Sidebar sync | Sidebar updates within 250 ms of time position change during playback |
 | Ghost heatmap layer on toggle | Phase 4: Mode toggle | Elements panel shows no canvas in cluster mode; `_layers` count stable |
+| Irrelevant sources flooding queue | v1.2 Phase: Discovery pipeline | Non-event URL rejected before Gemini call; staging table count stable |
+| Duplicate venue discovery | v1.2 Phase: Discovery pipeline | Same domain from two searches produces one candidate; domain uniqueness enforced |
+| Inconsistent AI category labels | v1.2 Phase: Categorization | `SELECT DISTINCT category FROM events` returns only taxonomy values |
+| Extra Gemini call for categorization | v1.2 Phase: Categorization | Scrape logs show one call per source; API billing confirms no increase in call count |
+| Discovery cron timeout | v1.2 Phase: Discovery pipeline | Discovery cron completes under 300s; separate endpoint with correct maxDuration |
+| Category backfill not completed | v1.2 Phase: Categorization | Zero null categories in production before feature launch |
+| Search API quota exhaustion | v1.2 Phase: Discovery pipeline | Manual test of full query set counts total queries; weekly schedule verified |
 
 ---
 
@@ -533,6 +750,19 @@ Phase implementing the mode toggle between heatmap and pin/cluster view. Write a
 - [nuqs GitHub — 47ng/nuqs](https://github.com/47ng/nuqs) — browser rate-limit on URL updates; throttle/debounce capabilities
 - [Andrej Gajdos — High-Performance Map Visualizations in React](https://andrejgajdos.com/leaflet-developer-guide-to-high-performance-map-visualizations-in-react/) — React re-render cost with Leaflet layers
 
+**v1.2 Discovery & Categorization:**
+- [Vercel — Configuring Maximum Duration for Vercel Functions](https://vercel.com/docs/functions/configuring-functions/duration) — Hobby plan: 300s with Fluid Compute enabled; 60s without
+- [Vercel — Managing Cron Jobs](https://vercel.com/docs/cron-jobs/manage-cron-jobs) — cron timeout limits identical to function limits; idempotency requirements
+- [Gemini API Pricing — Google AI for Developers](https://ai.google.dev/gemini-api/docs/pricing) — Gemini 2.5 Flash: $0.30/$2.50 per 1M tokens; 50% batch discount
+- [LLM Model Drift — Handling and Detection](https://byaiteam.com/blog/2025/12/30/llm-model-drift-detect-prevent-and-mitigate-failures/) — consecutive runs on same model yield drift score 0.575 from formatting regressions
+- [LLM Drift Detection — earezki.com](https://earezki.com/ai-news/2026-03-12-we-built-a-service-that-catches-llm-drift-before-your-users-do/) — 35% error rate increase on unchanged models over 6 months
+- [Google Custom Search JSON API — closed to new customers](https://developers.google.com/custom-search/v1/overview) — sunset January 2027
+- [Google Custom Search API Daily Limit — Expertrec](https://blog.expertrec.com/google-custom-search-api-daily-limit/) — 100 free queries/day; $5/1000 paid
+- [Tavily API Pricing — Firecrawl blog comparison](https://www.firecrawl.dev/blog/best-web-search-apis) — 1,000 free searches/month; purpose-built for AI pipelines
+- [Schema Migration Backfill Strategies — LogRocket](https://blog.logrocket.com/how-to-migrate-a-database-schema-at-scale/) — batched backfill to avoid production traffic impact
+- [How to Solve Next.js Timeouts — Inngest Blog](https://www.inngest.com/blog/how-to-solve-nextjs-timeouts) — splitting cron jobs into smaller invocations
+- [Event Data Scraping Architecture Guide — GroupBWT](https://groupbwt.com/blog/events-data-scraping/) — source quality filtering and deduplication patterns
+
 ---
-*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition*
-*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1)*
+*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition + v1.2 discovery/categorization addition*
+*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1) · 2026-03-14 (v1.2)*

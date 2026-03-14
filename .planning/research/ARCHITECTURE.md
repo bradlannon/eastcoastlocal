@@ -1,32 +1,57 @@
 # Architecture Research
 
-**Domain:** Heatmap timelapse mode — integration with existing react-leaflet split-screen app
+**Domain:** Automatic venue/source discovery + AI event categorization — integration with existing scraping pipeline
 **Researched:** 2026-03-14
-**Confidence:** HIGH (based on direct codebase inspection + react-leaflet 5.x core API verification)
+**Confidence:** HIGH (based on direct codebase inspection + verified Vercel docs)
 
-> This document supersedes the initial v1.0 architecture file. It retains the scraping/data-layer sections and adds a focused integration design for the v1.1 heatmap timelapse milestone.
+> This document supersedes the v1.1 heatmap timelapse architecture file. The existing scraping/data-layer and frontend sections are retained where still accurate; this file adds a focused integration design for the v1.2 Event Discovery milestone.
 
 ---
 
-## Existing Architecture (Verified from Codebase)
+## Existing Architecture (Verified from Codebase — Still Current)
 
-### Current Component Tree
+### Scraping Pipeline
 
 ```
-page.tsx (HomeContent — client component)
-├── <header>
-├── <EventFilters>          ← nuqs: ?when, ?province
-├── <MapClientWrapper>      ← dynamic import (ssr: false) → MapClient
-│   └── <MapContainer>      ← react-leaflet root
-│       ├── <TileLayer>     ← CartoDB Positron
-│       ├── <MapBoundsTracker>   ← fires onBoundsChange on move/zoom
-│       ├── <ClusterLayer>       ← MarkerClusterGroup + Marker + Popup
-│       ├── <GeolocationButton>
-│       └── <MapViewController> ← province fly-to, marker open-popup
-└── <EventList>             ← receives visibleEvents (client-filtered)
+/api/cron/scrape (GET, daily at 06:00 UTC)
+    ↓
+runScrapeJob()  [orchestrator.ts]
+    ↓ iterates scrape_sources WHERE enabled = true
+    ├── source_type = 'venue_website'
+    │       ↓
+    │   fetchAndPreprocess(url)      [fetcher.ts]    → raw page text
+    │       ↓
+    │   extractEvents(text, url)     [extractor.ts]  → Gemini call → ExtractedEvent[]
+    │       ↓
+    │   upsertEvent(venue_id, event) [normalizer.ts] → INSERT ON CONFLICT DO UPDATE
+    │
+    ├── source_type = 'eventbrite'
+    │       ↓
+    │   scrapeEventbrite(source)     [eventbrite.ts]
+    │
+    └── source_type = 'bandsintown'
+            ↓
+        scrapeBandsintown(source)    [bandsintown.ts]
 ```
 
-### Current Data Flow
+### Database Schema (Current)
+
+```
+venues
+  id, name, address, city, province, lat, lng, website, phone, venue_type, created_at
+
+events
+  id, venue_id (FK), performer, normalized_performer, event_date, event_time,
+  source_url, scrape_timestamp, raw_extracted_text, price, ticket_link,
+  description, cover_image_url, created_at, updated_at
+  UNIQUE INDEX: (venue_id, event_date, normalized_performer)
+
+scrape_sources
+  id, url, venue_id (FK), scrape_frequency, last_scraped_at, last_scrape_status,
+  source_type, enabled, created_at
+```
+
+### Frontend Data Flow (Current)
 
 ```
 mount
@@ -35,515 +60,516 @@ fetch('/api/events')               — loads ALL future events once
   ↓
 allEvents (EventWithVenue[])       — held in HomeContent state
   ↓
-filterByDateRange(allEvents, when) — nuqs ?when param
-filterByProvince(..., province)    — nuqs ?province param
-filterByBounds(..., bounds)        — map viewport (MapBoundsTracker → setBounds)
+filterByDateRange + filterByProvince + filterByBounds  — client-side
   ↓
-visibleEvents                      — passed to EventList
-allEvents                          — passed to MapClientWrapper (cluster layer shows all)
+sidebarEvents → EventList
+allEvents     → MapClientWrapper (ClusterLayer shows all)
 ```
 
-Key: the map always shows `allEvents` unfiltered (clustering handles density). The sidebar shows `visibleEvents` (date + province + viewport filtered).
+### Key Constraint: Vercel Function Duration
 
-### State Inventory (HomeContent)
+**Updated finding (HIGH confidence — verified against Vercel docs March 2026):**
 
-| State | Type | Owner | How Updated |
-|-------|------|-------|-------------|
-| `allEvents` | `EventWithVenue[]` | `useState` | fetch on mount |
-| `bounds` | `Bounds \| null` | `useState` | MapBoundsTracker callback |
-| `activeTab` | `'map' \| 'list'` | `useState` | MobileTabBar |
-| `loading` | `boolean` | `useState` | fetch completion |
-| `highlightedVenueId` | `number \| null` | `useState` | EventList hover |
-| `flyToTarget` | `FlyToTarget \| null` | `useState` | EventList click |
-| `when` | `string \| null` | nuqs URL | EventFilters |
-| `province` | `string \| null` | nuqs URL | EventFilters |
+With Fluid Compute enabled (the default for all new projects as of April 23, 2025), the Hobby plan receives:
+- Default max duration: **300 seconds (5 minutes)**
+- Maximum configurable: **300 seconds (5 minutes)**
+
+The old 60-second limit applies only if Fluid Compute is disabled. The existing codebase sets `export const maxDuration = 60` in the scrape cron, which works but is unnecessarily conservative. This constraint is significantly less restrictive than previously assumed, giving the discovery job sufficient headroom.
 
 ---
 
-## Heatmap Timelapse Integration Design
+## v1.2 Integration Design
 
-### Overview of New Feature
+### What Is Being Added
 
-The timelapse mode overlays a density heatmap on the map, controlled by a timeline scrubber. The scrubber represents a sliding 24-hour window across a 30-day range. As the window moves (manually or auto-played), the heatmap updates to show event density within that window, and the sidebar event list syncs to show only events in the window.
+1. **event_category column on events** — Gemini assigns a category during extraction
+2. **discovered_sources table** — queue for candidate sources found by discovery
+3. **Discovery pipeline** — separate cron job that finds new venue URLs via search and queues them
+4. **Category filter** — new chip filter in `EventFilters` component; category passed via nuqs URL param
 
-The existing cluster pin view is toggled off when timelapse mode is active. Both layers coexist inside the same `MapContainer` but only one is visible at a time.
+### Schema Changes
 
-### Revised Component Tree
+```sql
+-- Add to events table
+ALTER TABLE events ADD COLUMN event_category TEXT;
+
+-- New table for discovery pipeline
+CREATE TABLE discovered_sources (
+  id          SERIAL PRIMARY KEY,
+  url         TEXT NOT NULL UNIQUE,
+  source_name TEXT,                          -- candidate venue/org name
+  province    TEXT,                          -- NB, NS, PEI, NL
+  city        TEXT,
+  status      TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected | duplicate
+  discovery_method TEXT,                     -- 'search_api', 'gemini_grounding', 'manual'
+  raw_context TEXT,                          -- snippet/description from discovery source
+  discovered_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  reviewed_at TIMESTAMP,
+  added_to_sources_at TIMESTAMP
+);
+```
+
+**Why a separate `discovered_sources` table rather than writing directly to `scrape_sources`:**
+
+Discovery is speculative. A search query for "event venues in Halifax" may return irrelevant, duplicate, or low-quality URLs. Writing directly to `scrape_sources` means junk URLs get scraped the same night they are found. The queue table allows:
+- Manual or automated review before promotion
+- Deduplication against existing `scrape_sources.url`
+- Tracking of which discovery method found what
+
+**Why `event_category` is nullable:**
+
+Existing events in the database have no category. New events get categories during extraction. Null = uncategorized (pre-v1.2 data or extraction that returned no category). The filter UI treats null events as showing in "All" but not in a specific category chip.
+
+---
+
+## Discovery Pipeline
+
+### Approach: Gemini with Google Search Grounding
+
+The Gemini API supports grounding with Google Search, which allows the model to search the web as part of answering a prompt. This is a first-class Gemini API feature (available via `@ai-sdk/google` with `useSearchGrounding` option). It is the lowest-friction approach for a Vercel-hosted app that already uses Gemini.
+
+**Alternative considered — SerpAPI/SearchAPI:** Third-party Google Search APIs (SerpAPI, HasData, SearchAPI.io) return structured JSON of search results. These would require an additional API key and monthly cost. The Gemini grounding approach uses the existing Gemini API key. SerpAPI is better for scraping the Google Events page specifically (structured event data), but the primary need here is venue URL discovery, not event data extraction.
+
+**Recommendation:** Use Gemini grounding for initial URL discovery. The model can be prompted to return a structured list of `{ name, url, city, province }` objects from search results. This requires no additional API keys.
+
+### Discovery Pipeline Flow
 
 ```
-page.tsx (HomeContent)
-├── <header>
-│   └── <ModeToggle>             ← NEW: "Map" / "Timelapse" toggle
-├── <EventFilters>               ← MODIFIED: hidden in timelapse mode
-├── <TimelineBar>                ← NEW: only rendered in timelapse mode
-│   ├── <TimelineScrubber>       ← input[type=range] controlling timePosition
-│   └── <PlayPauseButton>
-├── <MapClientWrapper>           ← MODIFIED: receives mode + timeWindow props
-│   └── <MapContainer>
-│       ├── <TileLayer>
-│       ├── <MapBoundsTracker>
-│       ├── <ClusterLayer>       ← MODIFIED: hidden (display:none) in timelapse mode
-│       ├── <HeatmapLayer>       ← NEW: only active in timelapse mode
-│       ├── <GeolocationButton>
-│       └── <MapViewController>
-└── <EventList>                  ← MODIFIED: filters to timeWindow in timelapse mode
+/api/cron/discover (GET, daily — separate schedule from scrape)
+    ↓
+runDiscoveryJob()  [scraper/discovery-orchestrator.ts]
+    ↓
+For each Atlantic Canada city/province combination:
+    ↓
+discoverVenueUrls(city, province)  [scraper/discoverer.ts]
+    ↓
+Gemini call with Google Search grounding:
+  prompt: "Find websites for event venues (music, theatre, comedy,
+           festivals, community events) in {city}, {province}, Canada.
+           Return: { name, url, city, province }[]"
+    ↓
+Gemini returns list of candidate venues with URLs
+    ↓
+deduplicateAgainstExisting(candidates)
+  → filter out URLs already in scrape_sources.url
+  → filter out URLs already in discovered_sources.url
+    ↓
+insertDiscoveredSources(newCandidates)
+  → INSERT INTO discovered_sources ... ON CONFLICT (url) DO NOTHING
 ```
 
-### New State Added to HomeContent
+**Why this runs as a separate cron rather than inside runScrapeJob:**
 
-| State | Type | Why Here |
-|-------|------|----------|
-| `mapMode` | `'cluster' \| 'timelapse'` | Controls which layer + UI branch renders |
-| `timePosition` | `number` (0–1 float) | Normalized scrubber position; drives time window |
-| `isPlaying` | `boolean` | Auto-advance animation on/off |
+- The scrape job and discovery job have different time budgets. Scraping 26 sources takes ~2 minutes with throttling. Discovery requires multiple search calls and may take 1-3 minutes for all city/province combinations. Combining them risks one failing and taking down the other.
+- Discovery is fundamentally different in character — it produces candidates, not events. Having it in a separate function keeps responsibilities clean.
+- On Vercel Hobby, both cron jobs can run daily. The `vercel.json` supports up to 100 cron entries per project, with no per-project limit on Hobby (confirmed via Vercel docs).
+- Discovery does not need to run at the same time as scraping. Running it at a different hour distributes load.
 
-`timePosition` is a normalized float (0 = start of 30-day window, 1 = end). The actual timestamp is derived as:
+### Discovery Cron Schedule
+
+```json
+// vercel.json addition
+{
+  "crons": [
+    { "path": "/api/cron/scrape", "schedule": "0 6 * * *" },
+    { "path": "/api/cron/discover", "schedule": "0 4 * * *" }
+  ]
+}
+```
+
+Discovery runs at 04:00 UTC (before scrape at 06:00). Any new sources approved between 04:00 and 06:00 would be picked up that same morning. In practice, automated approval (if implemented) would be immediate; manual approval would defer to the next day.
+
+### Promotion Flow: discovered_sources → scrape_sources
+
+A discovered source is not scraped until it is promoted. Promotion means:
+
+1. A record exists in `discovered_sources` with `status = 'pending'`
+2. An admin or automated step sets `status = 'approved'`
+3. The promotion step creates corresponding `venues` and `scrape_sources` records
+4. `discovered_sources.added_to_sources_at` is set and `status` updated to `'approved'` with timestamp
+
+For v1.2, promotion can be manual (direct DB update or a simple admin endpoint). An automated approval heuristic (e.g., "if discovery confidence > 0.8, auto-approve") is a future optimization.
+
+---
+
+## AI Categorization Integration
+
+### Where Categorization Happens: Inside extractEvents()
+
+Categorization is added to the existing Gemini extraction call in `extractor.ts`. It is **not** a second LLM call — the category is returned as part of the same structured output schema.
 
 ```typescript
-// lib/timelapse-utils.ts
-export const TIMELAPSE_WINDOW_DAYS = 30;
-export const TIMELAPSE_WINDOW_HOURS = 24;
+// Extend ExtractedEventSchema in extracted-event.ts
+const EVENT_CATEGORIES = [
+  'live_music',
+  'comedy',
+  'theatre',
+  'festival',
+  'community',
+  'sports',
+  'arts',
+  'film',
+  'other',
+] as const;
 
-export function positionToTimestamp(position: number, now: Date): Date {
-  const rangeMs = TIMELAPSE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-  return new Date(now.getTime() + position * rangeMs);
-}
+// Add to z.object inside ExtractedEventSchema:
+event_category: z.enum(EVENT_CATEGORIES).nullable(),
+```
 
-export function filterByTimeWindow(
+The extractor prompt is updated to include:
+- An explicit instruction to classify each event's `event_category` from the defined enum
+- Removal of the "live music only" filter constraint (since v1.2 expands to all event types)
+- Updated confidence rules that apply to all event types, not just music
+
+**Why not a separate categorization pass:** Each Gemini call costs time and money. The model already reads the full event description to determine performer, date, etc. Category is trivially determinable from the same context window. Adding it to the existing call costs essentially nothing.
+
+### Category Stored on events Table
+
+The `event_category` column is written by `upsertEvent()` in `normalizer.ts`:
+
+```typescript
+// normalizer.ts — add to INSERT values and ON CONFLICT SET
+event_category: extracted.event_category ?? null,
+```
+
+The `ON CONFLICT DO UPDATE` set should include `event_category` so that if a source previously scraped as null gets re-scraped after the v1.2 deploy, the category is backfilled.
+
+### Extractor Prompt: "Live Music Only" Constraint Removed
+
+The current extractor prompt contains:
+
+> "Only include LIVE music events (not DJ sets that aren't music events, trivia nights, etc.)"
+
+This is replaced with:
+
+> "Include all events: live music, comedy, theatre, sports, festivals, community events, etc. Exclude non-events (trivia nights, recurring bar specials, happy hours, open mic sign-ups that aren't events)."
+
+The confidence threshold logic remains: `confidence < 0.5` → filtered out. The model should assign low confidence to things that are clearly not events.
+
+---
+
+## Category Filtering: Frontend Integration
+
+### Filter Flow
+
+```
+EventFilters (existing component)
+  ↓ add: category nuqs param (?category=live_music)
+  ↓
+HomeContent useMemo filter chain
+  ↓ add: filterByCategory(events, category)
+  ↓
+sidebarEvents → EventList
+allEvents filtered by category → MapClientWrapper (cluster layer)
+```
+
+### Changes to EventFilters
+
+A new row of category chips is added below the existing date chips. The category filter is only visible in cluster mode (same as the date filter — both are hidden during timelapse).
+
+```typescript
+// New nuqs param
+const [category, setCategory] = useQueryState('category');
+
+const CATEGORY_CHIPS = [
+  { value: null, label: 'All' },
+  { value: 'live_music', label: 'Live Music' },
+  { value: 'comedy', label: 'Comedy' },
+  { value: 'theatre', label: 'Theatre' },
+  { value: 'festival', label: 'Festival' },
+  { value: 'community', label: 'Community' },
+] as const;
+```
+
+The category filter integrates cleanly with the existing nuqs pattern. It is URL-persistent and shareable (e.g., `?category=comedy&province=NS` works naturally).
+
+### Changes to /api/events Route
+
+The category filter is applied **client-side**, consistent with existing date and province filtering. No server-side query parameter is needed.
+
+However, `event_category` must be returned from the `/api/events` endpoint. Because the query uses `db.select().from(events)` which selects all columns, adding the column to the schema is sufficient — no route changes required.
+
+### filterByCategory Utility
+
+```typescript
+// lib/filter-utils.ts — new function
+export function filterByCategory(
   events: EventWithVenue[],
-  centerMs: number,
-  windowHours: number
+  category: string | null
 ): EventWithVenue[] {
-  const halfMs = (windowHours / 2) * 60 * 60 * 1000;
-  return events.filter((e) => {
-    const t = new Date(e.events.event_date).getTime();
-    return t >= centerMs - halfMs && t <= centerMs + halfMs;
-  });
+  if (!category) return events;
+  return events.filter((e) => e.events.event_category === category);
 }
 ```
 
-**Do not put `timePosition` or `isPlaying` in the URL.** nuqs is the right tool for shareable persistent state (filters, province). Timelapse is ephemeral UI state — using URL for it would cause excessive history entries during playback and break the back button. Keep it in `useState`.
-
-### Heatmap Layer Integration
-
-#### Library Recommendation: Custom hook wrapping `leaflet.heat` directly
-
-The existing wrapper packages (`react-leaflet-heatmap-layer`, `react-leaflet-heatmap-layer-v3`) target react-leaflet v3/v4 and have peer dependency conflicts with React 19 and react-leaflet 5.x. They are also unmaintained forks with low adoption.
-
-The correct approach for react-leaflet 5.x is a custom component using `useMap` + `useEffect`:
+Added to the existing filter chain in `HomeContent`:
 
 ```typescript
-// components/map/HeatmapLayer.tsx
-'use client';
-
-import { useEffect, useRef } from 'react';
-import { useMap } from 'react-leaflet';
-import type L from 'leaflet';
-
-// leaflet.heat augments L with L.heatLayer
-// Import is side-effectful — must be inside the SSR-bypassed bundle
-import 'leaflet.heat';
-
-interface HeatPoint {
-  lat: number;
-  lng: number;
-  intensity: number; // 0–1
-}
-
-interface HeatmapLayerProps {
-  points: HeatPoint[];
-  visible: boolean;
-}
-
-export default function HeatmapLayer({ points, visible }: HeatmapLayerProps) {
-  const map = useMap();
-  const heatRef = useRef<L.HeatLayer | null>(null);
-
-  useEffect(() => {
-    // @ts-expect-error leaflet.heat augments L at runtime
-    heatRef.current = L.heatLayer([], {
-      radius: 35,
-      blur: 20,
-      maxZoom: 12,
-      gradient: { 0.2: '#3b82f6', 0.5: '#f59e0b', 0.8: '#ef4444' },
-    });
-
-    return () => {
-      heatRef.current?.remove();
-      heatRef.current = null;
-    };
-  }, [map]); // only create/destroy once
-
-  useEffect(() => {
-    if (!heatRef.current) return;
-    if (!visible) {
-      heatRef.current.remove();
-      return;
-    }
-    const latlngs = points.map((p) => [p.lat, p.lng, p.intensity] as [number, number, number]);
-    heatRef.current.setLatLngs(latlngs);
-    if (!map.hasLayer(heatRef.current)) {
-      heatRef.current.addTo(map);
-    }
-    heatRef.current.redraw();
-  }, [map, points, visible]);
-
-  return null;
-}
+const dateFiltered = filterByDateRange(allEvents, when);
+const categoryFiltered = filterByCategory(dateFiltered, category);
+const provinceFiltered = filterByProvince(categoryFiltered, province);
+const sidebarEvents = filterByBounds(provinceFiltered, bounds);
 ```
 
-The `leaflet.heat` package (npm: `leaflet.heat`) is a stable ~4KB plugin from the Leaflet organization. It does not have React dependencies — it's a pure Leaflet plugin. Add `@types/leaflet.heat` (or write a local declaration) for TypeScript. Total install: `npm install leaflet.heat`.
-
-`HeatmapLayer` must remain inside the SSR-bypassed `MapClient` component (already `'use client'` and loaded via `dynamic(..., { ssr: false })`), so `leaflet.heat`'s `window` dependency is safe.
-
-#### Heatmap Point Computation
-
-Heatmap points are derived client-side from `allEvents` filtered to the current time window. No new API endpoint is needed.
+The map cluster layer should also respect the category filter so that pins on the map match what's in the sidebar:
 
 ```typescript
-// In HomeContent or a useMemo hook
-const heatPoints = useMemo(() => {
-  if (mapMode !== 'timelapse') return [];
-  const center = positionToTimestamp(timePosition, referenceDate);
-  const windowed = filterByTimeWindow(allEvents, center.getTime(), TIMELAPSE_WINDOW_HOURS);
-  return computeVenueHeatPoints(windowed); // groups by venue, intensity = event count normalized
-}, [mapMode, timePosition, allEvents]);
+// In HomeContent, derive filtered events for map layer
+const mapEvents = useMemo(() => filterByCategory(allEvents, category), [allEvents, category]);
+// Pass mapEvents to MapClientWrapper instead of allEvents
 ```
-
-Intensity normalizes event count at a venue to 0–1 relative to the busiest venue in the current window. This avoids single-event venues dominating the heatmap.
-
-#### Click-Through from Heatmap
-
-`leaflet.heat` does not support click events on individual heat points — it renders to a canvas. Click-through requires a secondary transparent marker layer:
-
-- When timelapse mode is active, render invisible `<CircleMarker>` components at each venue position (radius 20px, `opacity: 0`, `fillOpacity: 0`).
-- These markers receive click events and open a popup with the venue's events in the current time window.
-- This is a separate `<HeatmapClickLayer>` component with its own marker list derived from the same `heatPoints` array.
-
-### Timeline Scrubber Component
-
-```
-<TimelineBar>                        — fixed/sticky bar above the map
-├── <PlayPauseButton>                — toggles isPlaying
-├── <input type="range" />           — timePosition (0–1), step 0.001
-└── <TimeLabel>                      — displays current window as "Sat Mar 14 · 8pm–8pm"
-```
-
-**Placement:** Positioned as an overlay anchored to the bottom of the map panel, inside the map's `relative` div (already `z-[1000]` capable). This mirrors how weather apps like windy.tv position the timeline. It should NOT be inside `MapContainer` (not a Leaflet component) — it lives in the `MapClient` sibling wrapper div.
-
-**Auto-play:** Use `setInterval` (not `requestAnimationFrame`) for the advance tick. A 200ms interval advancing `timePosition` by 0.005 per tick gives a ~40-second full playback at 30 days. Store the interval ref in `useRef`. Start/stop in `useEffect` gated on `isPlaying`.
-
-```typescript
-// In HomeContent
-const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-useEffect(() => {
-  if (isPlaying) {
-    playRef.current = setInterval(() => {
-      setTimePosition((p) => {
-        if (p >= 1) { setIsPlaying(false); return 1; }
-        return Math.min(p + 0.005, 1);
-      });
-    }, 200);
-  }
-  return () => {
-    if (playRef.current) clearInterval(playRef.current);
-  };
-}, [isPlaying]);
-```
-
-### Mode Toggle
-
-A toggle button ("Map" / "Timelapse") lives in the header or just above the filter bar. It sets `mapMode`. On toggle to timelapse:
-
-1. `EventFilters` is hidden (timelapse has its own time dimension; the date chips would conflict).
-2. `TimelineBar` appears.
-3. `ClusterLayer` receives `visible={false}` (or is conditionally not rendered).
-4. `HeatmapLayer` receives `visible={true}`.
-
-On toggle back to cluster mode:
-
-1. `TimelineBar` unmounts.
-2. `isPlaying` resets to false.
-3. `timePosition` resets to 0.
-4. Normal filter bar reappears.
-
-### Sidebar List Filtering by Time Window
-
-In timelapse mode, `visibleEvents` (currently: date + province + viewport filtered) is replaced by time-window filtered events:
-
-```typescript
-// HomeContent filter chain (mode-aware)
-const sidebarEvents = useMemo(() => {
-  if (mapMode === 'timelapse') {
-    const center = positionToTimestamp(timePosition, referenceDate);
-    const windowed = filterByTimeWindow(allEvents, center.getTime(), TIMELAPSE_WINDOW_HOURS);
-    return filterByBounds(windowed, bounds); // still filter by viewport
-  }
-  // Normal cluster mode
-  const dateFiltered = filterByDateRange(allEvents, when);
-  const provinceFiltered = filterByProvince(dateFiltered, province);
-  return filterByBounds(provinceFiltered, bounds);
-}, [mapMode, timePosition, allEvents, when, province, bounds]);
-```
-
-`EventList` receives `sidebarEvents` regardless of mode. No changes needed inside `EventList` itself.
 
 ---
 
-## System Overview: With Timelapse Mode Added
+## Revised System Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                      page.tsx (HomeContent)                      │
-│                                                                   │
-│  State: allEvents, bounds, mapMode, timePosition, isPlaying,     │
-│         highlightedVenueId, flyToTarget, when, province (nuqs)   │
-│                                                                   │
-│  ┌──────────────┐    ┌────────────────────────────────────┐      │
-│  │  ModeToggle  │    │         EventFilters               │      │
-│  │ cluster|heat │    │  (hidden in timelapse mode)        │      │
-│  └──────────────┘    └────────────────────────────────────┘      │
-│                                                                   │
-│  ┌──────────────────────────────────────────────────────────┐    │
-│  │   TimelineBar (only in timelapse mode)                   │    │
-│  │   PlayPause · Scrubber (0–1) · TimeLabel                 │    │
-│  └──────────────────────────────────────────────────────────┘    │
-│                                                                   │
-│  ┌──────────────────────────────┐  ┌─────────────────────────┐  │
-│  │  MapClientWrapper            │  │  EventList               │  │
-│  │  (dynamic, ssr:false)        │  │  (sidebarEvents)         │  │
-│  │                              │  │                          │  │
-│  │  ┌──────────────────────┐    │  │  cluster mode:           │  │
-│  │  │  MapContainer        │    │  │    date+province+bounds  │  │
-│  │  │  ├ TileLayer         │    │  │  timelapse mode:         │  │
-│  │  │  ├ MapBoundsTracker  │    │  │    time window + bounds  │  │
-│  │  │  ├ ClusterLayer      │    │  └─────────────────────────┘  │
-│  │  │  │  (hidden in heat) │    │                               │
-│  │  │  ├ HeatmapLayer      │    │                               │
-│  │  │  │  (hidden in clust)│    │                               │
-│  │  │  ├ HeatmapClickLayer │    │                               │
-│  │  │  ├ GeolocationButton │    │                               │
-│  │  │  └ MapViewController │    │                               │
-│  │  └──────────────────────┘    │                               │
-│  │  ┌──────────────────────┐    │                               │
-│  │  │  TimelineBar overlay │    │                               │
-│  │  │  (inside map div,    │    │                               │
-│  │  │   z-index above map) │    │                               │
-│  │  └──────────────────────┘    │                               │
-│  └──────────────────────────────┘                               │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                         VERCEL CRON JOBS                              │
+│                                                                        │
+│  04:00 UTC: /api/cron/discover          06:00 UTC: /api/cron/scrape  │
+│      ↓                                       ↓                        │
+│  runDiscoveryJob()                      runScrapeJob()                │
+│  [discovery-orchestrator.ts]            [orchestrator.ts]             │
+│      ↓                                       ↓                        │
+│  discoverVenueUrls()                    for each scrape_source:       │
+│  [discoverer.ts]                         fetchAndPreprocess()         │
+│  Gemini + Google Search Grounding        extractEvents()  ← MODIFIED  │
+│      ↓                                   (now extracts category)      │
+│  INSERT discovered_sources               upsertEvent()   ← MODIFIED  │
+│  (pending status)                        (stores category)            │
+│      ↓                                                                 │
+│  [promotion step — manual or auto]                                    │
+│      ↓                                                                 │
+│  INSERT venues + scrape_sources                                        │
+└──────────────────────────────────────────────────────────────────────┘
+                              │
+                              ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│                         NEON POSTGRES                                  │
+│                                                                        │
+│  venues              events              scrape_sources               │
+│  (unchanged)         (+ event_category)  (unchanged)                  │
+│                                                                        │
+│  discovered_sources  (NEW)                                             │
+│  status: pending → approved → added                                   │
+└──────────────────────────────────────────────────────────────────────┘
+                              │
+                              ↓
+┌──────────────────────────────────────────────────────────────────────┐
+│                         FRONTEND                                       │
+│                                                                        │
+│  /api/events (unchanged route, now includes event_category column)    │
+│      ↓                                                                 │
+│  HomeContent                                                           │
+│  allEvents → filterByCategory → filterByDateRange → filterByProvince  │
+│            → filterByBounds → sidebarEvents → EventList               │
+│      ↓                                                                 │
+│  EventFilters (+ category chip row)                                   │
+│  URL params: ?when, ?province, ?category (all nuqs)                   │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Component Breakdown: New vs Modified
 
-### New Components
+### New Files
 
-| Component | File | Responsibility |
-|-----------|------|---------------|
-| `HeatmapLayer` | `components/map/HeatmapLayer.tsx` | Wraps `leaflet.heat` imperatively; accepts `points[]` + `visible` |
-| `HeatmapClickLayer` | `components/map/HeatmapClickLayer.tsx` | Invisible CircleMarkers at venue positions for click events |
-| `TimelineBar` | `components/timelapse/TimelineBar.tsx` | Scrubber + play/pause + time label; receives `timePosition` + setters |
-| `ModeToggle` | `components/layout/ModeToggle.tsx` | Button switching `mapMode` between `'cluster'` and `'timelapse'` |
-| `timelapse-utils.ts` | `lib/timelapse-utils.ts` | Pure functions: position→timestamp, filterByTimeWindow, computeVenueHeatPoints |
+| File | Type | Responsibility |
+|------|------|---------------|
+| `src/lib/scraper/discovery-orchestrator.ts` | Server | Discovery cron entry point; iterates city/province combos; calls discoverer; deduplicates; inserts to discovered_sources |
+| `src/lib/scraper/discoverer.ts` | Server | Single city/province discovery call; Gemini + Google Search grounding; returns `{ name, url, city, province }[]` |
+| `src/app/api/cron/discover/route.ts` | API Route | Auth + calls runDiscoveryJob(); `export const maxDuration = 300` |
+| `drizzle migration` | SQL | Add `event_category` to events; create `discovered_sources` table |
 
-### Modified Components
+### Modified Files
 
-| Component | Change |
-|-----------|--------|
-| `MapClient.tsx` | Add `mapMode`, `heatPoints`, `timeWindow` props; render `HeatmapLayer` and `HeatmapClickLayer` conditionally; render `ClusterLayer` only in cluster mode; accept and render `TimelineBar` overlay in timelapse mode |
-| `MapClientWrapper.tsx` | Pass through new props (`mapMode`, `heatPoints`) |
-| `page.tsx` (HomeContent) | Add `mapMode`, `timePosition`, `isPlaying` state; add play interval; compute `heatPoints` via `useMemo`; compute `sidebarEvents` with mode-aware filter chain; render `ModeToggle` and `TimelineBar`; conditionally render `EventFilters` |
-| `EventFilters.tsx` | Accept `hidden` prop or be conditionally rendered by parent (no internal changes required) |
+| File | Change |
+|------|--------|
+| `src/lib/schemas/extracted-event.ts` | Add `event_category: z.enum([...]).nullable()` to ExtractedEventSchema |
+| `src/lib/scraper/extractor.ts` | Update prompt: remove "live music only" constraint; add category classification instruction |
+| `src/lib/scraper/normalizer.ts` | Write `event_category` in INSERT values and ON CONFLICT SET |
+| `src/lib/db/schema.ts` | Add `event_category: text('event_category')` to events table definition |
+| `src/lib/filter-utils.ts` | Add `filterByCategory()` function |
+| `src/components/events/EventFilters.tsx` | Add category chip row; add `category` nuqs param |
+| `src/app/page.tsx` (HomeContent) | Add `category` to filter chain; pass filtered events to map layer |
+| `src/types/index.ts` | EventWithVenue type picks up new column automatically (Drizzle InferSelectModel) |
+| `vercel.json` | Add discovery cron entry |
 
-### Unchanged Components
+### Unchanged Files
 
-| Component | Why Unchanged |
-|-----------|--------------|
-| `EventList.tsx` | Already accepts any `EventWithVenue[]`; no changes needed |
-| `EventCard.tsx` | No changes needed |
-| `MapBoundsTracker.tsx` | Works in both modes |
-| `MapViewController.tsx` | Works in both modes |
-| `ClusterLayer.tsx` | No changes needed — parent conditionally renders it |
-| `MobileTabBar.tsx` | No changes needed |
-| `/api/events` route | No new endpoint required — all filtering is client-side |
-| DB schema | No changes required |
+| File | Why Unchanged |
+|------|--------------|
+| `src/app/api/events/route.ts` | `db.select()` returns all columns; new column flows through automatically |
+| `src/lib/scraper/fetcher.ts` | Discovery uses Gemini grounding, not fetcher |
+| `src/lib/scraper/geocoder.ts` | Geocoding happens at venue creation time — unchanged |
+| `src/components/map/` (all) | Map layers receive filtered events; no awareness of categories needed |
+| `src/components/events/EventList.tsx` | Receives already-filtered events; no changes needed |
 
 ---
 
-## Data Flow: Timelapse Mode
+## Build Order
+
+Dependencies flow strictly downward. Each item can start only after the items above it are complete.
 
 ```
-allEvents (already loaded on mount — no new fetch)
-    ↓
-timePosition (0–1 float from scrubber or interval)
-    ↓
-positionToTimestamp(timePosition, referenceDate)
-    → centerTimestamp: Date
-    ↓
-filterByTimeWindow(allEvents, centerTimestamp.getTime(), 24h)
-    → windowedEvents: EventWithVenue[]
-    ↓
-    ├─→ computeVenueHeatPoints(windowedEvents)
-    │       → heatPoints: { lat, lng, intensity }[]
-    │       → passed to HeatmapLayer (updates setLatLngs + redraw)
-    │       → passed to HeatmapClickLayer (invisible markers for clicks)
-    │
-    └─→ filterByBounds(windowedEvents, bounds)
-            → sidebarEvents
-            → passed to EventList
+1. DB schema migration
+   Add event_category to events.
+   Create discovered_sources table.
+   Run migration. Verify columns exist.
+   (Prerequisite for everything else — schema changes must be live first)
+
+2. ExtractedEventSchema update + extractor.ts prompt update
+   Add event_category to schema.
+   Update prompt: remove live-music filter, add all-event-types + category instruction.
+   Test with a real venue URL to verify category extraction works.
+   (No DB dependency beyond events table having the column from step 1)
+
+3. normalizer.ts: write event_category to DB
+   Add event_category to INSERT values and ON CONFLICT SET.
+   Integration test: run a scrape, verify events.event_category is populated.
+   (Depends on steps 1 + 2)
+
+4. filter-utils.ts: add filterByCategory()
+   Pure function, no dependencies. Can be done in parallel with steps 2-3.
+   Unit test: verify null category returns all, specific category filters correctly.
+
+5. EventFilters.tsx + HomeContent: category filter UI
+   Add category nuqs param.
+   Add category chips to EventFilters.
+   Wire filterByCategory into HomeContent filter chain.
+   Wire category-filtered events to MapClientWrapper.
+   (Depends on step 4; can begin before step 3 with mock data)
+
+6. discoverer.ts + discovery-orchestrator.ts
+   Implement Gemini-grounded discovery.
+   Implement deduplication against scrape_sources.url.
+   Implement insert to discovered_sources.
+   Test with a single city (e.g., Halifax) before all provinces.
+   (Independent of steps 2-5; depends only on step 1 for discovered_sources table)
+
+7. /api/cron/discover route + vercel.json cron entry
+   Wire route to runDiscoveryJob().
+   Add cron schedule to vercel.json.
+   Deploy and verify cron fires correctly.
+   (Depends on step 6)
+
+8. Promotion mechanism
+   Script or endpoint to approve discovered_sources and create venues/scrape_sources.
+   Can be a simple DB query or minimal admin endpoint.
+   (Depends on step 7 having run and populated discovered_sources with real data)
 ```
 
-The `referenceDate` is captured once on mount (`useRef(new Date())`). This anchors the 30-day window relative to when the user loaded the page, preventing drift if the component re-renders.
+**Parallelizable:** Steps 2-3 (extractor changes) and step 6 (discoverer) are independent. Step 4 (filterByCategory) can be written at any point. Steps 2-3 directly improve the existing scrape pipeline and can be deployed independently before the discovery pipeline is complete.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Imperative Leaflet Plugin Wrapping
+### Pattern 1: Extend Existing Extraction, Don't Add a Second LLM Call
 
-**What:** For vanilla Leaflet plugins that have no react-leaflet wrapper, use `useMap()` + `useEffect()` inside a component that renders `null`. Create the layer in a mount effect, update it in a data-change effect, destroy in cleanup.
+**What:** Add `event_category` to the existing Gemini extraction schema rather than running a separate classification pass after extraction.
 
-**When to use:** Any third-party Leaflet plugin — `leaflet.heat`, `leaflet-velocity`, etc.
+**When to use:** Any new attribute that can be inferred from the same page content the extractor already reads.
 
-**Trade-offs:** More boilerplate than a packaged wrapper, but zero dependency risk and full control over update behavior. The existing codebase already does this pattern in `MapBoundsTracker` and `MapViewController`.
+**Trade-offs:** Fewer API calls (cost + speed). Risk: adding fields to the schema prompt may slightly reduce extraction accuracy for existing fields — test with a few URLs before deploying. In practice, Gemini handles additional output fields well, especially when they have a constrained enum.
 
-**Example:** See `HeatmapLayer.tsx` snippet above.
+### Pattern 2: Discovery Queue with Manual Promotion Gate
 
-### Pattern 2: Mode-Aware Conditional Rendering Inside MapContainer
+**What:** Discovery writes to `discovered_sources` with `status = 'pending'`. Scraped content only comes from `scrape_sources`. Promotion is an explicit step.
 
-**What:** Render both `ClusterLayer` and `HeatmapLayer` inside `MapContainer`, but control which is active via a `visible` prop or conditional rendering. Do not unmount/remount `MapContainer` to switch modes — that destroys the map instance and resets zoom/pan.
+**When to use:** Any automated pipeline that generates candidate data of uncertain quality.
 
-**When to use:** Any feature that needs to switch between two map visualization modes.
+**Trade-offs:** Adds latency to new source onboarding (can't scrape a newly discovered venue until it's approved). This is intentional — quality control. The tradeoff is worth it to avoid scraping junk URLs. Future automation can reduce latency (auto-approve if confidence > threshold).
 
-**Trade-offs:** Both layers exist in the component tree simultaneously, so both receive prop updates. The inactive layer should early-return its update effect to avoid unnecessary Leaflet operations.
+### Pattern 3: Client-Side Category Filtering via nuqs
 
-### Pattern 3: Client-Side Time Windowing (No New API Endpoint)
+**What:** Category is a URL param (`?category=live_music`) filtered client-side, consistent with existing `?when` and `?province` params.
 
-**What:** All 30 days of events are already fetched in `allEvents` on mount. Time windowing is a `useMemo` filter — no new server round-trip needed.
+**When to use:** For data volumes where the full event set fits in browser memory. Current Atlantic Canada scope is well within this range.
 
-**When to use:** When the total dataset fits comfortably in memory. The current Atlantic Canada dataset is small (hundreds to a few thousand events). A 30-day window at full load is well within browser memory limits.
+**Trade-offs:** If categories become high-cardinality or the event set grows beyond ~10k records, adding a server-side `?category=` query param to `/api/events` becomes worthwhile to reduce payload size. Not needed for v1.2.
 
-**Trade-offs:** If the dataset grows to tens of thousands of events, this approach will cause UI lag during scrubbing. At that scale, add a server-side endpoint `GET /api/events?from=...&to=...` for time-windowed queries. This is not needed for v1.1.
+### Pattern 4: Separate Cron Routes for Separate Concerns
 
-### Pattern 4: Scrubber Position as Normalized Float
+**What:** `/api/cron/scrape` and `/api/cron/discover` are separate routes with separate schedules.
 
-**What:** Represent time position as a 0–1 float rather than an actual timestamp or millisecond offset. The `input[type=range]` maps directly to this float. All timestamp math is derived from this float + a fixed reference date.
+**When to use:** When two background jobs have different cadences, different failure modes, or different time budgets.
 
-**When to use:** Any scrubber/slider controlling a time dimension.
-
-**Trade-offs:** Decouples the UI control from time domain specifics. Makes it easy to change the window size or range without touching the scrubber component. Slightly harder to reason about when debugging (log `positionToTimestamp(pos)` not `pos`).
+**Trade-offs:** Slightly more infrastructure (two routes, two cron entries in vercel.json). The benefit is clean isolation — a discovery job failure does not affect scraping, and vice versa.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Putting `timePosition` in the URL
+### Anti-Pattern 1: Writing Discovered Sources Directly to scrape_sources
 
-**What people do:** Use nuqs to store the scrubber position in `?t=0.42`.
-**Why it's wrong:** During auto-play, position updates 5 times per second. History API calls at that rate hit browser rate limits (Chrome limits to ~100 pushState calls per 30 seconds). nuqs's `throttleMs` mitigates this partially but the URL becomes polluted and the back button behaves unexpectedly.
-**Do this instead:** Keep `timePosition` in `useState`. Only share things in the URL that make sense to bookmark or share — the time position at the moment of sharing is not meaningful.
+**What people do:** Skip the `discovered_sources` queue; immediately add discovered URLs to `scrape_sources` with `enabled = true`.
 
-### Anti-Pattern 2: Unmounting MapContainer to Switch Modes
+**Why it's wrong:** Discovery returns speculative results. Gemini may return duplicate URLs, irrelevant websites, or URLs for venues outside the target geography. Auto-activating these means junk URLs get scraped nightly, wasting AI quota and polluting the events table.
 
-**What people do:** Conditionally render `<ClusterMapContainer>` vs `<HeatmapMapContainer>` based on mode.
-**Why it's wrong:** Destroys and recreates the Leaflet map instance on every toggle. The map resets to initial zoom/center, all event listeners are lost, and there's a flash of unstyled content.
-**Do this instead:** One `MapContainer`, two layers inside it, one visible at a time.
+**Do this instead:** Queue to `discovered_sources` with `status = 'pending'`. Promote after review (manual or automated confidence threshold).
 
-### Anti-Pattern 3: Fetching a New API Endpoint for Time-Windowed Data
+### Anti-Pattern 2: Running Discovery Inside runScrapeJob()
 
-**What people do:** Add `GET /api/events?from=...&to=...` and hit it on every scrubber move.
-**Why it's wrong:** During scrubbing or playback, time position changes tens of times per second. Each change would trigger a network request. The scrubber would feel laggy and server load would spike.
-**Do this instead:** Load all data once, filter client-side with `filterByTimeWindow`.
+**What people do:** Add discovery as a step at the start or end of the existing scrape orchestrator.
 
-### Anti-Pattern 4: Using `requestAnimationFrame` for the Play Loop
+**Why it's wrong:** Couples two independent concerns. A discovery failure can abort the scrape. The combined job may exceed the function timeout. Scrape frequency (daily, by source) and discovery cadence (by city) are fundamentally different loops.
 
-**What people do:** Drive the timelapse animation with `requestAnimationFrame` for smooth 60fps updates.
-**Why it's wrong:** At 60fps, React state updates (`setTimePosition`) would fire 60 times per second. Each update re-renders `HomeContent`, recomputes `heatPoints` via `useMemo`, and calls `setLatLngs` + `redraw` on the heat layer. This causes heavy CPU usage and jank.
-**Do this instead:** `setInterval` at 200ms (5fps). The heatmap is a density visualization — 5fps playback is smooth enough and reduces CPU by 12x.
+**Do this instead:** Separate cron routes. Both can be daily on Hobby plan. Stagger by 2 hours.
 
-### Anti-Pattern 5: Computing Heat Points Inside HeatmapLayer
+### Anti-Pattern 3: Running a Second LLM Call for Categorization
 
-**What people do:** Pass all events to `HeatmapLayer` and let it filter + compute internally.
-**Why it's wrong:** `HeatmapLayer` is a Leaflet-layer component inside `MapContainer`. It should not own filtering logic. Placing business logic inside map components makes them harder to test and creates tight coupling.
-**Do this instead:** Compute `heatPoints` in `HomeContent` via `useMemo`. Pass the already-computed `{ lat, lng, intensity }[]` array to `HeatmapLayer`. The layer is dumb — it only calls Leaflet APIs.
+**What people do:** After extracting events, pass each event's description back to Gemini to classify it.
 
----
+**Why it's wrong:** Doubles the number of Gemini API calls. With 26+ sources and throttling, the scrape job already runs for ~2 minutes. Adding a classification pass per event would multiply this by the number of events per source.
 
-## Build Order for Timelapse Milestone
+**Do this instead:** Add `event_category` to the existing extraction schema. The model classifies in the same pass.
 
-Dependencies flow strictly downward — each item can only start when the items above it are done.
+### Anti-Pattern 4: Overloading event_category with UI Logic
 
-```
-1. lib/timelapse-utils.ts
-   Pure functions. No dependencies. Build and test first.
-   Covers: positionToTimestamp, filterByTimeWindow, computeVenueHeatPoints
+**What people do:** Store verbose labels in `event_category` ("Live Music & Concerts", "Comedy Shows") to display directly in the UI.
 
-2. HeatmapLayer.tsx
-   Depends on: leaflet.heat npm install, timelapse-utils (for HeatPoint type)
-   Can be developed in isolation with hardcoded test points.
-   No UI, no state — just a Leaflet layer wrapper.
+**Why it's wrong:** UI labels are a presentation concern; DB values should be stable identifiers. If a label changes, all stored values must be migrated.
 
-3. TimelineBar.tsx + ModeToggle.tsx
-   Depends on: nothing (pure UI, receives props/callbacks)
-   Build with hardcoded/stubbed props first.
+**Do this instead:** Store short enum keys (`live_music`, `comedy`). Map to display labels in the frontend constants file. Labels can change without a migration.
 
-4. HeatmapClickLayer.tsx
-   Depends on: react-leaflet CircleMarker (already installed)
-   Thin component — invisible markers at venue coordinates.
+### Anti-Pattern 5: Filtering the Map Layer by Category but Not the Sidebar (or Vice Versa)
 
-5. HomeContent wiring (page.tsx)
-   Depends on: all of the above
-   Add mapMode, timePosition, isPlaying state.
-   Wire ModeToggle → mapMode.
-   Wire TimelineBar ↔ timePosition, isPlaying.
-   Wire heatPoints useMemo.
-   Wire sidebarEvents mode-aware filter chain.
-   Pass new props to MapClientWrapper.
+**What people do:** Apply `filterByCategory` to `sidebarEvents` but pass `allEvents` to the map, creating a mismatch between pins and list entries.
 
-6. MapClient.tsx + MapClientWrapper.tsx prop threading
-   Depends on: HomeContent wiring complete
-   Add mapMode, heatPoints, timeWindow props.
-   Conditionally render ClusterLayer / HeatmapLayer / HeatmapClickLayer.
-   Position TimelineBar overlay inside the map div.
+**Why it's wrong:** Users see pins on the map for events not in the sidebar, or vice versa. This breaks the visual contract of the interface.
 
-7. Integration testing
-   Test: mode toggle shows/hides correct UI
-   Test: scrubber updates heatmap and sidebar simultaneously
-   Test: auto-play advances, stops at end
-   Test: heatmap click opens correct popup
-   Test: mobile tab bar still works in both modes
-```
+**Do this instead:** Derive a `mapEvents` array from `filterByCategory(allEvents, category)` and pass it to `MapClientWrapper`. The sidebar and map must always show the same filtered set.
 
 ---
 
 ## Integration Points
 
-### New Library Integration
+### New External Service
 
-| Library | How Integrated | Notes |
-|---------|---------------|-------|
-| `leaflet.heat` | Installed as npm dep; imported side-effectively inside `HeatmapLayer.tsx` | `leaflet.heat` patches `L` at import time. Must be inside the `ssr:false` dynamic import boundary. Add a `.d.ts` shim or `@types/leaflet.heat` if available. |
+| Service | Integration Pattern | Notes |
+|---------|---------------------|-------|
+| Gemini Google Search Grounding | `@ai-sdk/google` with `useSearchGrounding: true` option in `generateText()` call | Uses existing Gemini API key; no additional credentials. Verify grounding option availability in current `@ai-sdk/google` version before building. |
 
-### Internal Boundaries
+### New Internal Boundaries
 
 | Boundary | Communication | Notes |
 |----------|---------------|-------|
-| `HomeContent` ↔ `MapClientWrapper` | Props: `mapMode`, `heatPoints`, `timeWindow` added to existing interface | `MapClientWrapper` passes through to `MapClient` |
-| `HomeContent` ↔ `TimelineBar` | Props: `timePosition`, `isPlaying`, `onPositionChange`, `onPlayPause` | `TimelineBar` is outside `MapContainer` — no Leaflet context |
-| `HeatmapLayer` ↔ Leaflet | Imperative: `useMap()` + `useEffect()` | Layer added/removed directly to map instance |
-| `HeatmapLayer` ↔ `HeatmapClickLayer` | Sibling components sharing the same `heatPoints` prop from parent | No direct coupling between them |
+| `discovery-orchestrator.ts` ↔ `discovered_sources` table | Drizzle INSERT with ON CONFLICT DO NOTHING | Idempotent — running discovery twice for the same city won't duplicate rows |
+| `discovered_sources` ↔ `scrape_sources` | Promotion step writes new rows | Promotion is the only coupling between the two tables; keep it in a dedicated promotion function |
+| `EventFilters` ↔ `HomeContent` | New `category` nuqs param read in both | Consistent with existing `when` / `province` pattern |
+| `filterByCategory` ↔ filter chain | Pure function inserted into existing chain | Position matters: apply category before province (reduces set earlier) |
 
 ### Unchanged Integration Points
 
 | Boundary | Status |
 |----------|--------|
-| `/api/events` → `HomeContent` | Unchanged — same fetch, same data shape |
-| `nuqs` URL state (`when`, `province`) | Unchanged — still used in cluster mode |
-| `MapBoundsTracker` → `setBounds` | Unchanged — bounds still used for sidebar filtering in both modes |
-| `EventList` ↔ `EventCard` | Unchanged — no mode awareness needed in list components |
+| `/api/events` route → `HomeContent` | Unchanged; new column flows through automatically |
+| `nuqs` URL state pattern | Unchanged; `category` follows same pattern as `when` / `province` |
+| Gemini extraction (extractor.ts) | Modified prompt and schema, but same API call pattern |
+| `upsertEvent` dedup key | Unchanged: (venue_id, event_date, normalized_performer) |
 
 ---
 
@@ -551,24 +577,24 @@ Dependencies flow strictly downward — each item can only start when the items 
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| Current (<5k events) | Client-side time window filter with useMemo — no server changes needed |
-| 5k–50k events | Add `GET /api/events?from=...&to=...` endpoint; fetch only on scrubber release (not during drag), debounce 300ms |
-| 50k+ events | Server-side spatial aggregation for heatmap (return pre-binned grid, not individual points); use Postgres `ST_SnapToGrid` or application-level geohash bucketing |
-
-The current Atlantic Canada scope is unlikely to exceed 5k future events for years. Build for the current scale; the API endpoint approach is a documented escape hatch, not a v1.1 requirement.
+| Current (26 sources, ~5k events) | Client-side category filter in useMemo; single Gemini call per source; no changes needed |
+| 100+ sources | Gemini rate limits become a constraint; increase `SCRAPE_THROTTLE_MS` or batch by day-of-week |
+| 500+ sources | Neon HTTP driver connection pool saturation risk; switch to pooled Neon connection string |
+| Event volume > 10k | Add server-side `?category=` filter to `/api/events` route to reduce payload; still client-side filter for date/province |
 
 ---
 
 ## Sources
 
-- Direct codebase inspection: `src/components/map/`, `src/app/page.tsx`, `src/app/api/events/route.ts`, `src/lib/filter-utils.ts`, `package.json` — HIGH confidence
-- [React Leaflet 5.x Core Architecture](https://react-leaflet.js.org/docs/core-architecture/) — useLeafletContext, createElementHook, useLayerLifecycle — HIGH confidence
-- [Leaflet.heat GitHub (Leaflet org)](https://github.com/Leaflet/Leaflet.heat) — plugin API, setLatLngs, redraw — HIGH confidence
-- [Creating a React-Leaflet Custom Component Using Hooks (Medium/Trabe)](https://medium.com/trabe/creating-a-react-leaflet-custom-component-using-hooks-5b5b905d5a01) — useMap + useEffect pattern for imperative layer wrapping — MEDIUM confidence
-- [nuqs GitHub (47ng/nuqs)](https://github.com/47ng/nuqs) — throttleMs, debounce, URL state management — HIGH confidence
-- `react-leaflet-heat-layer` (LockBlock-dev) — inspected, targets react-leaflet v4 only, last commit July 2024, 3 commits total — LOW confidence (used as negative signal; not recommended)
+- Direct codebase inspection: `src/lib/scraper/`, `src/lib/db/schema.ts`, `src/app/api/cron/`, `vercel.json` — HIGH confidence
+- [Vercel Cron Jobs Usage and Pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) — Hobby plan: 100 cron jobs, once per day — HIGH confidence
+- [Vercel Fluid Compute](https://vercel.com/docs/fluid-compute) — Default as of April 23, 2025; Hobby max duration 300s — HIGH confidence
+- [Vercel Function Max Duration](https://vercel.com/docs/functions/configuring-functions/duration) — Hobby 300s max with Fluid Compute — HIGH confidence
+- [Gemini API Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search) — Grounding as a first-class Gemini API feature — HIGH confidence
+- [Gemini Structured Output](https://ai.google.dev/gemini-api/docs/structured-output) — Enum constraints in schema for classification tasks — HIGH confidence
+- [Vercel Changelog: Cron jobs now support 100 per project on every plan](https://vercel.com/changelog/cron-jobs-now-support-100-per-project-on-every-plan) — HIGH confidence
 
 ---
 
-*Architecture research for: Heatmap timelapse mode integration — East Coast Local v1.1*
+*Architecture research for: Automatic venue/source discovery + AI event categorization — East Coast Local v1.2*
 *Researched: 2026-03-14*
