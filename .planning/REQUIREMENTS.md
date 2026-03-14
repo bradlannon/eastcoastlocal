@@ -16,15 +16,15 @@ Requirements for heatmap timelapse mode. Each maps to roadmap phases.
 
 ### Timeline
 
-- [ ] **TIME-01**: User can drag a scrubber bar to move through a 30-day window of events
+- [x] **TIME-01**: User can drag a scrubber bar to move through a 30-day window of events
 - [x] **TIME-02**: Each scrubber position shows events within a 24-hour rolling window
 - [x] **TIME-03**: User can see the current date/time label showing what window is displayed
-- [ ] **TIME-04**: User can play/pause to auto-advance the scrubber through time
+- [x] **TIME-04**: User can play/pause to auto-advance the scrubber through time
 
 ### Mode
 
 - [x] **MODE-01**: User can toggle between pin/cluster view and heatmap timelapse view
-- [ ] **MODE-02**: Event list sidebar updates to show only events within the current 24-hour time window
+- [x] **MODE-02**: Event list sidebar updates to show only events within the current 24-hour time window
 - [x] **MODE-03**: Map viewport (zoom/pan) is preserved when switching between modes
 
 ## Future Requirements
@@ -59,12 +59,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | HEAT-02 | Phase 4 | Complete |
 | HEAT-03 | Phase 5 | Pending |
 | HEAT-04 | Phase 4 | Complete |
-| TIME-01 | Phase 4 | Pending |
+| TIME-01 | Phase 4 | Complete |
 | TIME-02 | Phase 4 | Complete |
 | TIME-03 | Phase 4 | Complete |
-| TIME-04 | Phase 4 | Pending |
+| TIME-04 | Phase 4 | Complete |
 | MODE-01 | Phase 4 | Complete |
-| MODE-02 | Phase 4 | Pending |
+| MODE-02 | Phase 4 | Complete |
 | MODE-03 | Phase 4 | Complete |
 
 **Coverage:**

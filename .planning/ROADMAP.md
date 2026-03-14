@@ -35,7 +35,7 @@
   3. User can press play and watch the scrubber auto-advance, with the heatmap updating continuously, and press pause to stop at any position
   4. The current date/time label updates to show a human-readable window (e.g., "Friday Mar 20, 8pm – Saturday Mar 21, 8pm") as the scrubber moves
   5. The event list sidebar shows only events within the current 24-hour time window and updates within 250ms as the scrubber moves
-**Plans:** 2/4 plans executed
+**Plans:** 3/4 plans executed
 
 Plans:
 - [ ] 04-01-PLAN.md — TDD: timelapse utility functions (time position, block names, time window filtering, heat point computation)
@@ -59,5 +59,5 @@ Plans:
 | 1. Foundation | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 2. Data Pipeline | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
-| 4. Timelapse Core | 2/4 | In Progress|  | - |
+| 4. Timelapse Core | 3/4 | In Progress|  | - |
 | 5. Click-Through | v1.1 | 0/? | Not started | - |

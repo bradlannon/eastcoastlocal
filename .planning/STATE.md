@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Heatmap Timelapse
 status: planning
-stopped_at: Completed 04-timelapse-core/04-02-PLAN.md
-last_updated: "2026-03-14T16:27:34.153Z"
+stopped_at: Completed 04-timelapse-core/04-03-PLAN.md
+last_updated: "2026-03-14T16:33:35.918Z"
 last_activity: 2026-03-14 — Roadmap created, phases 4-5 defined
 progress:
   total_phases: 2
   completed_phases: 0
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 3
   percent: 0
 ---
 
@@ -47,6 +47,7 @@ Progress: [░░░░░░░░░░] 0%
 | 3. Public Frontend | 3 | 2026-03-14 |
 | Phase 04-timelapse-core P01 | 3 | 2 tasks | 2 files |
 | Phase 04-timelapse-core P02 | 3 | 2 tasks | 3 files |
+| Phase 04-timelapse-core P03 | 3 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -62,6 +63,9 @@ Recent decisions affecting current work:
 - [Phase 04-timelapse-core]: positionToBlockName uses Math.round(position * (TOTAL_STEPS-1)) — position 119/120 maps to step 118 (Evening), position 1.0 maps to step 119 (Night)
 - [Phase 04-timelapse-core]: HeatPoint type imported from timelapse-utils.ts in HeatmapLayer (not redefined) — single source of truth
 - [Phase 04-timelapse-core]: @ts-expect-error removed — @types/leaflet.heat provides full L.heatLayer typing, no suppression needed
+- [Phase 04-timelapse-core]: Mode-aware useMemo derives sidebarEvents and heatPoints together to prevent dual filter runs
+- [Phase 04-timelapse-core]: ClusterLayer unmounts (not CSS-hidden) in timelapse mode per research Open Question 2 recommendation
+- [Phase 04-timelapse-core]: EventFilters hidden in timelapse mode — TimelineBar replaces date filter UI entirely
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T16:27:34.150Z
-Stopped at: Completed 04-timelapse-core/04-02-PLAN.md
+Last session: 2026-03-14T16:33:35.915Z
+Stopped at: Completed 04-timelapse-core/04-03-PLAN.md
 Resume file: None
