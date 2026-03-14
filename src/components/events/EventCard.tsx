@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { format } from 'date-fns';
 import type { EventWithVenue } from '@/types/index';
+import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface EventCardProps {
   event: EventWithVenue;
@@ -54,6 +55,13 @@ export default function EventCard({ event, onHover, onClickVenue }: EventCardPro
           {ev.price && (
             <span className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-medium">
               {ev.price}
+            </span>
+          )}
+
+          {/* Category badge */}
+          {ev.event_category && (
+            <span className="text-xs bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-medium">
+              {CATEGORY_META[ev.event_category as EventCategory]?.label ?? ev.event_category}
             </span>
           )}
         </div>

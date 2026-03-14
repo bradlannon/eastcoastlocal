@@ -6,6 +6,7 @@ import type { Metadata } from 'next';
 import { db } from '@/lib/db/client';
 import { events, venues } from '@/lib/db/schema';
 import { MiniMapWrapper } from '@/components/map/MapWrapper';
+import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface EventPageProps {
   params: Promise<{ id: string }>;
@@ -77,6 +78,8 @@ export default async function EventPage({
   if (sp.when && typeof sp.when === 'string') backParams.set('when', sp.when);
   if (sp.province && typeof sp.province === 'string')
     backParams.set('province', sp.province);
+  if (sp.category && typeof sp.category === 'string')
+    backParams.set('category', sp.category);
   const backHref = backParams.toString() ? `/?${backParams.toString()}` : '/';
 
   // Derive ticket/source URL and hostname
@@ -156,6 +159,13 @@ export default async function EventPage({
         {event.price && (
           <span className="inline-block bg-gray-100 text-gray-700 text-sm font-medium px-3 py-1 rounded-full mb-4">
             {event.price}
+          </span>
+        )}
+
+        {/* Category badge */}
+        {event.event_category && (
+          <span className="inline-block bg-orange-50 text-orange-700 border border-orange-200 text-sm font-medium px-3 py-1 rounded-full mb-4">
+            {CATEGORY_META[event.event_category as EventCategory]?.label ?? event.event_category}
           </span>
         )}
 
