@@ -1,5 +1,6 @@
 import {
   pgTable,
+  pgEnum,
   serial,
   integer,
   text,
@@ -9,6 +10,12 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
+
+export const EVENT_CATEGORIES = [
+  'live_music', 'comedy', 'theatre', 'arts', 'sports', 'festival', 'community', 'other',
+] as const;
+
+export const eventCategoryEnum = pgEnum('event_category', EVENT_CATEGORIES);
 
 export const venues = pgTable('venues', {
   id: serial('id').primaryKey(),
@@ -42,6 +49,7 @@ export const events = pgTable(
     ticket_link: text('ticket_link'),
     description: text('description'),
     cover_image_url: text('cover_image_url'),
+    event_category: eventCategoryEnum('event_category').default('community'),
     created_at: timestamp('created_at').defaultNow().notNull(),
     updated_at: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -70,4 +78,19 @@ export const scrape_sources = pgTable('scrape_sources', {
   source_type: text('source_type').notNull(), // venue_website, eventbrite, bandsintown
   enabled: boolean('enabled').notNull().default(true),
   created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
+export const discovered_sources = pgTable('discovered_sources', {
+  id: serial('id').primaryKey(),
+  url: text('url').notNull().unique(),
+  domain: text('domain').notNull(),
+  source_name: text('source_name'),
+  province: text('province'),
+  city: text('city'),
+  status: text('status').notNull().default('pending'),
+  discovery_method: text('discovery_method'),
+  raw_context: text('raw_context'),
+  discovered_at: timestamp('discovered_at').defaultNow().notNull(),
+  reviewed_at: timestamp('reviewed_at'),
+  added_to_sources_at: timestamp('added_to_sources_at'),
 });
