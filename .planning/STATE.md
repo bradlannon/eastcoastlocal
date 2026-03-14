@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Heatmap Timelapse
 status: planning
-stopped_at: Phase 4 context gathered
-last_updated: "2026-03-14T15:58:17.367Z"
+stopped_at: Completed 04-01-PLAN.md (timelapse-utils.ts TDD)
+last_updated: "2026-03-14T16:26:16.598Z"
 last_activity: 2026-03-14 — Roadmap created, phases 4-5 defined
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -45,6 +45,7 @@ Progress: [░░░░░░░░░░] 0%
 | 1. Foundation | 2 | 2026-03-14 |
 | 2. Data Pipeline | 3 | 2026-03-14 |
 | 3. Public Frontend | 3 | 2026-03-14 |
+| Phase 04-timelapse-core P01 | 3 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -57,6 +58,7 @@ Recent decisions affecting current work:
 - v1.1: `timePosition` in React `useState` only — never nuqs (History API rate-limit at 5 updates/sec playback)
 - v1.1: `setLatLngs()` for heatmap updates (no layer re-creation), `setInterval` at 200ms for playback
 - v1.1: SSR guard for `leaflet.heat` must be verified via `next build` before any animation logic is written
+- [Phase 04-timelapse-core]: positionToBlockName uses Math.round(position * (TOTAL_STEPS-1)) — position 119/120 maps to step 118 (Evening), position 1.0 maps to step 119 (Night)
 
 ### Pending Todos
 
@@ -69,6 +71,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T15:58:17.363Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-timelapse-core/04-CONTEXT.md
+Last session: 2026-03-14T16:26:16.595Z
+Stopped at: Completed 04-01-PLAN.md (timelapse-utils.ts TDD)
+Resume file: None

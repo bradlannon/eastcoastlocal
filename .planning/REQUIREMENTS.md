@@ -10,15 +10,15 @@ Requirements for heatmap timelapse mode. Each maps to roadmap phases.
 ### Heatmap
 
 - [ ] **HEAT-01**: User can see a heatmap overlay on the map showing event density by location
-- [ ] **HEAT-02**: Heatmap intensity reflects the number of events at each venue within the current time window
+- [x] **HEAT-02**: Heatmap intensity reflects the number of events at each venue within the current time window
 - [ ] **HEAT-03**: User can click a heatmap hotspot to see the specific events at that location
 - [ ] **HEAT-04**: Heatmap updates smoothly in-place as the time position changes (no flicker)
 
 ### Timeline
 
 - [ ] **TIME-01**: User can drag a scrubber bar to move through a 30-day window of events
-- [ ] **TIME-02**: Each scrubber position shows events within a 24-hour rolling window
-- [ ] **TIME-03**: User can see the current date/time label showing what window is displayed
+- [x] **TIME-02**: Each scrubber position shows events within a 24-hour rolling window
+- [x] **TIME-03**: User can see the current date/time label showing what window is displayed
 - [ ] **TIME-04**: User can play/pause to auto-advance the scrubber through time
 
 ### Mode
@@ -56,12 +56,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | HEAT-01 | Phase 4 | Pending |
-| HEAT-02 | Phase 4 | Pending |
+| HEAT-02 | Phase 4 | Complete |
 | HEAT-03 | Phase 5 | Pending |
 | HEAT-04 | Phase 4 | Pending |
 | TIME-01 | Phase 4 | Pending |
-| TIME-02 | Phase 4 | Pending |
-| TIME-03 | Phase 4 | Pending |
+| TIME-02 | Phase 4 | Complete |
+| TIME-03 | Phase 4 | Complete |
 | TIME-04 | Phase 4 | Pending |
 | MODE-01 | Phase 4 | Pending |
 | MODE-02 | Phase 4 | Pending |
