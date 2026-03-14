@@ -1,4 +1,4 @@
-import { venues, events, scrape_sources } from './schema';
+import { venues, events, scrape_sources, discovered_sources, eventCategoryEnum } from './schema';
 
 describe('Database Schema Structure', () => {
   describe('venues table', () => {
@@ -40,6 +40,7 @@ describe('Database Schema Structure', () => {
         'ticket_link',
         'description',
         'cover_image_url',
+        'event_category',
         'created_at',
         'updated_at',
       ];
@@ -62,6 +63,51 @@ describe('Database Schema Structure', () => {
         'source_type',
         'enabled',
         'created_at',
+      ];
+      for (const col of expected) {
+        expect(columns).toContain(col);
+      }
+    });
+  });
+
+  describe('eventCategoryEnum', () => {
+    it('has exactly 8 values', () => {
+      expect(eventCategoryEnum.enumValues).toHaveLength(8);
+    });
+
+    it('contains all required category values', () => {
+      const expected = [
+        'live_music',
+        'comedy',
+        'theatre',
+        'arts',
+        'sports',
+        'festival',
+        'community',
+        'other',
+      ];
+      for (const val of expected) {
+        expect(eventCategoryEnum.enumValues).toContain(val);
+      }
+    });
+  });
+
+  describe('discovered_sources table', () => {
+    it('has all required columns', () => {
+      const columns = Object.keys(discovered_sources);
+      const expected = [
+        'id',
+        'url',
+        'domain',
+        'source_name',
+        'province',
+        'city',
+        'status',
+        'discovery_method',
+        'raw_context',
+        'discovered_at',
+        'reviewed_at',
+        'added_to_sources_at',
       ];
       for (const col of expected) {
         expect(columns).toContain(col);
