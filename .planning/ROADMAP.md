@@ -64,4 +64,4 @@ Plans:
 | 2. Data Pipeline | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 4. Timelapse Core | 3/4 | Complete    | 2026-03-14 | - |
-| 5. Click-Through | 2/2 | Complete   | 2026-03-14 | - |
+| 5. Click-Through | 2/2 | Complete    | 2026-03-14 | - |
