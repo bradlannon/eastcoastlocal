@@ -13,7 +13,7 @@ Three phases with a strict dependency chain: stand up the project infrastructure
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Project scaffold, Neon Postgres schema, Vercel deployment, configurable source list
-- [ ] **Phase 2: Data Pipeline** - AI scraping, extraction, geocoding, deduplication, cron automation, platform API integration
+- [x] **Phase 2: Data Pipeline** - AI scraping, extraction, geocoding, deduplication, cron automation, platform API integration (completed 2026-03-14)
 - [ ] **Phase 3: Public Frontend** - Interactive map with clustering, event list, detail pages, filters, geolocation, mobile-responsive UI
 
 ## Phase Details
@@ -43,7 +43,7 @@ Plans:
   3. Venues are geocoded once at import time and coordinates are cached on the venue record (not re-geocoded on each scrape)
   4. Scraping the same source twice does not create duplicate events (composite key deduplication via upsert)
   5. A Vercel cron job runs the full scrape pipeline daily without manual intervention
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 
 Plans:
 - [ ] 02-01-PLAN.md — Core pipeline modules: fetcher, extractor (Gemini LLM), normalizer, geocoder with tests
@@ -71,5 +71,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 2/2 | Complete    | 2026-03-14 |
-| 2. Data Pipeline | 2/3 | In Progress|  |
+| 2. Data Pipeline | 3/3 | Complete   | 2026-03-14 |
 | 3. Public Frontend | 0/TBD | Not started | - |

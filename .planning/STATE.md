@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 02-data-pipeline-01-PLAN.md
-last_updated: "2026-03-14T02:35:57.996Z"
-last_activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
+stopped_at: Completed 02-data-pipeline/02-03-PLAN.md (checkpoint:human-verify Task 3)
+last_updated: "2026-03-14T02:43:00Z"
+last_activity: 2026-03-14 — Orchestrator, cron route, vercel.json complete; awaiting human verify
 progress:
   total_phases: 3
   completed_phases: 1
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-13)
 
 **Core value:** Users can instantly see what live music is happening near them on a map — where, when, and who's playing
-**Current focus:** Phase 1 — Foundation
+**Current focus:** Phase 2 — Data Pipeline
 
 ## Current Position
 
-Phase: 1 of 3 (Foundation)
-Plan: 2 of 2 in current phase (Phase 1 complete)
-Status: In progress
-Last activity: 2026-03-13 — Deployed to Vercel with Neon Postgres, INFR-01 satisfied
+Phase: 2 of 3 (Data Pipeline)
+Plan: 3 of 3 in current phase (awaiting human-verify checkpoint)
+Status: In progress — checkpoint:human-verify Task 3
+Last activity: 2026-03-14 — Orchestrator, cron route, vercel.json complete; 57 tests passing
 
-Progress: [███░░░░░░░] 33%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -75,6 +75,9 @@ Recent decisions affecting current work:
 - [Phase 02-01]: normalizePerformer removes non-alphanumeric chars without space replacement (AC/DC -> acdc)
 - [Phase 02-01]: geocodeAddress rejects APPROXIMATE precision, accepts ROOFTOP and RANGE_INTERPOLATED
 - [Phase 02-01]: extractEvents uses generateText + Output.object (AI SDK 6), not generateObject
+- [Phase 02-03]: Orchestrator queries venues separately (not relational) due to Neon HTTP driver constraints
+- [Phase 02-03]: Per-source try/catch in orchestrator ensures single failure never aborts full scrape run
+- [Phase 02-03]: maxDuration=60 in cron route for Vercel Hobby plan (Pro allows 300)
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T02:35:57.992Z
-Stopped at: Completed 02-data-pipeline-01-PLAN.md
+Last session: 2026-03-14T02:43:00Z
+Stopped at: 02-data-pipeline/02-03-PLAN.md Task 3 (checkpoint:human-verify — end-to-end pipeline verification)
 Resume file: None

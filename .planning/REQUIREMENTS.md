@@ -17,7 +17,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **SCRP-06**: System stores events in Postgres with band/performer, venue, date, time, coordinates, and source URL
 - [x] **SCRP-07**: System deduplicates events using composite key (venue + date + normalized band name) to prevent duplicates across sources
 - [x] **SCRP-08**: System geocodes venue addresses at import time and caches coordinates on the venue record
-- [ ] **SCRP-09**: System runs scheduled rescans via cron (daily minimum) without manual intervention
+- [x] **SCRP-09**: System runs scheduled rescans via cron (daily minimum) without manual intervention
 - [x] **SCRP-10**: System integrates with Eventbrite/Bandsintown APIs (not scraping) for platform-sourced events
 
 ### Map & Discovery
@@ -81,7 +81,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCRP-06 | Phase 1 | Complete |
 | SCRP-07 | Phase 2 | Complete |
 | SCRP-08 | Phase 2 | Complete |
-| SCRP-09 | Phase 2 | Pending |
+| SCRP-09 | Phase 2 | Complete |
 | SCRP-10 | Phase 2 | Complete |
 | MAP-01 | Phase 3 | Pending |
 | MAP-02 | Phase 3 | Pending |
