@@ -35,7 +35,13 @@
   3. User can press play and watch the scrubber auto-advance, with the heatmap updating continuously, and press pause to stop at any position
   4. The current date/time label updates to show a human-readable window (e.g., "Friday Mar 20, 8pm – Saturday Mar 21, 8pm") as the scrubber moves
   5. The event list sidebar shows only events within the current 24-hour time window and updates within 250ms as the scrubber moves
-**Plans**: TBD
+**Plans:** 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — TDD: timelapse utility functions (time position, block names, time window filtering, heat point computation)
+- [ ] 04-02-PLAN.md — Install leaflet.heat, create HeatmapLayer and ModeToggle components, verify SSR build gate
+- [ ] 04-03-PLAN.md — Create TimelineBar scrubber, wire all components into HomeContent/MapClient/MapClientWrapper
+- [ ] 04-04-PLAN.md — Visual verification checkpoint for complete timelapse feature
 
 ### Phase 5: Click-Through
 **Goal**: Users can click a heatmap hotspot and reach the specific events at that location
@@ -53,5 +59,5 @@
 | 1. Foundation | v1.0 | 2/2 | Complete | 2026-03-14 |
 | 2. Data Pipeline | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
-| 4. Timelapse Core | v1.1 | 0/? | Not started | - |
+| 4. Timelapse Core | v1.1 | 0/4 | Not started | - |
 | 5. Click-Through | v1.1 | 0/? | Not started | - |
