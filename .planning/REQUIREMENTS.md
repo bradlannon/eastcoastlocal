@@ -25,17 +25,17 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **MAP-01**: User can view an interactive map centered on Atlantic Canada (NB, NS, PEI, NL)
 - [ ] **MAP-02**: Events display as pin clusters that show count when zoomed out and expand to individual pins when zoomed in
 - [ ] **MAP-03**: User can click a map pin to see event summary (band, venue, date, time)
-- [ ] **MAP-04**: User can browse events in a list view sorted by date
-- [ ] **MAP-05**: User can filter events by date using quick filters (Today, This Weekend, This Week)
-- [ ] **MAP-06**: User can filter events by province or city
+- [x] **MAP-04**: User can browse events in a list view sorted by date
+- [x] **MAP-05**: User can filter events by date using quick filters (Today, This Weekend, This Week)
+- [x] **MAP-06**: User can filter events by province or city
 - [ ] **MAP-07**: User can use browser geolocation to center the map on their current location ("Near me")
-- [ ] **MAP-08**: User can view event detail page showing band, venue, date, time, address, and link to original source
+- [x] **MAP-08**: User can view event detail page showing band, venue, date, time, address, and link to original source
 - [ ] **MAP-09**: Map and list views are mobile-responsive and usable on phone screens
 
 ### Infrastructure
 
 - [x] **INFR-01**: App is deployed on Vercel with cloud-hosted Neon Postgres database
-- [ ] **INFR-02**: App loads initial map view in under 3 seconds on broadband connection
+- [x] **INFR-02**: App loads initial map view in under 3 seconds on broadband connection
 
 ## v2 Requirements
 
@@ -86,14 +86,14 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MAP-01 | Phase 3 | Pending |
 | MAP-02 | Phase 3 | Pending |
 | MAP-03 | Phase 3 | Pending |
-| MAP-04 | Phase 3 | Pending |
-| MAP-05 | Phase 3 | Pending |
-| MAP-06 | Phase 3 | Pending |
+| MAP-04 | Phase 3 | Complete |
+| MAP-05 | Phase 3 | Complete |
+| MAP-06 | Phase 3 | Complete |
 | MAP-07 | Phase 3 | Pending |
-| MAP-08 | Phase 3 | Pending |
+| MAP-08 | Phase 3 | Complete |
 | MAP-09 | Phase 3 | Pending |
 | INFR-01 | Phase 1 | Complete |
-| INFR-02 | Phase 3 | Pending |
+| INFR-02 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 21 total

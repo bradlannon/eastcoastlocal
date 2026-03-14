@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-14T05:39:21.534Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-14T06:11:41.911Z"
 last_activity: 2026-03-14 — Orchestrator, cron route, vercel.json complete; 57 tests passing
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 8
+  completed_plans: 6
   percent: 50
 ---
 
@@ -54,6 +54,7 @@ Progress: [█████░░░░░] 50%
 | Phase 02-data-pipeline P02 | 3 | 1 tasks | 6 files |
 | Phase 02-data-pipeline P01 | 306 | 2 tasks | 10 files |
 | Phase 02-data-pipeline P03 | 6 | 3 tasks | 4 files |
+| Phase 03-public-frontend P01 | 5 | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -82,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 02-03]: Orchestrator queries venues separately (not relational) due to Neon HTTP driver constraints with Drizzle
 - [Phase 02-03]: Per-source try/catch in orchestrator ensures single failure never aborts full scrape run
 - [Phase 02-03]: maxDuration=60 in cron route for Vercel Hobby plan (Pro allows 300)
+- [Phase 03-public-frontend]: filterByBounds uses plain object bounds (not Leaflet LatLngBounds) for testability without Leaflet in test env
+- [Phase 03-public-frontend]: MapClientWrapper exported as placeholder component from MapWrapper.tsx — will become dynamic import when MapClient.tsx is built in Plan 03-02
 
 ### Pending Todos
 
@@ -94,6 +97,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-14T05:39:21.530Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-public-frontend/03-CONTEXT.md
+Last session: 2026-03-14T06:11:41.908Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
