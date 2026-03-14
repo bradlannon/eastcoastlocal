@@ -38,6 +38,8 @@ interface MapClientProps {
   onTimePositionChange?: (pos: number) => void;
   onScrubStart?: () => void;
   onPlayPause?: () => void;
+  showPins?: boolean;
+  onTogglePins?: () => void;
 }
 
 export default function MapClient({
@@ -56,6 +58,8 @@ export default function MapClient({
   onTimePositionChange,
   onScrubStart,
   onPlayPause,
+  showPins,
+  onTogglePins,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
@@ -80,7 +84,7 @@ export default function MapClient({
           maxZoom={20}
         />
         <MapBoundsTracker onBoundsChange={onBoundsChange} />
-        {mapMode !== 'timelapse' && (
+        {(mapMode !== 'timelapse' || showPins) && (
           <ClusterLayer
             events={events}
             highlightedVenueId={highlightedVenueId}
@@ -112,9 +116,11 @@ export default function MapClient({
             isPlaying={isPlaying ?? false}
             currentLabel={currentLabel ?? ''}
             eventCount={eventCount ?? 0}
+            showPins={showPins ?? false}
             onPositionChange={onTimePositionChange ?? (() => {})}
             onScrubStart={onScrubStart ?? (() => {})}
             onPlayPause={onPlayPause ?? (() => {})}
+            onTogglePins={onTogglePins ?? (() => {})}
           />
         </div>
       )}

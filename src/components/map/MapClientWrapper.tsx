@@ -35,6 +35,8 @@ export interface MapClientWrapperProps {
   onTimePositionChange?: (pos: number) => void;
   onScrubStart?: () => void;
   onPlayPause?: () => void;
+  showPins?: boolean;
+  onTogglePins?: () => void;
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {

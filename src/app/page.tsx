@@ -42,6 +42,7 @@ function HomeContent() {
   const [mapMode, setMapMode] = useState<MapMode>('cluster');
   const [timePosition, setTimePosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [showPins, setShowPins] = useState(false);
   const referenceDate = useRef(new Date());
 
   // Play loop: advance scrubber at 1s per step
@@ -113,6 +114,7 @@ function HomeContent() {
   }, []);
   const handleScrubStart = useCallback(() => setIsPlaying(false), []);
   const handlePlayPause = useCallback(() => setIsPlaying((p) => !p), []);
+  const handleTogglePins = useCallback(() => setShowPins((p) => !p), []);
 
   // Compute friendly empty state message
   function getEmptyMessage(): string {
@@ -193,6 +195,8 @@ function HomeContent() {
               onTimePositionChange={setTimePosition}
               onScrubStart={handleScrubStart}
               onPlayPause={handlePlayPause}
+              showPins={showPins}
+              onTogglePins={handleTogglePins}
             />
           )}
         </div>

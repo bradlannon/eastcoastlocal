@@ -7,9 +7,11 @@ interface TimelineBarProps {
   isPlaying: boolean;
   currentLabel: string;
   eventCount: number;
+  showPins: boolean;
   onPositionChange: (pos: number) => void;
   onScrubStart: () => void;
   onPlayPause: () => void;
+  onTogglePins: () => void;
 }
 
 export default function TimelineBar({
@@ -17,9 +19,11 @@ export default function TimelineBar({
   isPlaying,
   currentLabel,
   eventCount,
+  showPins,
   onPositionChange,
   onScrubStart,
   onPlayPause,
+  onTogglePins,
 }: TimelineBarProps) {
   return (
     <div className="backdrop-blur-md bg-white/70 rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-2">
@@ -82,6 +86,26 @@ export default function TimelineBar({
         >
           {eventCount}
         </span>
+        {/* Pin visibility toggle */}
+        <button
+          onClick={onTogglePins}
+          aria-label={showPins ? 'Hide venue pins' : 'Show venue pins'}
+          title={showPins ? 'Hide pins' : 'Show pins'}
+          className={`ml-2 w-7 h-7 flex items-center justify-center rounded-md cursor-pointer transition-colors ${
+            showPins ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+          </svg>
+        </button>
       </div>
     </div>
   );
