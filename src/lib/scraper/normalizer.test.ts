@@ -81,8 +81,8 @@ describe('upsertEvent', () => {
     await upsertEvent(1, extracted, 'https://example.com');
 
     // Retrieve the values call args
-    const mockDb = db as { insert: jest.MockedFunction<typeof db.insert> };
-    const insertedValues = (mockDb.insert as jest.Mock).mock.results[0].value.values.mock.calls[0][0];
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const insertedValues = mockDb.insert.mock.results[0].value.values.mock.calls[0][0];
     expect(insertedValues.normalized_performer).toBe('the trews');
     expect(insertedValues.performer).toBe('The Trews');
   });
@@ -101,8 +101,8 @@ describe('upsertEvent', () => {
 
     await upsertEvent(5, extracted, 'https://venue.com');
 
-    const mockDb = db as { insert: jest.MockedFunction<typeof db.insert> };
-    const valuesResult = (mockDb.insert as jest.Mock).mock.results[0].value.values;
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const valuesResult = mockDb.insert.mock.results[0].value.values;
     const conflictCall = valuesResult.mock.results[0].value.onConflictDoUpdate.mock.calls[0][0];
 
     // Should have a target with venue_id, event_date, normalized_performer columns
@@ -124,8 +124,8 @@ describe('upsertEvent', () => {
 
     await upsertEvent(10, extracted, 'https://source.com');
 
-    const mockDb = db as { insert: jest.MockedFunction<typeof db.insert> };
-    const insertedValues = (mockDb.insert as jest.Mock).mock.results[0].value.values.mock.calls[0][0];
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const insertedValues = mockDb.insert.mock.results[0].value.values.mock.calls[0][0];
 
     expect(insertedValues.venue_id).toBe(10);
     expect(insertedValues.performer).toBe('Full Fields Band');
