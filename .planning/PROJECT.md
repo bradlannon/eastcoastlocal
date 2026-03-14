@@ -29,7 +29,17 @@ Users can instantly see what live music is happening near them on a map — wher
 
 <!-- Current scope. Building toward these. -->
 
-(None — plan next milestone)
+## Current Milestone: v1.1 Heatmap Timelapse
+
+**Goal:** Add a dynamic time dimension to the map with a heatmap timelapse mode inspired by windy.tv
+
+**Target features:**
+- Heatmap overlay showing event density across the map
+- Timeline scrubber bar with 24-hour rolling window across 30 days
+- Play/pause auto-advance animation
+- Click-through from heatmap hotspots to specific events
+- Event list sidebar syncs with current time position
+- Toggle between existing pin/cluster view and heatmap timelapse mode
 
 ### Out of Scope
 
@@ -77,4 +87,4 @@ Users can instantly see what live music is happening near them on a map — wher
 | Light theme + CartoDB Positron tiles | User chose light tiles; consistent light UI throughout | ✓ Good — clean, readable design |
 
 ---
-*Last updated: 2026-03-14 after v1.0 milestone*
+*Last updated: 2026-03-14 after v1.1 milestone started*

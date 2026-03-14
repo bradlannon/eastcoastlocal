@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: MVP
-status: complete
-stopped_at: v1.0 milestone complete
+milestone: v1.1
+milestone_name: Heatmap Timelapse
+status: active
+stopped_at: null
 last_updated: "2026-03-14"
-last_activity: 2026-03-14 — v1.0 MVP shipped; 3 phases, 8 plans, 77 tests, 3521 LOC
+last_activity: 2026-03-14 — Milestone v1.1 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-14)
 
 **Core value:** Users can instantly see what live music is happening near them on a map — where, when, and who's playing
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v1.1 Heatmap Timelapse
 
 ## Current Position
 
-Milestone: v1.0 MVP — SHIPPED 2026-03-14
-All 3 phases complete (8/8 plans)
-
-Progress: [██████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-14 — Milestone v1.1 started
 
 ## Accumulated Context
 
@@ -42,10 +42,10 @@ None.
 
 ### Blockers/Concerns
 
-None — milestone complete.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-14
-Stopped at: v1.0 milestone complete
+Stopped at: Defining requirements
 Resume file: None
