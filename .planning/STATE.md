@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Heatmap Timelapse
 status: planning
-stopped_at: Phase 5 context gathered
-last_updated: "2026-03-14T17:32:59.141Z"
+stopped_at: Completed 05-click-through 05-01-PLAN.md
+last_updated: "2026-03-14T18:16:57.767Z"
 last_activity: 2026-03-14 — Roadmap created, phases 4-5 defined
 progress:
   total_phases: 2
   completed_phases: 0
-  total_plans: 4
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
   percent: 0
 ---
 
@@ -48,6 +48,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 04-timelapse-core P01 | 3 | 2 tasks | 2 files |
 | Phase 04-timelapse-core P02 | 3 | 2 tasks | 3 files |
 | Phase 04-timelapse-core P03 | 3 | 2 tasks | 4 files |
+| Phase 05-click-through P01 | 2 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 04-timelapse-core]: Mode-aware useMemo derives sidebarEvents and heatPoints together to prevent dual filter runs
 - [Phase 04-timelapse-core]: ClusterLayer unmounts (not CSS-hidden) in timelapse mode per research Open Question 2 recommendation
 - [Phase 04-timelapse-core]: EventFilters hidden in timelapse mode — TimelineBar replaces date filter UI entirely
+- [Phase 05-click-through]: haversineDistance exported as named function for direct unit testing and reuse by HeatmapClickLayer
+- [Phase 05-click-through]: findNearbyVenues accepts Map<number, VenueGroup> keyed by venueId to match HeatmapClickLayer grouping shape
+- [Phase 05-click-through]: CLICK_RADIUS_METERS = 2000 exported as named constant — single source of truth shared by click layer and tests
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-14T17:32:59.136Z
-Stopped at: Phase 5 context gathered
-Resume file: .planning/phases/05-click-through/05-CONTEXT.md
+Last session: 2026-03-14T18:16:57.763Z
+Stopped at: Completed 05-click-through 05-01-PLAN.md
+Resume file: None

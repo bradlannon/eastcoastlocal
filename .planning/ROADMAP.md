@@ -50,7 +50,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can click a heatmap hotspot and see the events at that venue (via the existing event detail or popup flow)
   2. Click-through works correctly when venues overlap or are close together at the current zoom level
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 05-01-PLAN.md — TDD: findNearbyVenues spatial proximity function in timelapse-utils
@@ -64,4 +64,4 @@ Plans:
 | 2. Data Pipeline | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 3. Public Frontend | v1.0 | 3/3 | Complete | 2026-03-14 |
 | 4. Timelapse Core | 3/4 | Complete    | 2026-03-14 | - |
-| 5. Click-Through | v1.1 | 0/2 | Not started | - |
+| 5. Click-Through | 1/2 | In Progress|  | - |

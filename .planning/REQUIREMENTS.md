@@ -11,7 +11,7 @@ Requirements for heatmap timelapse mode. Each maps to roadmap phases.
 
 - [x] **HEAT-01**: User can see a heatmap overlay on the map showing event density by location
 - [x] **HEAT-02**: Heatmap intensity reflects the number of events at each venue within the current time window
-- [ ] **HEAT-03**: User can click a heatmap hotspot to see the specific events at that location
+- [x] **HEAT-03**: User can click a heatmap hotspot to see the specific events at that location
 - [x] **HEAT-04**: Heatmap updates smoothly in-place as the time position changes (no flicker)
 
 ### Timeline
@@ -57,7 +57,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | HEAT-01 | Phase 4 | Complete |
 | HEAT-02 | Phase 4 | Complete |
-| HEAT-03 | Phase 5 | Pending |
+| HEAT-03 | Phase 5 | Complete |
 | HEAT-04 | Phase 4 | Complete |
 | TIME-01 | Phase 4 | Complete |
 | TIME-02 | Phase 4 | Complete |
