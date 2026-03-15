@@ -78,7 +78,9 @@ Plans:
   1. The admin source list shows event count, average confidence, and consecutive failure count for each source
   2. Sources with 3 or more consecutive failures are visually flagged in the admin UI
   3. Metric values update after each scrape run without manual intervention
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 15-01-PLAN.md — Schema migration, orchestrator metric writes, admin dashboard metric columns + failure badge
 
 ### Phase 16: Ticketmaster Integration
 **Goal**: Major Atlantic Canada ticketed events from Scotiabank Centre, Avenir Centre, and other large venues appear on the map, sourced from Ticketmaster's Discovery API
@@ -119,6 +121,6 @@ Plans:
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
-| 15. Scrape Quality Metrics | v1.4 | 0/? | Not started | - |
+| 15. Scrape Quality Metrics | v1.4 | 0/1 | Not started | - |
 | 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |
