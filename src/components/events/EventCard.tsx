@@ -30,14 +30,29 @@ export default function EventCard({ event, onHover, onClickVenue }: EventCardPro
       onClick={handleCardClick}
     >
       <div className="bg-white border border-gray-200 rounded-lg p-3 shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-150 cursor-pointer">
-        {/* Performer name — links to event detail page */}
-        <Link
-          href={`/event/${ev.id}`}
-          className="block font-bold text-gray-900 text-sm leading-tight mb-1 group-hover:text-orange-600 transition-colors"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {ev.performer}
-        </Link>
+        {/* Performer name row — with optional map-pin affordance */}
+        <div className="flex items-start gap-1 mb-1">
+          <Link
+            href={`/event/${ev.id}`}
+            className="block font-bold text-gray-900 text-sm leading-tight group-hover:text-orange-600 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {ev.performer}
+          </Link>
+          {venue.lat !== null && venue.lat !== undefined && venue.lng !== null && venue.lng !== undefined && (
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              aria-hidden="true"
+              className="ml-auto mt-0.5 flex-shrink-0 text-gray-400 group-hover:text-[#E85D26] transition-colors"
+            >
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            </svg>
+          )}
+        </div>
 
         {/* Venue + city */}
         <div className="text-xs text-gray-500 mb-1.5">
