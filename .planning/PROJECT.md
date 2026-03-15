@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A public-facing web app that helps people discover events across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping to automatically extract event data from venue websites and event platforms, then displays upcoming events on an interactive map with pin clusters and a heatmap timelapse mode. Events are automatically categorized by type (live music, comedy, theatre, arts, sports, festival, community) and users can filter by category. A weekly discovery pipeline automatically finds new event venues across the region.
+A public-facing web app that helps people discover events across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping and the Ticketmaster Discovery API to automatically extract event data from venue websites and event platforms, then displays upcoming events on an interactive map with pin clusters and a heatmap timelapse mode. Events are automatically categorized by type, duplicate venues and events are merged across sources, and an admin dashboard provides full control over scraping, discovery, and venue management.
 
 ## Core Value
 
@@ -56,10 +56,6 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Admin can approve discovered sources (promotes to venue + scrape source) — v1.3
 - ✓ Admin can reject discovered sources with optional reason — v1.3
 
-### Active
-
-<!-- Current scope. Building toward these. -->
-
 - ✓ Ticketmaster Discovery API integration for Atlantic Canada events — v1.4
 - ✓ Google Events JSON-LD structured data extraction (fast path before Gemini) — v1.4
 - ✓ Multi-page/pagination support for venue website scraping — v1.4
@@ -67,10 +63,20 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Scrape quality metrics (event count, confidence, failure rate per source) — v1.4
 - ✓ Auto-approve high-confidence discovered sources without manual review — v1.4
 
-- [ ] Auto-detect and merge duplicate events across sources — v1.5
-- [ ] Auto-detect and merge duplicate venues (TM-created vs existing) — v1.5
-- [ ] Zoom-to-location button on event cards — v1.5
-- [ ] Category filter chips visible in timelapse mode — v1.5
+- ✓ Auto-detect and merge duplicate venues (TM-created vs existing) — v1.5
+- ✓ Cross-source duplicate event prevention via venue merge + upsert dedup — v1.5
+- ✓ Borderline venue merge candidates logged for admin review — v1.5
+- ✓ Admin merge review UI with side-by-side comparison, merge, and keep-separate — v1.5
+- ✓ Event source tracking via event_sources join table — v1.5
+- ✓ Non-destructive ticket link update on cross-source conflict (COALESCE) — v1.5
+- ✓ Zoom-to-location button on event cards — v1.5
+- ✓ Category filter chips visible in timelapse mode — v1.5
+
+### Active
+
+<!-- Current scope. Building toward these. -->
+
+(No active requirements — next milestone not yet planned)
 
 ### Out of Scope
 
@@ -85,7 +91,10 @@ Users can instantly see what events are happening near them on a map — where, 
 - Multi-select category filter — single-select chips sufficient for current taxonomy size
 - Real-time discovery (user-triggered) — discovery is a periodic cron job, not on-demand
 - Category customization by users — fixed 8-category taxonomy enforced by AI
-- Facebook Events integration — requires headless browser, blocked by Vercel Hobby constraints; deferred to v1.5
+- Facebook Events integration — requires headless browser, blocked by Vercel Hobby 50MB limit
+- Fully automated venue merge with no review path — false positives corrupt data; two-signal gate + admin review for borderline cases
+- Fuzzy event matching independent of venue — title similarity across different venues produces false positives
+- Real-time dedup during user requests — fuzzy matching is O(n²); daily cron only
 
 ## Context
 
@@ -97,8 +106,11 @@ Users can instantly see what events are happening near them on a map — where, 
 - The app is hands-off once configured — daily scrape cron and weekly discovery cron run automatically via Vercel
 - Public app accessible to anyone in the region
 - Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
-- v1.3 shipped: 7,983 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
-- Admin UI at /admin with JWT auth, dashboard, venue management, and discovery review
+- v1.5 shipped: 11,774 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- Admin UI at /admin with JWT auth, dashboard, venue management, discovery review, and merge review
+- Ticketmaster Discovery API integration sourcing major ticketed events across all 4 provinces
+- Venue deduplication via two-signal scoring (name similarity + geocoordinate proximity) with admin merge review for borderline cases
+- Event source tracking via event_sources join table; non-destructive COALESCE for source_url and ticket_link
 - Deployed at eastcoastlocal.bradlannon.ca
 
 ## Constraints
@@ -138,6 +150,15 @@ Users can instantly see what events are happening near them on a map — where, 
 | Auto-geocode venues on save | Reuse existing Google Maps API integration | ✓ Good — venues get lat/lng automatically when created/edited |
 | promoteSource() reused for admin approve | No duplication of promotion logic | ✓ Good — web UI calls same function as CLI |
 | Rejection reason appended to raw_context | Avoids schema migration for dedicated column | ✓ Good — pragmatic; reason preserved without new column |
+| JSON-LD extraction before Gemini fallback | Skip expensive AI calls for structured data pages | ✓ Good — confidence=1.0 events, no API cost |
+| Per-domain rate limiting via module-level Map | Prevent being blocked by venue websites | ✓ Good — 2s+ gap per domain with jitter |
+| Ticketmaster synthetic URL pattern (ticketmaster:province:XX) | One scrape_source row per province, reuse orchestrator dispatch | ✓ Good — clean integration with existing pipeline |
+| Two-signal venue merge gate (name ratio < 0.15 AND geo < 100m) | Prevent false positive merges from name-only or geo-only matches | ✓ Good — conservative; borderline cases go to admin review |
+| fastest-levenshtein for edit distance | Zero dependencies, pure JS, server-side only | ✓ Good — no native bindings needed |
+| event_sources uniqueIndex on (event_id, source_type) | PostgreSQL NULL != NULL allows multiple scrape sources per event | ✓ Good — clean dedup without composite nullability issues |
+| COALESCE for source_url and ticket_link in upsertEvent | First source to set a link wins; subsequent nulls cannot overwrite | ✓ Good — non-destructive cross-source attribution |
+| Drizzle alias() for venue self-join in merge review | Side-by-side venue_a/venue_b comparison in single query | ✓ Good — clean pattern for self-referencing FK joins |
+| NavLinks extracted as client component | Admin layout can be async server component (fetches pending count) | ✓ Good — server/client boundary clean |
 
 ---
-*Last updated: 2026-03-15 after v1.5 milestone started*
+*Last updated: 2026-03-15 after v1.5 milestone completed*

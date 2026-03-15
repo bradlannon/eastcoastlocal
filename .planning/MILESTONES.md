@@ -1,5 +1,22 @@
 # Milestones
 
+## v1.5 Event Dedup & UX Polish (Shipped: 2026-03-15)
+
+**Phases completed:** 8 phases, 14 plans
+**Timeline:** 2 days (2026-03-13 → 2026-03-15)
+**Stats:** 11,774 LOC TypeScript, 114 files changed, +18,635 lines
+
+**Key accomplishments:**
+- Two-signal venue deduplication (name similarity + geocoordinate proximity) with dry-run validation and admin merge review UI
+- Ticketmaster Discovery API integration sourcing major Atlantic Canada ticketed events with "via Ticketmaster" attribution
+- Event source tracking via event_sources join table — every event records which scrapers discovered it
+- Non-destructive cross-source conflict resolution using COALESCE for source_url and ticket_link
+- UX polish: map-pin flyTo on event cards, category filter chips in timelapse mode
+- Auto-approve pipeline for high-confidence discovered sources with admin revoke capability
+- Scrape quality metrics (event count, confidence, failure rate) visible in admin dashboard
+
+---
+
 ## v1.3 Admin Tools (Shipped: 2026-03-15)
 
 **Phases completed:** 4 phases, 6 plans, 0 tasks
