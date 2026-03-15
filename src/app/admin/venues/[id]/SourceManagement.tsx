@@ -20,6 +20,7 @@ const initialState: { error?: string } = {};
 const SOURCE_TYPE_LABELS: Record<string, string> = {
   eventbrite: 'Eventbrite',
   bandsintown: 'Bandsintown',
+  ticketmaster: 'Ticketmaster',
   venue_website: 'Website',
 };
 
@@ -30,6 +31,8 @@ function SourceTypeBadge({ type }: { type: string }) {
       ? 'bg-orange-100 text-orange-700'
       : type === 'bandsintown'
       ? 'bg-green-100 text-green-700'
+      : type === 'ticketmaster'
+      ? 'bg-blue-100 text-blue-800'
       : 'bg-blue-100 text-blue-700';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>

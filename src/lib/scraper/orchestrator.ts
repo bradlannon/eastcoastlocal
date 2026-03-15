@@ -8,6 +8,7 @@ import { upsertEvent } from './normalizer';
 import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
+import { scrapeTicketmaster } from './ticketmaster';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Delay between AI extraction requests to stay within Gemini rate limits.
@@ -115,6 +116,9 @@ export async function runScrapeJob(): Promise<void> {
       } else if (source.source_type === 'bandsintown') {
         await scrapeBandsintown(source);
         console.log(`  ✓ Bandsintown source ${source.id}`);
+      } else if (source.source_type === 'ticketmaster') {
+        await scrapeTicketmaster(source);
+        console.log(`  ✓ Ticketmaster source ${source.id} (${source.url})`);
       } else {
         console.warn(`Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }

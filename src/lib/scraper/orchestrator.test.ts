@@ -41,6 +41,10 @@ jest.mock('./bandsintown', () => ({
   scrapeBandsintown: jest.fn(),
 }));
 
+jest.mock('./ticketmaster', () => ({
+  scrapeTicketmaster: jest.fn(),
+}));
+
 import { db } from '@/lib/db/client';
 import { fetchAndPreprocess } from './fetcher';
 import { extractEvents } from './extractor';
@@ -49,6 +53,7 @@ import { upsertEvent } from './normalizer';
 import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
+import { scrapeTicketmaster } from './ticketmaster';
 import { runScrapeJob } from './orchestrator';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
@@ -60,6 +65,7 @@ const mockUpsertEvent = upsertEvent as jest.MockedFunction<typeof upsertEvent>;
 const mockGeocodeAddress = geocodeAddress as jest.MockedFunction<typeof geocodeAddress>;
 const mockScrapeEventbrite = scrapeEventbrite as jest.MockedFunction<typeof scrapeEventbrite>;
 const mockScrapeBandsintown = scrapeBandsintown as jest.MockedFunction<typeof scrapeBandsintown>;
+const mockScrapeTicketmaster = scrapeTicketmaster as jest.MockedFunction<typeof scrapeTicketmaster>;
 
 // Helper to build db.update mock chain
 function mockUpdateChain() {
@@ -137,6 +143,24 @@ const mockBandsinTownSource = {
   created_at: new Date(),
 };
 
+const mockTicketmasterSource = {
+  id: 4,
+  url: 'ticketmaster:province:NB',
+  venue_id: 10,
+  scrape_frequency: 'daily',
+  last_scraped_at: null,
+  last_scrape_status: 'pending',
+  source_type: 'ticketmaster',
+  enabled: true,
+  max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
+  created_at: new Date(),
+};
+
 const mockExtractedEvents: ExtractedEvent[] = [
   { performer: 'Band A', event_date: '2026-04-01', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9, event_category: 'other' },
   { performer: 'Band B', event_date: '2026-04-02', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'other' },
@@ -164,9 +188,10 @@ beforeEach(() => {
   // Default: geocode returns null (venue already has coords)
   mockGeocodeAddress.mockResolvedValue(null);
 
-  // Default: eventbrite/bandsintown succeed
+  // Default: eventbrite/bandsintown/ticketmaster succeed
   mockScrapeEventbrite.mockResolvedValue(undefined);
   mockScrapeBandsintown.mockResolvedValue(undefined);
+  mockScrapeTicketmaster.mockResolvedValue(undefined);
 
   // Default: db.query.scrape_sources.findMany returns venue_website source
   (mockDb.query.scrape_sources.findMany as jest.MockedFunction<typeof mockDb.query.scrape_sources.findMany>).mockResolvedValue([mockVenueWebsiteSource]);
@@ -269,6 +294,25 @@ describe('runScrapeJob — metric writes for non-venue_website sources', () => {
 
   it('Test 10: bandsintown source — last_event_count is null in success write (handlers return void)', async () => {
     (mockDb.query.scrape_sources.findMany as jest.MockedFunction<typeof mockDb.query.scrape_sources.findMany>).mockResolvedValue([mockBandsinTownSource]);
+
+    await runScrapeJob();
+
+    const setCall = (mockDb.update as jest.MockedFunction<typeof mockDb.update>).mock.results[0].value.set.mock.calls[0][0];
+    expect(setCall.last_event_count).toBeNull();
+    expect(setCall.avg_confidence).toBeNull();
+  });
+
+  it('Test 11: ticketmaster source — scrapeTicketmaster is called with the source', async () => {
+    (mockDb.query.scrape_sources.findMany as jest.MockedFunction<typeof mockDb.query.scrape_sources.findMany>).mockResolvedValue([mockTicketmasterSource]);
+
+    await runScrapeJob();
+
+    expect(mockScrapeTicketmaster).toHaveBeenCalledTimes(1);
+    expect(mockScrapeTicketmaster).toHaveBeenCalledWith(mockTicketmasterSource);
+  });
+
+  it('Test 12: ticketmaster source — last_event_count is null in success write (handler returns void)', async () => {
+    (mockDb.query.scrape_sources.findMany as jest.MockedFunction<typeof mockDb.query.scrape_sources.findMany>).mockResolvedValue([mockTicketmasterSource]);
 
     await runScrapeJob();
 

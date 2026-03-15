@@ -66,6 +66,21 @@ export default function EventCard({ event, onHover, onClickVenue }: EventCardPro
           )}
         </div>
 
+        {/* Ticketmaster attribution */}
+        {ev.source_url?.includes('ticketmaster.com') && (
+          <div className="mt-1">
+            <a
+              href={ev.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-blue-600 hover:underline"
+              onClick={(e) => e.stopPropagation()}
+            >
+              via Ticketmaster
+            </a>
+          </div>
+        )}
+
         {/* View details link (secondary action) */}
         <div className="mt-1.5">
           <Link

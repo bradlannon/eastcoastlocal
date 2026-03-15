@@ -140,6 +140,8 @@ export async function addSource(
     sourceType = 'eventbrite';
   } else if (url.includes('bandsintown')) {
     sourceType = 'bandsintown';
+  } else if (url.includes('ticketmaster')) {
+    sourceType = 'ticketmaster';
   }
 
   // Insert the new source

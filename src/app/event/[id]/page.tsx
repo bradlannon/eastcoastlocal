@@ -196,6 +196,21 @@ export default async function EventPage({
           </div>
         )}
 
+        {/* Ticketmaster attribution */}
+        {event.source_url?.includes('ticketmaster.com') && (
+          <p className="text-sm text-gray-500 mb-4">
+            Event data{' '}
+            <a
+              href={event.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 hover:underline"
+            >
+              via Ticketmaster
+            </a>
+          </p>
+        )}
+
         {/* Description */}
         {event.description && (
           <p className="text-gray-700 leading-relaxed mb-6">
