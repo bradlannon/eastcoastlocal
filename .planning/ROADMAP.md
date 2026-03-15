@@ -164,6 +164,6 @@ Plans:
 | 15. Scrape Quality Metrics | v1.4 | 1/1 | Complete | 2026-03-15 |
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
-| 18. Venue Deduplication | v1.5 | 0/2 | Not started | — |
+| 18. Venue Deduplication | 1/2 | In Progress|  | — |
 | 19. UX Polish & Source Attribution | v1.5 | 0/? | Not started | — |
 | 20. Admin Merge Review | v1.5 | 0/? | Not started | — |

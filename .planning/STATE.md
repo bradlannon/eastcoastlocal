@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: planning
-stopped_at: Phase 18 context gathered
-last_updated: "2026-03-15T15:14:33.822Z"
+stopped_at: Completed 18-01-PLAN.md — venue dedup scoring module built and tested
+last_updated: "2026-03-15T15:36:25.088Z"
 last_activity: 2026-03-15 — Roadmap created for v1.5 (Phases 18-20)
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 7
   completed_plans: 7
-  percent: 0
+  percent: 14
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 18 — Venue Deduplication (not started)
-Plan: —
-Status: Roadmap complete, ready for Phase 18 planning
-Last activity: 2026-03-15 — Roadmap created for v1.5 (Phases 18-20)
+Phase: 18 — Venue Deduplication (in progress)
+Plan: 01 complete — scoring module built
+Status: Plan 18-01 complete; ready for Plan 18-02 (TM pipeline integration)
+Last activity: 2026-03-15 — Plan 18-01 executed: venue dedup scoring module
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 
 ## Performance Metrics
 
@@ -43,7 +43,7 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 18. Venue Deduplication | — | — | — |
+| 18. Venue Deduplication | 1 | 3 min | 3 min |
 | 19. UX Polish & Source Attribution | — | — | — |
 | 20. Admin Merge Review | — | — | — |
 
@@ -63,6 +63,8 @@ Recent decisions affecting current work:
 - [v1.5] Two-signal merge gate confirmed: name similarity (proportional distance < 0.15) AND geocoordinate proximity (< 100m) required for auto-merge
 - [v1.5] Borderline cases (name match but geo > 500m, or geo close but name differs) logged without acting — surfaced in Phase 20 admin UI
 - [v1.5] `fastest-levenshtein@1.0.16` selected for edit-distance scoring; zero dependencies, pure JS, server-side only
+- [Phase 18-venue-deduplication]: Test fixtures must satisfy the 0.15 name ratio — 'Scotiabank Centre Halifax' vs 'Scotiabank Centre' (0.32) does not qualify; 'Scotiabank Center' vs 'Scotiabank Centre' (0.118) does
+- [Phase 18-venue-deduplication]: scoreVenueCandidate hasGeo requires BOTH incoming AND candidate to have coordinates for the geo signal to activate
 
 ### Pending Todos
 
@@ -77,6 +79,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T15:14:33.816Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/milestones/v1.5-phases/18-venue-deduplication/18-CONTEXT.md
+Last session: 2026-03-15T15:36:25.083Z
+Stopped at: Completed 18-01-PLAN.md — venue dedup scoring module built and tested
+Resume file: .planning/milestones/v1.5-phases/18-venue-deduplication/18-01-SUMMARY.md
