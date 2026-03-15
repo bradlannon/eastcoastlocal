@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
-status: roadmapped
-stopped_at: Roadmap created — ready to plan Phase 14
-last_updated: "2026-03-15"
-last_activity: "2026-03-15 — v1.4 roadmap created (4 phases, 10 requirements mapped)"
+status: planning
+stopped_at: Completed 14-fetch-pipeline 14-01-PLAN.md
+last_updated: "2026-03-15T06:35:33.839Z"
+last_activity: 2026-03-15 — v1.4 roadmap created
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0% (0/4 phases complete)
 | - | - | - | - |
 
 *Updated after each plan completion*
+| Phase 14-fetch-pipeline P01 | 6 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -73,6 +74,9 @@ Recent decisions affecting current work:
 - [v1.4] JSON-LD as fast-path before Gemini (short-circuit — never merge both for same source)
 - [v1.4] Auto-approve threshold at 0.8 — starting recommendation, calibrate after first run
 - [v1.4] TM synthetic URL pattern: ticketmaster:province:NB (precedent from eventbrite:org:12345)
+- [Phase 14-fetch-pipeline]: rawHtml captured before cheerio.load() mutation to preserve script tags for JSON-LD extraction
+- [Phase 14-fetch-pipeline]: fetchWithRetry retries only 429/503 (transient); 404 throws immediately to avoid wasting time on permanently blocked URLs
+- [Phase 14-fetch-pipeline]: Multi-page hard cap of 3 enforced in code (Math.min(maxPages, 3)) not just config — Vercel timeout constraint
 
 ### Pending Todos
 
@@ -89,7 +93,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15
-Stopped at: Roadmap created — ready to plan Phase 14
+Last session: 2026-03-15T06:35:33.836Z
+Stopped at: Completed 14-fetch-pipeline 14-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 14`
