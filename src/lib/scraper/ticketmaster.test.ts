@@ -14,6 +14,7 @@ jest.mock('@/lib/db/client', () => ({
       },
     },
     insert: jest.fn(),
+    select: jest.fn(),
   },
 }));
 
@@ -93,6 +94,13 @@ beforeEach(() => {
 
   // Default: venue not found (triggers insert)
   (mockDb.query.venues.findFirst as jest.Mock).mockResolvedValue(null);
+
+  // Default: select returns empty city venues (no fuzzy candidates)
+  (mockDb.select as jest.Mock) = jest.fn().mockReturnValue({
+    from: jest.fn().mockReturnValue({
+      where: jest.fn().mockResolvedValue([]),
+    }),
+  });
 
   // Default: insert returns a new id
   const mockReturning = jest.fn().mockResolvedValue([{ id: 101 }]);
