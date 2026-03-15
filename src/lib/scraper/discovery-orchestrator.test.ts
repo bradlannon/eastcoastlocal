@@ -21,15 +21,27 @@ jest.mock('@/lib/db/client', () => ({
   db: {
     select: jest.fn(),
     insert: jest.fn(),
+    update: jest.fn(),
+    query: {
+      discovered_sources: {
+        findFirst: jest.fn(),
+      },
+    },
   },
+}));
+
+jest.mock('./promote-source', () => ({
+  promoteSource: jest.fn().mockResolvedValue(undefined),
 }));
 
 import { generateText } from 'ai';
 import { db } from '@/lib/db/client';
-import { runDiscoveryJob } from './discovery-orchestrator';
+import { runDiscoveryJob, scoreCandidate } from './discovery-orchestrator';
+import { promoteSource } from './promote-source';
 
 const mockGenerateText = generateText as jest.MockedFunction<typeof generateText>;
 const mockDb = db as jest.Mocked<typeof db>;
+const mockPromoteSource = promoteSource as jest.MockedFunction<typeof promoteSource>;
 
 // Helpers to build mock db chain
 function mockSelectChain(rows: Array<{ url: string }>) {
@@ -45,13 +57,22 @@ function mockInsertChain() {
   return { insertFn, valuesFn, onConflictDoNothingFn };
 }
 
+function mockUpdateChain() {
+  const whereFn = jest.fn().mockResolvedValue([]);
+  const setFn = jest.fn().mockReturnValue({ where: whereFn });
+  const updateFn = jest.fn().mockReturnValue({ set: setFn });
+  return { updateFn, setFn, whereFn };
+}
+
 beforeAll(() => {
   // Set throttle to 0 so delay() calls resolve immediately in tests
   process.env.DISCOVERY_THROTTLE_MS = '0';
+  process.env.AUTO_APPROVE_THRESHOLD = '0.8';
 });
 
 afterAll(() => {
   delete process.env.DISCOVERY_THROTTLE_MS;
+  delete process.env.AUTO_APPROVE_THRESHOLD;
 });
 
 beforeEach(() => {
@@ -68,6 +89,71 @@ beforeEach(() => {
   // Default insert chain
   const { insertFn } = mockInsertChain();
   mockDb.insert = insertFn;
+
+  // Default update chain
+  const { updateFn } = mockUpdateChain();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mockDb.update = updateFn as any;
+
+  // Default query mock — returns a pending row
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (mockDb.query as any).discovered_sources.findFirst.mockResolvedValue({
+    id: 42,
+    url: 'https://venue.com',
+    status: 'pending',
+  });
+});
+
+describe('scoreCandidate', () => {
+  it('complete candidate (city+province+name+https) returns 0.95', () => {
+    const score = scoreCandidate({
+      url: 'https://venue.com',
+      city: 'Halifax',
+      province: 'NS',
+      source_name: 'Venue',
+    });
+    expect(score).toBeCloseTo(0.95);
+  });
+
+  it('missing city returns 0.80', () => {
+    const score = scoreCandidate({
+      url: 'https://venue.com',
+      city: null,
+      province: 'NS',
+      source_name: 'Venue',
+    });
+    expect(score).toBeCloseTo(0.80);
+  });
+
+  it('/events/ path penalty returns 0.75', () => {
+    const score = scoreCandidate({
+      url: 'https://venue.com/events/123',
+      city: 'Halifax',
+      province: 'NS',
+      source_name: 'Venue',
+    });
+    expect(score).toBeCloseTo(0.75);
+  });
+
+  it('social domain (facebook.com) clamps to 0.0', () => {
+    const score = scoreCandidate({
+      url: 'https://facebook.com/venue',
+      city: 'Halifax',
+      province: 'NS',
+      source_name: 'V',
+    });
+    expect(score).toBe(0.0);
+  });
+
+  it('http:// URL with no metadata returns 0.50 (base only)', () => {
+    const score = scoreCandidate({
+      url: 'http://venue.com',
+      city: null,
+      province: null,
+      source_name: null,
+    });
+    expect(score).toBeCloseTo(0.50);
+  });
 });
 
 describe('runDiscoveryJob', () => {
@@ -225,5 +311,77 @@ describe('runDiscoveryJob', () => {
     await runDiscoveryJob();
 
     expect(mockGenerateText).toHaveBeenCalledTimes(6);
+  });
+
+  it('Test 8: promoteSource is called when a candidate scores >= 0.8', async () => {
+    const fromFn = jest.fn().mockResolvedValue([]);
+    mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
+
+    // High-scoring candidate: https, city, province, name → 0.95
+    mockGenerateText.mockResolvedValue({
+      experimental_output: {
+        candidates: [
+          { url: 'https://highscore.com', name: 'High Score Venue', province: 'NS', city: 'Halifax', rawContext: null },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { insertFn } = mockInsertChain();
+    mockDb.insert = insertFn;
+
+    await runDiscoveryJob();
+
+    expect(mockPromoteSource).toHaveBeenCalledWith(42);
+  });
+
+  it('Test 9: promoteSource is NOT called when score < 0.8', async () => {
+    const fromFn = jest.fn().mockResolvedValue([]);
+    mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
+
+    // Low-scoring candidate: http, no city, no province, no name → 0.50
+    mockGenerateText.mockResolvedValue({
+      experimental_output: {
+        candidates: [
+          { url: 'http://lowscore.com', name: null, province: null, city: null, rawContext: null },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { insertFn } = mockInsertChain();
+    mockDb.insert = insertFn;
+
+    await runDiscoveryJob();
+
+    expect(mockPromoteSource).not.toHaveBeenCalled();
+  });
+
+  it('Test 10: discovery_score is written for all inserted candidates', async () => {
+    const fromFn = jest.fn().mockResolvedValue([]);
+    mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
+
+    mockGenerateText.mockResolvedValue({
+      experimental_output: {
+        candidates: [
+          { url: 'https://venue1.com', name: 'Venue 1', province: 'NS', city: 'Halifax', rawContext: null },
+        ],
+      },
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any);
+
+    const { insertFn } = mockInsertChain();
+    mockDb.insert = insertFn;
+
+    const { updateFn, setFn } = mockUpdateChain();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockDb.update = updateFn as any;
+
+    await runDiscoveryJob();
+
+    expect(mockDb.update).toHaveBeenCalled();
+    const setArgs = setFn.mock.calls[0][0];
+    expect(setArgs).toHaveProperty('discovery_score');
+    expect(typeof setArgs.discovery_score).toBe('number');
   });
 });
