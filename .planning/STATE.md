@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: null
-milestone_name: null
-status: complete
-stopped_at: v1.2 Event Discovery milestone completed and archived
+milestone: v1.3
+milestone_name: Admin Tools
+status: defining_requirements
+stopped_at: Milestone v1.3 started — defining requirements
 last_updated: "2026-03-15"
-last_activity: 2026-03-15 — v1.2 milestone complete, archived to milestones/
+last_activity: 2026-03-15 — Milestone v1.3 started
 progress:
   total_phases: 0
   completed_phases: 0
@@ -21,16 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Planning next milestone
+**Current focus:** Defining requirements for v1.3 Admin Tools
 
 ## Current Position
 
-Phase: None — between milestones
-Plan: N/A
-Status: v1.2 Event Discovery shipped. Ready for next milestone.
-Last activity: 2026-03-15 — v1.2 milestone archived
-
-Progress: [██████████] 100% (v1.2 complete)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-15 — Milestone v1.3 started
 
 ## Accumulated Context
 
@@ -46,10 +44,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 
 ### Blockers/Concerns
 
-None — between milestones.
+None.
 
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: v1.2 milestone completed and archived
+Stopped at: Milestone v1.3 started — defining requirements
 Resume file: None

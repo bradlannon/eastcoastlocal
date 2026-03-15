@@ -49,7 +49,15 @@ Users can instantly see what events are happening near them on a map — where, 
 
 <!-- Current scope. Building toward these. -->
 
-(Next milestone not yet defined)
+## Current Milestone: v1.3 Admin Tools
+
+**Goal:** Give operators a protected web UI to manage venues, scrape sources, and review discovered candidates — replacing CLI and direct DB access
+
+**Target features:**
+- Admin authentication (protect admin routes)
+- Venue and scrape source management (CRUD)
+- Discovered source review and approval UI
+- Scrape health dashboard (last run, error rates, source status)
 
 ### Out of Scope
 
@@ -112,4 +120,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | discovered_sources.status as plain text | Flexible status values without migration for each new state | ✓ Good — pending/approved/rejected without enum constraints |
 
 ---
-*Last updated: 2026-03-15 after v1.2 milestone complete*
+*Last updated: 2026-03-15 after v1.3 milestone started*
