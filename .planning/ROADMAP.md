@@ -65,7 +65,10 @@
   2. Multiple sources on the same domain are not blocked during a scrape run — the per-domain delay is visible in orchestrator logs
   3. A source that fails with a transient HTTP error is retried automatically with exponential backoff before being logged as failed
   4. Venue pages containing schema.org Event JSON-LD produce events without a Gemini API call (visible via confidence=1.0 on extracted events)
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 14-01-PLAN.md — Enhanced fetcher (retry, rate limit, multi-page) + JSON-LD extraction module + schema migration
+- [ ] 14-02-PLAN.md — Orchestrator integration (JSON-LD fast path, multi-page wiring, HTTP throttle)
 
 ### Phase 15: Scrape Quality Metrics
 **Goal**: Admins can see the health of each scrape source at a glance — how many events it yields, how often it fails, and whether it needs attention
@@ -115,7 +118,7 @@
 | 11. Admin Dashboard | v1.3 | 1/1 | Complete | 2026-03-15 |
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
-| 14. Fetch Pipeline | v1.4 | 0/? | Not started | - |
+| 14. Fetch Pipeline | v1.4 | 0/2 | In progress | - |
 | 15. Scrape Quality Metrics | v1.4 | 0/? | Not started | - |
 | 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |
