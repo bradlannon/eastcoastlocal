@@ -36,7 +36,7 @@
 
 </details>
 
-### 🚧 v1.3 Admin Tools (In Progress)
+### v1.3 Admin Tools (In Progress)
 
 **Milestone Goal:** Give operators a protected web UI to manage venues, scrape sources, and review discovered candidates — replacing CLI and direct DB access
 
@@ -69,10 +69,10 @@ Plans:
   1. Dashboard shows total venue count, active source count, pending discovery count, and last scrape time
   2. Admin can see per-source scrape status including last success timestamp, last error, and enabled/disabled state
   3. All dashboard data reflects the current database state without requiring a page refresh or manual query
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 11-01: Dashboard page with stats and per-source scrape health
+- [ ] 11-01-PLAN.md — Dashboard page with stat cards, source health table, nav links, and loading skeleton
 
 ### Phase 12: Venue & Source Management
 **Goal**: Operators can view, add, and edit venues and their scrape sources through a web UI — no direct DB access needed
@@ -119,6 +119,6 @@ Plans:
 | 8. Category Filter UI | v1.2 | 1/1 | Complete | 2026-03-14 |
 | 9. Source Discovery | v1.2 | 2/2 | Complete | 2026-03-15 |
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
-| 11. Admin Dashboard | v1.3 | 0/TBD | Not started | - |
+| 11. Admin Dashboard | v1.3 | 0/1 | Not started | - |
 | 12. Venue & Source Management | v1.3 | 0/TBD | Not started | - |
 | 13. Discovery Review | v1.3 | 0/TBD | Not started | - |
