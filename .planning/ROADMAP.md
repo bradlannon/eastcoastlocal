@@ -42,7 +42,7 @@
 
 - [x] **Phase 10: Admin Auth** - Protect /admin routes behind a login gate (completed 2026-03-15)
 - [x] **Phase 11: Admin Dashboard** - Operator landing page with system health at a glance (completed 2026-03-15)
-- [ ] **Phase 12: Venue & Source Management** - Full CRUD for venues and their scrape sources
+- [x] **Phase 12: Venue & Source Management** - Full CRUD for venues and their scrape sources (completed 2026-03-15)
 - [ ] **Phase 13: Discovery Review** - UI workflow to approve or reject discovered source candidates
 
 ## Phase Details
@@ -84,7 +84,7 @@ Plans:
   3. Admin can edit an existing venue's name, address, city, or province and save changes
   4. Admin can add a scrape source URL to any venue, creating a new scrape_sources row
   5. Admin can toggle a scrape source enabled or disabled without deleting it
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 12-01-PLAN.md — Venue list page, venue detail/edit form, update action with geocoding, active nav
@@ -120,5 +120,5 @@ Plans:
 | 9. Source Discovery | v1.2 | 2/2 | Complete | 2026-03-15 |
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
 | 11. Admin Dashboard | 1/1 | Complete    | 2026-03-15 | - |
-| 12. Venue & Source Management | 1/2 | In Progress|  | - |
+| 12. Venue & Source Management | 2/2 | Complete   | 2026-03-15 | - |
 | 13. Discovery Review | v1.3 | 0/TBD | Not started | - |

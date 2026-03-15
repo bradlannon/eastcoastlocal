@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Admin Tools
 status: planning
-stopped_at: Completed 12-01-PLAN.md
-last_updated: "2026-03-15T03:02:34.664Z"
+stopped_at: Completed 12-02-PLAN.md
+last_updated: "2026-03-15T03:06:37.678Z"
 last_activity: "2026-03-15 — v1.3 roadmap created (4 phases: 10-13)"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
   percent: 0
 ---
 
@@ -49,6 +49,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 10-admin-auth P01 | 18 | 2 tasks | 8 files |
 | Phase 11-admin-dashboard P01 | 12 | 2 tasks | 4 files |
 | Phase 12-venue-source-management P01 | 8 | 2 tasks | 7 files |
+| Phase 12-venue-source-management P02 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - [Phase 12-venue-source-management]: Server component page passes venue data as props to VenueEditForm client component — clean separation of async DB access from useActionState form state
 - [Phase 12-venue-source-management]: Admin layout converted to client component for usePathname active nav — simplest approach, no async data cost
 - [Phase 12-venue-source-management]: Geocoding failure on venue update is non-fatal: saves with null lat/lng and logs warning
+- [Phase 12-venue-source-management]: Separate new venue page (no VenueEditForm reuse) — create form has no id field or pre-populated defaults, simpler than a mode prop
+- [Phase 12-venue-source-management]: Source type auto-detected from URL substring (eventbrite/bandsintown/venue_website fallback) — no external lookup needed
 
 ### Pending Todos
 
@@ -78,6 +81,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T03:02:34.659Z
-Stopped at: Completed 12-01-PLAN.md
+Last session: 2026-03-15T03:06:37.675Z
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
