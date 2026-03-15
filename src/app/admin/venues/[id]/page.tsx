@@ -1,8 +1,9 @@
 import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db/client';
-import { venues } from '@/lib/db/schema';
+import { venues, scrape_sources } from '@/lib/db/schema';
 import VenueEditForm from './VenueEditForm';
+import SourceManagement from './SourceManagement';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -27,6 +28,12 @@ export default async function VenueDetailPage({ params }: PageProps) {
 
   const venue = rows[0];
 
+  const sources = await db
+    .select()
+    .from(scrape_sources)
+    .where(eq(scrape_sources.venue_id, id))
+    .orderBy(scrape_sources.created_at);
+
   return (
     <div>
       {/* Breadcrumb */}
@@ -44,12 +51,7 @@ export default async function VenueDetailPage({ params }: PageProps) {
       <VenueEditForm venue={venue} />
 
       {/* Scrape Sources section */}
-      <div className="mt-8">
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Scrape Sources</h2>
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-sm text-gray-500">
-          Source management coming in next plan
-        </div>
-      </div>
+      <SourceManagement venueId={id} sources={sources} />
     </div>
   );
 }
