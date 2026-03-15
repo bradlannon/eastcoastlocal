@@ -1,25 +1,24 @@
 # Feature Research
 
-**Domain:** Event discovery platform — deduplication, venue merge, map UX polish (v1.5 milestone)
+**Domain:** Event discovery platform — mass venue discovery and coverage scaling (v2.0 milestone)
 **Researched:** 2026-03-15
-**Confidence:** HIGH overall (all four features are well-understood patterns; implementation complexity is domain-specific but the approaches are standard)
+**Confidence:** MEDIUM overall — Google Maps Places API and Reddit API behaviors drawn from training data (cutoff August 2025); flag for verification before implementation
 
 ---
 
 ## Context: What Already Exists (Must Preserve)
 
-This is the v1.5 milestone. The following are already built and must be integrated with, not replaced:
+This is the v2.0 milestone. The following are already built and must be integrated with, not replaced:
 
-- **Composite key dedup:** `upsertEvent` already deduplicates on `(venue_id, event_date, normalized_performer)` — prevents same-scrape-source duplicates
-- **Ticketmaster integration (v1.4):** TM creates new venue rows when ingesting events; these may duplicate existing manually-configured venues
-- **Event schema:** `events` table with `venue_id` FK, `event_date`, `performer`, `source_url`, `source_type`
-- **Venues table:** `venues` with `name`, `lat`, `lng`, `city`, `province` — geocoordinated on save
-- **Interactive map:** react-leaflet 5.x with pin clusters (default) and heatmap timelapse mode; sidebar shows event list
-- **Category filtering:** 8-value enum chip UI, currently only shown in pin/cluster mode (not visible during timelapse)
-- **Timelapse mode:** 30-day sliding window, 6-hour blocks, play/pause, timeline scrubber; category filter silently applies but chips are hidden
-- **Vercel Hobby:** 60s function timeout; dedup logic runs server-side in cron, not on-request
+- **Discovery pipeline:** `runDiscoveryJob()` queries Gemini + Google Search grounding for 6 hardcoded Atlantic cities; stages results in `discovered_sources`; auto-approves at score ≥ 0.8
+- **Scoring:** `scoreCandidate()` assigns 0.5 base + bonuses for city/province/name presence; penalizes aggregator domains and event-path URLs
+- **Promotion:** `promoteSource()` creates a `venues` row + `scrape_sources` row from a `discovered_sources` row; called by both admin UI and auto-approve
+- **Venue dedup:** Two-signal gate (name ratio + geocoordinate proximity); auto-merge at high confidence; borderline cases queued to `venueMergeCandidates` for admin review
+- **Auto-geocoding:** `geocodeAddress()` uses Google Maps Geocoding API with APPROXIMATE-precision rejection
+- **Vercel Hobby constraints:** 60s function timeout; 50MB size limit; no Playwright/Puppeteer
+- **Existing geography:** 6 cities hardcoded in `ATLANTIC_CITIES` array (Halifax, Moncton, Fredericton, Saint John, Charlottetown, St. John's)
 
-The v1.5 features either run in the scrape/ingest pipeline (dedup, venue merge) or are pure frontend changes (zoom-to-location, timelapse category chips).
+The v2.0 features add new discovery *sources* (Google Maps Places API, Reddit) and expand *geography*. The downstream pipeline (scraping, dedup, promotion) is largely unchanged.
 
 ---
 
@@ -27,101 +26,123 @@ The v1.5 features either run in the scrape/ingest pipeline (dedup, venue merge) 
 
 ### Table Stakes (Users Expect These)
 
-Features users assume work. Missing these = platform feels broken or untrustworthy.
+These are the minimum behaviors for a system claiming "mass venue discovery." Missing them = the feature does not work as described.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Cross-source event deduplication | Users expect to see each event once. A show listed on Ticketmaster AND the venue's own website appearing twice destroys trust in the data. Every event aggregator (Google Events, Songkick, Eventbrite) deduplicates silently. | MEDIUM | Existing composite key `(venue_id, event_date, normalized_performer)` already handles same-source dedup. Cross-source case requires the same composite key to match even when `venue_id` differs (TM-created venue vs. existing venue for same physical location). Solution: resolve venue first, then the existing upsert handles the rest. |
-| Venue deduplication (TM-created vs. existing) | Ticketmaster creates venue rows with its own names (e.g., "Scotiabank Centre" vs. "Scotiabank Centre Halifax"). Admin and users will see double pins for the same physical venue. | MEDIUM | Two-signal match: name similarity (Jaro-Winkler or token-sort ratio ≥ 0.85) AND geocoordinate proximity (Haversine distance < 100m). Both signals together = high-confidence match; name alone or geo alone can be ambiguous. Admin review for borderline cases. Merge preserves the canonical (existing) venue row; reassigns events from the TM-created duplicate. |
-| Category chips visible in timelapse mode | Users select a category chip (e.g., "Live Music"), switch to timelapse, and the chip disappears. Category filter still silently applies — user has no visible confirmation of that. This is a broken UX state. | LOW | CSS/layout fix — the category chip bar is conditionally rendered only in pin mode. Remove the conditional; render chips in both modes. The filter logic already works in timelapse; only visibility is missing. |
-| Zoom-to-location on event cards | On any map-based event platform (Google Maps, Eventbrite map view, Airbnb), clicking a list item pans/zooms the map to that item. Users expect this interaction. Current sidebar shows event details but clicking does nothing to the map. | LOW-MEDIUM | Call Leaflet's `map.flyTo([lat, lng], zoomLevel)` when user clicks a "Show on map" / location button on an event card. Requires passing a map ref or event bus from the map component to the sidebar. `flyTo` animates smoothly. zoom level 15–16 appropriate for city-block venue resolution. |
+| Google Maps Places API venue search | The only reliable structured data source for venue metadata (name, address, website, lat/lng, place type, phone) at scale. Text Search and Nearby Search are the standard mechanisms. Without this, "bulk discovery" relies entirely on Gemini web search, which has no structured output guarantees. | MEDIUM | Requires Places API (New) enabled on the Google Cloud project. Text Search: `POST https://places.googleapis.com/v1/places:searchText` with `textQuery: "bars pubs venues events [city]"`. Nearby Search: `POST .../places:searchNearby` with lat/lng + radius. Response fields include `displayName`, `formattedAddress`, `websiteUri`, `nationalPhoneNumber`, `types`, `location`. Field mask header required — only request needed fields to control billing. |
+| Expanded city coverage beyond 6 cities | Current 6-city list misses population centers like Truro NS, Amherst NS, Miramichi NB, Corner Brook NL, Summerside PEI. "Expanded geographic coverage" is a stated goal; without it, the milestone is incomplete. | LOW | Extend the `ATLANTIC_CITIES` array (or equivalent config) with smaller cities. Atlantic Canada has ~30 population centers worth targeting. The existing loop already iterates per-city — adding more cities is additive. Timeout risk: 30 cities × 2s throttle = 60s, which hits the Vercel function limit. See pitfalls. |
+| Deduplication against existing venues before bulk import | Google Maps will return venues already in the system. Without dedup, bulk import creates duplicate venue rows and double pins. The venue dedup system (two-signal gate) already exists but is only triggered by Ticketmaster ingest. | LOW | Before inserting a Places-discovered venue, run it through `scoreVenueCandidate()` against existing venues. Auto-merge at high confidence; queue borderline to `venueMergeCandidates`. Reuse existing logic; wire it into the new discovery path. |
+| Website URL extraction from Places results | The point of venue discovery is to find scrapeable websites. If a Places result has no `websiteUri`, it cannot be promoted to a scrape source. The system needs to handle "no website" venues separately from "has website" venues. | LOW | Filter Places results: venues with `websiteUri` are candidates for scrape source promotion. Venues without website but with phone/address can be stored as venue stubs (with no scrape source) for future manual review or Ticketmaster-only coverage. |
+| Rate limit compliance for Places API | Google Maps Places API has per-minute and per-day quotas. A bulk import loop hammering the API without throttling will hit 429 errors and may incur unexpected billing spikes. | LOW | Apply the same per-request delay pattern already used in `runDiscoveryJob()` (configurable `DISCOVERY_THROTTLE_MS`). Add a distinct `PLACES_THROTTLE_MS` env var. Cache responses — do not re-query a city that was searched in the current run. |
+| Reddit post mining for venue/event mentions | r/halifax, r/fredericton, r/stjohnsnl, r/newbrunswick, r/PEI are active Atlantic Canada communities. Event and venue recommendations appear in "what's on this weekend" and "live music" threads. Without extracting from these sources, the feature is not delivered. | HIGH | Reddit API (OAuth2, read-only) or direct Reddit JSON endpoints (`.json` suffix on any post/thread URL, no auth required for public subreddits). Use Gemini to parse raw comment text and extract venue names + URLs. High complexity because Reddit data is unstructured and noisy; false positive rate will be higher than Places API. |
+| Aggressive auto-approval for high-confidence venues | The current auto-approve threshold (0.8) was calibrated for Gemini web-search results. Places API results have structured data (address, coordinates, place type) that warrants different — likely lower — threshold or a separate scoring path. Without tuning this, the admin queue fills with Places-sourced venues that should be auto-approved. | LOW | Add a `places_api` discovery method value for `discovered_sources.discovery_method`. Score Places candidates with a separate scoring function that gives credit for having structured lat/lng, a verified place type (bar, restaurant, night_club, etc.), and a real website URL. Auto-approve at a lower threshold (e.g., 0.7) for Places-sourced venues. |
 
 ### Differentiators (Competitive Advantage)
 
-Features beyond the baseline that improve data quality and UX.
+Features that extend beyond the minimum and improve data quality or coverage significantly.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Admin-reviewable merge candidates | Surface near-match venue pairs in admin UI before auto-merging, instead of silently auto-merging. Gives admin control over venue identity. | MEDIUM | Auto-merge only on very high confidence (both signals ≥ threshold). Queue borderline cases (e.g., name match ≥ 0.7 but < 0.85, or geo within 500m) to an admin review table. Admin sees side-by-side venue details and clicks "Merge" or "Keep separate." |
-| Source attribution on merged events | After dedup, record which sources each event was seen on (e.g., "Seen on Ticketmaster + The Marquee Club website"). Provides data provenance. | MEDIUM | Add a `event_sources` join table (event_id, source_url, source_type, first_seen_at). Current upsert ignores the secondary source. On conflict, append new source to join table rather than discarding. Useful for admin debugging and future "buy tickets" link selection (prefer TM link over venue link). |
-| Canonical ticket link preference | When the same event is found on TM (has direct buy link) AND the venue site (may have no direct ticket link), prefer the TM ticket URL. | LOW | Extend upsert logic: on cross-source conflict, if existing row has no `ticket_link` and incoming row does, update `ticket_link`. Non-destructive enhancement to dedup. |
+| Place type filtering for venue relevance | Google Maps returns businesses of all types. Without filtering, "venue discovery" query returns restaurants, grocery stores, and gas stations. Filtering by place type ensures only plausible event venues are staged. | LOW | Include `includedTypes` in the Nearby Search request body (e.g., `["bar", "night_club", "concert_hall", "performing_arts_theater", "comedy_club", "community_center", "stadium"]`). Text Search does not support `includedTypes` natively — apply type filtering as a post-process step on the response. |
+| Scalable discovery job architecture (chunked cron) | 30+ cities × Places API + Gemini + Reddit = well over 60 seconds of sequential work. A single cron that tries to do everything will timeout on Vercel Hobby. | HIGH | Split discovery into city-chunked jobs. Option A: multiple Vercel cron schedules, each covering a subset of cities (e.g., NB cities at 2am, NS at 3am). Option B: a single cron that tracks last-processed city index in DB and picks up where it left off. Option B is more elegant but requires state management. |
+| Reddit subreddit targeting per province | Different provinces have different active communities (r/halifax is large; r/PEI is smaller). Blanket scraping all subreddits equally wastes quota on low-signal sources. | LOW | Maintain a province-to-subreddit mapping. Prioritize high-activity subreddits. Limit search to "new" or "hot" posts within the past 30 days. Use specific search terms: "live music", "events this weekend", "shows", "playing tonight". |
+| No-website venue stubs for Ticketmaster coverage | Some venues have no scrapeable website but appear on Ticketmaster (e.g., sports arenas, amphitheatres). Storing these as venue stubs with lat/lng allows Ticketmaster events at those venues to be geocoded and mapped correctly, even without a scrape source. | LOW | On promotion: if `websiteUri` is null but venue has name + address + coordinates, create a venues row without a `scrape_sources` entry. Mark with a `venue_type: 'stub'` or a new boolean `has_scrape_source: false`. Ticketmaster's existing dedup will match TM venue names against these stubs. |
+| Admin batch-approve UI for discovery queue | When bulk import produces 50–100 staged candidates, reviewing them one by one is impractical. A "select all / approve selected" batch action in the admin discovery UI dramatically reduces review friction. | MEDIUM | Add checkboxes to the discovery list rows. "Approve selected" button calls `promoteSource()` for each checked ID. Requires server action that accepts an array of IDs. Current per-item approve action can be reused per-item internally. |
+| Discovery run logging and metrics | At scale (hundreds of venues processed per run), the admin needs visibility into what was discovered, what was auto-approved, what failed, and why — not just a console.log. | MEDIUM | Add a `discovery_runs` table with `run_at`, `method`, `cities_searched`, `candidates_found`, `auto_approved`, `queued_for_review`, `errors`. Populate at end of each cron run. Surface on admin dashboard as "Last discovery run" with counts. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Fully automated venue merging with no admin review | "Just merge everything automatically, no manual review" | Venue names are ambiguous at scale — "The Marquee" could be two different bars in two cities; proximity alone fails when geocoding has meter-level error on TM-sourced venue coordinates; auto-merging wrong venues corrupts data permanently and is hard to undo | Auto-merge only at very high confidence (both name ≥ 0.85 AND geo < 100m); queue borderline cases for admin review. One-click merge in admin is low friction and prevents bad data. |
-| Fuzzy event matching independent of venue | "What if TM lists a different venue name for the same show?" | Without a resolved venue_id, a pure title+date fuzzy match will produce false positives — "Jazz Night at The Marquee" and "Jazz Night at The Casino" look similar but are different events. Title similarity alone is unreliable for event dedup. | Anchor dedup to venue resolution first. Once both sources resolve to the same venue_id, the existing composite key (venue_id + date + normalized_performer) handles event dedup correctly and safely. |
-| Real-time venue merge during user-facing requests | "Check for duplicate venues every time an event is viewed" | Fuzzy string matching across all venue pairs is O(n²); at 50+ venues this is trivially fast, but running it on every request is unnecessary work and adds latency | Run venue deduplication as part of the post-ingest pipeline step in the daily cron job. No user-facing request should trigger dedup logic. |
-| Animated flyTo on every list scroll event | "Highlight the map pin as user scrolls the event list" | Constant `flyTo` calls during scroll are visually jarring and fight the user's manual map panning; mobile scroll becomes unusable | `flyTo` only on explicit user intent: a dedicated "Show on map" button or icon click. Do not bind to scroll or hover. Let user control when the map moves. |
-| Zoom level 18+ on venue flyTo | "Get really close to show the exact building" | At zoom 18, the base tiles (CartoDB Positron) lose legibility; venue pins overlap the map context users need to understand location within the city | Zoom 15–16 places the venue pin centered with 2–3 surrounding city blocks visible. Sufficient for "where is this place" without losing map context. |
+| Fully automated bulk import with zero admin review | "Just approve everything from Google Maps — they're legit businesses" | Google Maps returns tattoo parlors, nail salons, and food trucks alongside bars and venues. Even with type filtering, false positives exist. Bulk auto-import without any review path will populate the map with non-event venues and require manual cleanup. | Auto-approve only when place type is in a high-confidence whitelist (bar, night_club, concert_hall, performing_arts_theater) AND website is present AND address is valid. Route everything else through admin review. |
+| Reddit as primary discovery source | Reddit is unstructured, community-sourced, and noisy. Using it as the primary input for venue discovery would produce many false positives. | Reddit posts mention venues in passing (e.g., "I saw a band at [venue name]"). Extracting structured URLs from these mentions requires LLM parsing, which has error rates. Reddit API also has rate limits and requires OAuth2 setup. | Use Reddit as a *supplemental* signal — a second-pass enrichment after Places API has built the baseline. Reddit is better for discovering niche venues that don't appear in Places than as a primary data source. |
+| Storing raw Reddit posts in the database | "Save the full post text for provenance" | Raw Reddit content is large, legally ambiguous (Reddit TOS), and unnecessary. The useful output is extracted venue names and URLs, not the raw text. | Store only the extracted structured output (venue name, URL, city) in `discovered_sources.raw_context`. Record the subreddit and post ID as the source reference, not the full post body. |
+| Real-time venue discovery triggered by users | "Let users suggest venues to add" | Triggers LLM + Places API calls on user requests, which is expensive, slow, and open to abuse. | Discovery remains a scheduled cron job only. If user-triggered venue requests are needed in the future, implement a simple "suggest a venue" form that queues suggestions for admin review — no automated pipeline triggered. |
+| Scraping Facebook Events for venue discovery | "Lots of Atlantic Canada venues post events only on Facebook" | Requires headless browser (Playwright/Puppeteer), which exceeds Vercel Hobby's 50MB function size limit. Facebook actively blocks scrapers. This is explicitly listed as Out of Scope in PROJECT.md. | Focus on venues with their own websites (Places API `websiteUri`), Eventbrite pages, and Bandsintown pages. These are scrapeable without headless browsers. Accept that Facebook-only venues are out of scope. |
+| Geocoding every Reddit-mentioned venue during discovery | "Let's geocode each extracted venue immediately so we have coordinates" | Reddit-extracted venue names are noisy and many will fail geocoding (e.g., "the bar on Gottingen" is not a geocodable address). Burning Geocoding API credits on low-quality inputs wastes money. | Geocode only after a venue passes the quality gate and is promoted to the `venues` table. The existing `promoteSource()` already geocodes on creation. Do not geocode during the discovery/staging phase. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Cross-source Event Dedup]
-    └──requires──> [Venue Dedup / Merge] (events can only match cross-source if both
-                                          point to the same venue_id)
-    └──uses existing──> [Composite key upsert] (venue_id + event_date + normalized_performer)
-    └──does NOT require──> [New DB schema] if venue merge runs before event upsert
+[Google Maps Places API Discovery]
+    └──requires──> [Places API enabled on GCP project] (may need API key scope update)
+    └──requires──> [Throttling per request] (reuse DISCOVERY_THROTTLE_MS pattern)
+    └──feeds into──> [discovered_sources table] (same staging table as Gemini discovery)
+    └──requires──> [Venue dedup check before insert] (scoreVenueCandidate against existing venues)
+    └──requires──> [Separate scoring function] (Places candidates score differently than Gemini candidates)
 
-[Venue Dedup / Merge]
-    └──requires──> [Geocoordinates on all venues] (already: Google Maps geocoding on save)
-    └──requires──> [Name normalization] (strip punctuation, lowercase, common suffixes)
-    └──requires──> [Haversine distance calc] (already exists in codebase from map click handler)
-    └──optionally requires──> [Admin merge review UI] if queuing borderline cases
-    └──runs before──> [Cross-source Event Dedup] (must resolve canonical venue_id first)
+[Expanded City Coverage]
+    └──requires──> [City list expansion] (extend ATLANTIC_CITIES or equivalent config)
+    └──conflicts with──> [Vercel 60s timeout] (more cities = longer sequential job; see Architecture)
+    └──requires──> [Chunked cron job design] (if >15 cities, sequential loop will timeout)
 
-[Zoom-to-location Button]
-    └──requires──> [Map ref accessible from sidebar] (useMap() hook or forwarded ref)
-    └──requires──> [Venue lat/lng on event card data] (already: events join venues)
-    └──does NOT require──> [DB schema change]
-    └──does NOT conflict with──> [Timelapse mode] (flyTo works in both map modes)
+[Reddit Venue Mining]
+    └──requires──> [Reddit API access] (OAuth2 app registration OR public JSON endpoints)
+    └──requires──> [Gemini extraction] (reuse existing extractor pattern; parse unstructured text)
+    └──feeds into──> [discovered_sources table] (discovery_method: 'reddit_mining')
+    └──depends on──> [Google Maps Places API Discovery] (Reddit is supplemental, not primary)
+    └──does NOT require──> [Schema changes] (discovery_method column already exists as free text)
 
-[Category Chips in Timelapse Mode]
-    └──requires──> [Remove conditional rendering] (chip bar hidden when timelapse=true)
-    └──does NOT require──> [Filter logic change] (category filter already applied in timelapse)
-    └──does NOT require──> [DB schema change]
-    └──enhances──> [Timelapse mode] (makes active filter visible and editable in timelapse)
+[Batch Admin Approve UI]
+    └──requires──> [Checkboxes on discovery list] (UI change to DiscoveryList component)
+    └──requires──> [Batch server action] (new action accepting array of IDs)
+    └──reuses──> [promoteSource()] (calls per-item internally)
+    └──enhances──> [Admin discovery review] (reduces friction for bulk review)
 
-[Source Attribution on Merged Events] (differentiator)
-    └──requires──> [event_sources join table] (new schema: event_id, source_url, source_type)
-    └──requires──> [Cross-source Event Dedup] (only meaningful once dedup is running)
-    └──enhances──> [Canonical ticket link preference]
+[Scalable Discovery Job (Chunked Cron)]
+    └──requires──> [Either: multiple Vercel cron schedules OR DB-tracked job cursor]
+    └──required by──> [Expanded City Coverage] (prerequisite if >15 cities)
+    └──required by──> [Reddit Mining at scale] (Reddit adds significant per-subreddit latency)
+
+[No-website Venue Stubs]
+    └──requires──> [Venue promotion path for Places results without websiteUri]
+    └──reuses──> [venues table] (no schema change needed)
+    └──enhances──> [Ticketmaster dedup] (TM venues can merge against stubs)
+    └──does NOT require──> [scrape_sources entry]
+
+[Discovery Run Logging]
+    └──requires──> [New discovery_runs table] (schema migration)
+    └──fed by──> [runDiscoveryJob() return value or wrapper]
+    └──surfaces on──> [Admin dashboard]
 ```
 
 ### Dependency Notes
 
-- **Venue dedup must precede event dedup:** The cross-source event dedup problem is fully solved once venue resolution is correct. If TM-created venues are merged to canonical venue rows before event upsert, the existing `(venue_id, event_date, normalized_performer)` composite key handles dedup automatically. No separate event-level fuzzy match is needed.
-- **Category chips and zoom-to-location are independent:** Both are frontend-only changes with no backend or schema dependencies. They can be built in any order or in parallel.
-- **Source attribution is optional for v1.5 MVP:** It adds schema complexity (new join table). Defer unless time allows. The core dedup works without it.
-- **Admin merge review UI is optional for v1.5 MVP:** Auto-merge at high confidence + log borderline cases is acceptable for launch. Admin UI can be added incrementally.
+- **Places API before Reddit:** Build Places API discovery first. It produces higher-quality structured results and establishes the bulk discovery pipeline pattern. Reddit mining is a supplemental pass that uses the same staging table — add it after Places API is working.
+- **Chunked cron is required for expanded geography:** The Vercel 60s timeout is the binding constraint. Any design that adds more than ~15 cities to a sequential discovery loop must address this before expanding geography. The chunked cron design gates all city expansion work.
+- **Dedup wiring is a prerequisite for bulk import:** Google Maps will return venues already in the system. Without running `scoreVenueCandidate()` before insert, the bulk import will create duplicates that require manual merge. Wire dedup before enabling Places API discovery at scale.
+- **Batch approve UI is independent:** It is a UI-only change that can be added at any point. It does not gate any backend feature.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v1.5)
+### Launch With (v2.0)
 
 Minimum viable feature set for this milestone to be complete and valuable.
 
-- [ ] Venue dedup: after Ticketmaster ingest, detect duplicate venue rows using name similarity + geocoordinate proximity; auto-merge at high confidence; log borderline cases
-- [ ] Cross-source event dedup: resolved automatically once venue merge runs (no additional event-matching logic required if venue is resolved first)
-- [ ] Category filter chips rendered in timelapse mode (remove conditional, chips always visible)
-- [ ] Zoom-to-location button on event cards: "Show on map" button calls `map.flyTo()` to animate map to venue coordinates
+- [ ] Google Maps Places API venue discovery — Text Search or Nearby Search per city, extracting name + address + website + coordinates + place type
+- [ ] Expanded city list — all Atlantic Canada population centers (target: ~25 cities/towns across 4 provinces)
+- [ ] Place type filtering — only stage venues with plausible event-hosting types (bar, night_club, performing_arts_theater, community_center, etc.)
+- [ ] Dedup against existing venues before staging — run `scoreVenueCandidate()` before inserting to `discovered_sources`
+- [ ] Places-specific scoring — separate scoring path that credits structured lat/lng, verified place type, and website presence
+- [ ] Chunked cron design — discovery job does not attempt all cities in one 60s window
+- [ ] Reddit mining (supplemental) — scan r/halifax, r/fredericton, r/stjohnsnl, r/newbrunswick, r/PEI for venue mentions; extract with Gemini; stage in `discovered_sources`
 
-### Add After Validation (v1.5.x)
+### Add After Validation (v2.x)
 
-- [ ] Admin UI for borderline venue merge candidates — surface near-match pairs with side-by-side comparison and one-click merge
-- [ ] Source attribution — `event_sources` join table tracking which sources each event was seen on
-- [ ] Canonical ticket link preference — on dedup conflict, prefer source that has a ticket link
+- [ ] Batch admin approve UI — checkboxes + "approve selected" for bulk review
+- [ ] No-website venue stubs — promote Places venues without websites as stub venue rows
+- [ ] Discovery run logging — `discovery_runs` table surfaced on admin dashboard
 
-### Future Consideration (v2+)
+### Future Consideration (v3+)
 
-- [ ] Bulk venue merge audit — retrospective scan of all existing venue pairs for missed merges; run once after v1.5 ships and monitor for regressions
-- [ ] Event title fuzzy match (secondary dedup signal) — for rare cases where same event has different performer spelling across sources (e.g., "Matt Minglewood" vs. "Matthew Minglewood")
+- [ ] Real-time discovery coverage health — admin view showing province/city coverage metrics (X venues per city, last discovered date)
+- [ ] Venue suggestion form — user-submitted venue suggestions queued for admin review (no automated pipeline)
+- [ ] Auto-refresh stale venue websites — detect venues that haven't had successful scrapes in 30+ days and re-evaluate their website URL
 
 ---
 
@@ -129,15 +150,18 @@ Minimum viable feature set for this milestone to be complete and valuable.
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Cross-source event dedup | HIGH (eliminates duplicate event pins) | LOW (solved by venue merge + existing upsert) | P1 |
-| Venue dedup / merge | HIGH (prerequisite for event dedup; eliminates duplicate venue pins) | MEDIUM (two-signal matching + merge logic) | P1 |
-| Category chips in timelapse | MEDIUM (usability fix; filter already works, just invisible) | LOW (CSS/conditional rendering change) | P1 |
-| Zoom-to-location button | MEDIUM (expected map UX; improves discoverability) | LOW-MEDIUM (map ref wiring + flyTo call) | P1 |
-| Admin merge review UI | LOW-MEDIUM (operational quality; reduces risk of bad auto-merge) | MEDIUM (new admin page) | P2 |
-| Source attribution | LOW (data provenance; no user-visible impact initially) | MEDIUM (new join table + upsert update) | P3 |
+| Google Maps Places API discovery | HIGH (structured bulk input; enables scale) | MEDIUM (API integration + field masking + throttling) | P1 |
+| Expanded city coverage | HIGH (directly increases event coverage) | LOW (list expansion) + depends on chunked cron | P1 |
+| Chunked cron job design | MEDIUM (infrastructure; enables scale) | MEDIUM (cron splitting or cursor state) | P1 — gates city expansion |
+| Dedup wiring for Places results | HIGH (prevents data corruption at scale) | LOW (reuse existing scoreVenueCandidate) | P1 |
+| Place type filtering | MEDIUM (reduces false positives) | LOW (includedTypes param or post-filter) | P1 |
+| Reddit venue mining | MEDIUM (discovers niche/local venues Places misses) | HIGH (API setup + Gemini extraction + noise handling) | P2 |
+| Batch admin approve UI | MEDIUM (reduces admin burden at scale) | MEDIUM (UI + server action) | P2 |
+| Discovery run logging | LOW-MEDIUM (operational visibility) | MEDIUM (schema + instrumentation) | P2 |
+| No-website venue stubs | LOW (improves TM dedup; no immediate map value) | LOW (promotion path change) | P3 |
 
 **Priority key:**
-- P1: Must have for v1.5 launch
+- P1: Must have for v2.0 launch
 - P2: Should have; add when P1 features are stable
 - P3: Nice to have; defer if time-constrained
 
@@ -145,86 +169,113 @@ Minimum viable feature set for this milestone to be complete and valuable.
 
 ## Implementation Detail Notes
 
-### Venue Deduplication Algorithm
+### Google Maps Places API (New) — Key Behaviors
 
-**Recommended approach: two-signal gating**
+**Confidence: MEDIUM — based on training data through August 2025; verify current quota and pricing before implementation.**
 
-1. **Name normalization:** Lowercase, strip punctuation, strip common suffixes ("bar", "pub", "club", "lounge", "theatre", "theater", "centre", "center"). Normalize unicode. Compare normalized forms.
-2. **Name similarity score:** Jaro-Winkler distance (or token-sort ratio from a library like `fastest-levenshtein`). Threshold: ≥ 0.85 = high confidence name match.
-3. **Geocoordinate proximity:** Haversine distance between `venues.lat/lng` pairs. Threshold: < 100m = same physical location (city block precision). Note: the Haversine function already exists in the codebase from the map click handler spatial query.
-4. **Decision matrix:**
-   - Name ≥ 0.85 AND geo < 100m → auto-merge (high confidence)
-   - Name ≥ 0.70 AND geo < 500m → queue for admin review
-   - Name ≥ 0.85 but geo > 500m → log as suspicious, do NOT merge (same name, different city)
-   - All other combinations → keep separate
+The Places API (New) uses a different endpoint structure than the legacy Places API:
+- Text Search: `POST https://places.googleapis.com/v1/places:searchText`
+- Nearby Search: `POST https://places.googleapis.com/v1/places:searchNearby`
+- Field mask header: `X-Goog-FieldMask: places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.types,places.location,places.businessStatus`
 
-**Merge operation:** Reassign all `events.venue_id` from the duplicate (TM-created) row to the canonical (existing) row. Delete or mark the duplicate venue as merged (add `merged_into_venue_id` FK column, or simply delete after reassignment).
+**Recommended approach — Text Search per city:**
+Query: `"bars pubs live music venues [city] [province] Canada"` — returns up to 20 results per request. Use `pageToken` for pagination (up to 3 pages = 60 results per city). For 25 cities this is up to 1,500 candidate venues before filtering.
 
-**When to run:** As a post-ingest step at the end of the daily Ticketmaster cron. Run only on venues created since last cron run to avoid O(n²) full-scan every day.
+**Place types relevant to event venues:**
+`bar`, `night_club`, `concert_hall`, `performing_arts_theater`, `comedy_club`, `community_center`, `stadium`, `amphitheatre_or_outdoor_concert_venue`, `pub`. Filter client-side: keep results that have at least one of these types in the `types` array. Discard results that are only `restaurant`, `lodging`, `store`, etc.
 
-### Cross-Source Event Deduplication
+**businessStatus field:** Filter out `CLOSED_PERMANENTLY` and `CLOSED_TEMPORARILY` venues before staging — no point scraping a closed venue.
 
-Once venue merge runs before event upsert, cross-source dedup is automatic:
+**Cost:** Text Search is billed per request. At 25 cities × 3 pages each = 75 API requests per discovery run. At Google's current pricing this is inexpensive but verify the SKU pricing before enabling.
 
-- TM event for "Matt Minglewood at Scotiabank Centre, 2026-04-15" → venue resolved to canonical `venue_id: 12`
-- Venue website event for "Matt Minglewood, 2026-04-15" → venue already has `venue_id: 12`
-- Existing `upsertEvent` with composite key `(12, 2026-04-15, matt minglewood)` → conflict → no duplicate inserted
+**Rate limits:** 600 requests per minute (project-level). A 25-city discovery run at 75 requests is well within limits. No per-second throttling needed beyond the existing courtesy delay.
 
-No additional event-level fuzzy matching required. The normalized_performer field already handles minor name variations if normalization is applied consistently.
+### Reddit Mining via Gemini — Approach
 
-### Zoom-to-Location Implementation
+**Confidence: MEDIUM — Reddit public JSON API behavior is stable; Gemini extraction pattern reuses existing code.**
 
-**Pattern:** "Show on map" icon button on event card in the sidebar → calls `map.flyTo([venue.lat, venue.lng], 15)`.
+**No OAuth2 required for read-only public subreddit access:** Reddit exposes public subreddit listings as JSON by appending `.json` to any subreddit URL:
+- `https://www.reddit.com/r/halifax/search.json?q=live+music+venue&sort=new&t=month&limit=25`
+- `https://www.reddit.com/r/fredericton/search.json?q=events+shows&sort=new&t=month&limit=25`
 
-**Implementation options:**
-1. `useMap()` hook (react-leaflet) called from a child component of `<MapContainer>`. Sidebar must be rendered inside `<MapContainer>` or receive the map instance via context/ref.
-2. Custom EventEmitter or React context that the sidebar writes to and the map component reads from — decouples sidebar from being a MapContainer child.
+This requires a descriptive `User-Agent` header (e.g., `EastCoastLocal/1.0`). No API key needed. Rate limit: 60 requests/minute for unauthenticated access.
 
-**Recommended:** Pass map ref via React context. The map component sets `mapRef.current = map` via `useMapEvents`. The sidebar reads `mapRef.current.flyTo(...)`. This avoids restructuring the existing component tree.
+**Extraction approach:** Fetch top posts + comments for target search terms. Concatenate post title + selftext + top-level comments into a single text blob. Pass to Gemini with a prompt to extract: venue names, URLs, city, province. Use the existing `Output.object({ schema: CandidateSchema })` pattern from `discovery-orchestrator.ts`. The existing schema already captures all needed fields.
 
-**Zoom level:** 15 (city-block resolution). Do NOT go above 16 on CartoDB Positron — tiles become sparse and the venue context is lost.
+**Noise handling:** Expect 60–80% of extracted "venues" to be invalid (band names mistaken for venues, addresses, aggregator links). Scoring will reject aggregator URLs. Admin review handles borderline cases. Do not attempt NLP-based venue classification — scoring + admin review is sufficient.
 
-**Animation:** `flyTo` (animated pan+zoom) is preferable to `setView` (instant jump) for orientation — user can track the motion and understand where the map moved.
+**Subreddit targeting:**
+```
+NB: r/newbrunswick, r/fredericton, r/SaintJohn, r/moncton
+NS: r/halifax, r/novascotia
+PEI: r/PEI
+NL: r/newfoundland, r/stjohnsnl
+```
 
-### Category Chips in Timelapse Mode
+### Chunked Cron Job Design
 
-**Current state:** Category chip bar is rendered conditionally — hidden when `timelapse === true`.
+**The Vercel Hobby 60s function timeout is the primary architecture constraint.**
 
-**Fix:** Remove the `timelapse` condition from the chip bar render. The chips should render identically in both modes. The filter logic already applies in timelapse (verified in PROJECT.md: "Category filter applies to heatmap mode" shipped in v1.2).
+**Option A — Multiple Vercel cron schedules (recommended for simplicity):**
+```
+/api/cron/discover/nb  → runs at 2:00 AM UTC — NB cities
+/api/cron/discover/ns  → runs at 3:00 AM UTC — NS cities
+/api/cron/discover/pei → runs at 4:00 AM UTC — PEI + NL
+```
+Each cron handles a subset of cities that fits within 60 seconds. No state management needed. Downside: multiple cron endpoint files.
 
-**Expected behavior after fix:**
-- User selects "Live Music" chip → switches to timelapse → chips remain visible and "Live Music" remains selected
-- User is in timelapse → clicks a different chip → heatmap updates to reflect new category immediately
-- Active chip state, URL persistence, and filter application all already work; only visibility was broken
+**Option B — DB-tracked job cursor:**
+Store `last_processed_city_index` in a `discovery_job_state` table. Each cron invocation reads the cursor, processes the next N cities, and advances the cursor. Wraps around after last city. More complex but keeps a single cron endpoint.
+
+**Recommendation:** Option A for v2.0 (lower complexity, easier to debug). Option B if the number of cron files becomes unwieldy.
+
+### Scoring Places API Candidates vs. Gemini Candidates
+
+The existing `scoreCandidate()` function was designed for Gemini web-search output. Places API results have different signal availability:
+
+| Signal | Gemini candidates | Places API candidates |
+|--------|------------------|-----------------------|
+| City present | Optional (LLM may omit) | Always present (formattedAddress) |
+| Province present | Optional | Derivable from address |
+| Name present | Optional | Always present (displayName) |
+| Coordinates | Never (URL-only output) | Always present (location.lat/lng) |
+| Website | Present (it's the URL) | Optional (websiteUri field) |
+| Place type | Never | Always present (types array) |
+
+Recommended scoring for Places candidates:
+- Base: 0.5
+- Has websiteUri: +0.2
+- Place type in event-venue whitelist: +0.15
+- businessStatus is OPERATIONAL: +0.05
+- Has coordinates: +0.05 (bonus for geocoding accuracy)
+- Place type NOT in whitelist: -0.3
+- businessStatus CLOSED_PERMANENTLY: reject outright
+
+This scoring means most operational venues with websites and event-venue types will score ≥ 0.8 and auto-approve. Venues without websites will score ~0.7 and go to admin review.
 
 ---
 
 ## Competitor Feature Analysis
 
-| Feature | Google Maps / Events | Eventbrite Map View | Songkick | Our Approach |
-|---------|---------------------|---------------------|----------|--------------|
-| Cross-source dedup | Google deduplicates internally across structured data sources | Single source (Eventbrite only) | Deduplicates across promoter sources | Venue-anchored composite key; resolve venue first |
-| Venue merge | Google resolves venue identity via Place IDs | N/A — organizer-submitted venues are canonical | Platform-managed venues | Two-signal match (name + geo); auto-merge at high confidence |
-| List-to-map zoom | Clicking a search result pans map to that location with smooth animation | Map pin highlights when list item hovered | Not a map product | `flyTo` on explicit button click; zoom 15 |
-| Filter persistence across modes | N/A — no mode concept | Filter chips always visible in all states | N/A | Remove conditional rendering; chips always visible |
+| Feature | Songkick | Bandsintown | Google Maps/Events | Our Approach |
+|---------|----------|-------------|-------------------|--------------|
+| Venue discovery | Manually curated + promoter submissions | Promoter/artist push | Places API (structured) | Places API pull + Reddit supplemental |
+| Geographic coverage | Major cities only | Major cities only | Global (Places API) | All Atlantic Canada, including small towns |
+| Auto-approval | N/A (curated) | N/A (push model) | N/A | Score-gated auto-approve; admin review for borderline |
+| Venue without website | Not scraped | Artist-linked only | Listed in Places regardless | Venue stubs (no scrape source); TM dedup still works |
+| Admin review UI | N/A | N/A | N/A | Per-item approve/reject; batch approve for scale |
 
 ---
 
 ## Sources
 
-- [Haversine formula — Movable Type Scripts](https://www.movable-type.co.uk/scripts/latlong.html) — distance calculation for geocoordinate proximity (HIGH confidence)
-- [Preventing Duplicate Location Entries Using Haversine — DEV Community](https://dev.to/galisetty_priyatham_c1a49/preventing-duplicate-or-nearby-location-entries-using-the-haversine-formula-in-java-1g1p) — proximity-based dedup pattern (MEDIUM confidence)
-- [Fuzzy Matching 101 — Data Ladder](https://dataladder.com/fuzzy-matching-101/) — algorithm comparison: Levenshtein, Jaro-Winkler, token-sort for name matching (MEDIUM confidence)
-- [Streamline Data Deduplication: Advanced Matching Techniques — Capella Solutions](https://www.capellasolutions.com/blog/streamline-data-deduplication-advanced-matching-techniques) — multi-field matching strategies, threshold approaches (MEDIUM confidence)
-- [List and Details — Map UI Patterns](https://mapuipatterns.com/list-details/) — expected behavior: selecting list item zooms map to item's extent (HIGH confidence from UX pattern documentation)
-- [React Leaflet Events example](https://react-leaflet.js.org/docs/example-events/) — flyTo and map interaction patterns (HIGH confidence)
-- [Leaflet map.flyTo documentation](https://leafletjs.com/reference.html) — animated pan+zoom API (HIGH confidence)
-- [Filter UI Patterns — Arounda](https://arounda.agency/blog/filter-ui-examples) — chip filter visibility best practices; active filters should always be visible (MEDIUM confidence)
-- [Chip UI Design — Mobbin](https://mobbin.com/glossary/chip) — chips provide immediate visual feedback on active filter state; should not be hidden in any app mode (MEDIUM confidence)
-- [Handling Duplicated Event Imports — The Events Calendar](https://theeventscalendar.com/knowledgebase/troubleshooting-duplicate-imports/) — UID-based dedup across sources; confirms cross-source dedup is a solved pattern (MEDIUM confidence)
-- [Bandsintown imported events — Bandsintown Help](https://help.artists.bandsintown.com/en/articles/7048779-imported-events) — platform automatically imports from TM/Eventbrite; deduplicates internally (MEDIUM confidence)
+- Google Maps Places API (New) documentation — `places:searchText`, `places:searchNearby`, field masking, `includedTypes` — training data through August 2025. **MEDIUM confidence — verify current endpoint behavior and pricing before implementation.**
+- Reddit public JSON API (`/r/subreddit/search.json`) — stable behavior for unauthenticated public access — **MEDIUM confidence.**
+- Existing codebase: `discovery-orchestrator.ts`, `promote-source.ts`, `venue-dedup.ts`, `geocoder.ts`, `schema.ts` — direct inspection — **HIGH confidence.**
+- Vercel Hobby plan constraints (60s timeout, 50MB function size) — PROJECT.md Constraints section — **HIGH confidence.**
+- Atlantic Canada subreddit list — community knowledge — **MEDIUM confidence; verify subreddit activity before targeting.**
 
 ---
 
-*Feature research for: East Coast Local v1.5 — Deduplication, Venue Merge, Map UX Polish*
+*Feature research for: East Coast Local v2.0 — Mass Venue Discovery and Coverage Scaling*
 *Researched: 2026-03-15*
