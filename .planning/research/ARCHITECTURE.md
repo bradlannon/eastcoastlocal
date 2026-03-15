@@ -808,3 +808,503 @@ The 60-second timeout remains the binding constraint. Multi-page scraping is the
 
 *Architecture research for: East Coast Local v1.4 — API integrations + scraping improvements*
 *Researched: 2026-03-15*
+
+---
+---
+
+# v1.5 Architecture: Deduplication and UX Polish
+
+**Researched:** 2026-03-15
+**Confidence:** HIGH — based on direct codebase read of all affected files
+
+> This section documents integration architecture for v1.5 features only.
+> The v1.4 baseline above describes the existing system these features build on.
+
+---
+
+## Existing System Snapshot (v1.4 Shipped State)
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  Scrape Pipeline (server-side, cron)                              │
+│                                                                   │
+│  orchestrator.ts                                                  │
+│    ├── venue_website → fetcher → json-ld / extractor → normalizer│
+│    ├── eventbrite.ts → normalizer                                 │
+│    ├── bandsintown.ts → normalizer                                │
+│    └── ticketmaster.ts → findOrCreateVenue() → normalizer        │
+│                                ↓                                  │
+│                         upsertEvent()                             │
+│                    (unique: venue_id + event_date + normalized_   │
+│                             performer)                            │
+└────────────────────────────────┬─────────────────────────────────┘
+                                 │
+                    Neon Postgres (Drizzle ORM)
+                    venues / events / scrape_sources
+                                 │
+┌────────────────────────────────┴─────────────────────────────────┐
+│  Public Frontend (Next.js App Router, client-side filtering)      │
+│                                                                   │
+│  page.tsx (HomeContent)                                           │
+│    ├── fetch('/api/events') → allEvents[]                         │
+│    ├── filter chain (useMemo):                                    │
+│    │     filterByDateRange / filterByTimeWindow                   │
+│    │     filterByProvince → filterByCategory → filterByBounds     │
+│    ├── MapClientWrapper → MapClient                               │
+│    │     ├── ClusterLayer (cluster mode)                          │
+│    │     ├── HeatmapLayer + HeatmapClickLayer (timelapse mode)    │
+│    │     ├── MapViewController (province pan, flyTo)              │
+│    │     └── TimelineBar (timelapse mode only)                    │
+│    └── EventList → EventCard[]                                    │
+│          └── onClickVenue → setFlyToTarget → MapViewController    │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Key constraint:** The existing dedup key is `(venue_id, event_date, normalized_performer)`. Cross-source dedup only works when both sources resolve to the same `venue_id`. Ticketmaster creates new venue rows via `findOrCreateVenue()` using ILIKE — meaning a TM-created "Garrison Brewing" and an existing "Garrison Brewing Company" get separate `venue_id` values, and the dedup key never fires for their events.
+
+---
+
+## Feature 1: Venue Fuzzy Matching and Merge
+
+### Problem
+
+`ticketmaster.ts` — `findOrCreateVenue()` uses `ilike(venues.name, name)` as an exact case-insensitive match. This misses near-duplicates:
+- "Garrison Brewing" vs "Garrison Brewing Company"
+- "The Marquee Club" vs "Marquee Club"
+- "Stage Nine" vs "Stage 9"
+
+When the ILIKE match fails, a new venue row is inserted. Events from both TM and the venue's own website then live under different `venue_id` values — two map pins for the same physical location, duplicate events that evade the dedup key.
+
+### Integration point: `ticketmaster.ts` — `findOrCreateVenue()`
+
+The fix is entirely within this one function. The logic becomes: ILIKE first (fast, exact), then trigram similarity fallback (slower, fuzzy), then insert if nothing matches.
+
+**Prerequisite:** Enable `pg_trgm` on Neon Postgres. This is a one-time SQL command:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+```
+
+Neon Postgres supports standard PostgreSQL extensions. This runs as a Drizzle migration (`db.execute(sql`CREATE EXTENSION IF NOT EXISTS pg_trgm`)`).
+
+**Updated `findOrCreateVenue()` logic:**
+
+```typescript
+export async function findOrCreateVenue(
+  name: string,
+  city: string,
+  province: string,
+  address: string
+): Promise<number> {
+  // Pass 1: exact ILIKE match (existing behavior)
+  const exact = await db.query.venues.findFirst({
+    where: and(ilike(venues.name, name), eq(venues.city, city)),
+  });
+  if (exact) return exact.id;
+
+  // Pass 2: trigram similarity fallback
+  const fuzzy = await db.execute(sql`
+    SELECT id FROM venues
+    WHERE city = ${city}
+      AND similarity(name, ${name}) > 0.5
+    ORDER BY similarity(name, ${name}) DESC
+    LIMIT 1
+  `);
+  if (fuzzy.rows.length > 0) return fuzzy.rows[0].id as number;
+
+  // Pass 3: create new venue
+  const [inserted] = await db
+    .insert(venues)
+    .values({ name, address, city, province })
+    .returning({ id: venues.id });
+  return inserted.id;
+}
+```
+
+**Threshold rationale:** 0.5 trigram similarity is conservative. At this threshold:
+- "Garrison Brewing" vs "Garrison Brewing Company": similarity ~0.73 — MATCH
+- "The Marquee Club" vs "Marquee Club": similarity ~0.82 — MATCH
+- "The Attic" vs "The Anchor" (two different pubs): similarity ~0.44 — NO MATCH
+
+Start at 0.5 and raise if false positives appear. Log near-misses (0.4-0.5) during the first few scrape runs for inspection.
+
+### Extraction to shared module
+
+`findOrCreateVenue()` is currently in `ticketmaster.ts`. Other future integrations may need venue lookup too. Extract to a shared file:
+
+```
+src/lib/scraper/venue-utils.ts  ← NEW
+```
+
+`ticketmaster.ts` imports from there. This is a refactor, not a behavior change.
+
+### What changes vs. what stays the same
+
+| Component | Change |
+|-----------|--------|
+| `ticketmaster.ts` — `findOrCreateVenue()` | Add trigram similarity fallback (Pass 2) |
+| `venue-utils.ts` | NEW — shared venue lookup (extracted from ticketmaster.ts) |
+| Neon Postgres | `CREATE EXTENSION IF NOT EXISTS pg_trgm` migration |
+| `schema.ts` | No table changes |
+| Frontend | No change |
+| `eventbrite.ts`, `bandsintown.ts` | No change — they use pre-assigned venue_id |
+
+---
+
+## Feature 2: Cross-Source Event Deduplication
+
+### Problem
+
+The dedup key `(venue_id, event_date, normalized_performer)` fails across sources for two distinct reasons:
+
+**Reason A — venue mismatch:** Covered by Feature 1 above. Once venues correctly merge, the same `venue_id` is used by all sources, and the existing key fires correctly for exact date/performer matches.
+
+**Reason B — date representation mismatch:** Ticketmaster provides `dates.start.localDate` (a date-only string like `"2026-03-20"`). When this is stored as a Postgres `timestamp`, it becomes `2026-03-20T00:00:00Z`. A venue website scraper that extracts `"2026-03-20T20:00:00"` stores `2026-03-20T20:00:00Z`. These two timestamps are 8 hours apart — the dedup key does NOT match, and a duplicate row is inserted.
+
+### Fix A: Normalize event_date to midnight at upsert time
+
+In `normalizer.ts` — `upsertEvent()`, truncate the incoming date to midnight UTC before storing:
+
+```typescript
+// Before (current):
+const eventDate = new Date(extracted.event_date);
+
+// After:
+const eventDate = new Date(extracted.event_date);
+eventDate.setUTCHours(0, 0, 0, 0); // normalize to midnight UTC
+```
+
+This is a one-line change. All sources now store the same midnight timestamp for the same calendar date. The existing unique index handles dedup correctly.
+
+**Trade-off:** Event times are stored separately in `event_time` (text column, e.g., "8:00 PM"). The `event_date` column is already conceptually a date, not a datetime. Truncating to midnight is semantically correct and harmless.
+
+### Fix B: Windowed dedup pre-check (optional, belt-and-suspenders)
+
+If date normalization alone is deemed insufficient, add a pre-check before upsert:
+
+**New file: `src/lib/scraper/deduplicator.ts`**
+
+```typescript
+export async function findExistingEvent(
+  venueId: number,
+  normalizedPerformer: string,
+  eventDate: Date,
+  windowHours = 12
+): Promise<number | null> {
+  const windowStart = new Date(eventDate.getTime() - windowHours * 3600_000);
+  const windowEnd = new Date(eventDate.getTime() + windowHours * 3600_000);
+
+  const existing = await db.query.events.findFirst({
+    where: and(
+      eq(events.venue_id, venueId),
+      eq(events.normalized_performer, normalizedPerformer),
+      gte(events.event_date, windowStart),
+      lte(events.event_date, windowEnd)
+    ),
+  });
+  return existing?.id ?? null;
+}
+```
+
+`upsertEvent()` calls this before the INSERT. If a match is found, run UPDATE on the known ID rather than relying on the conflict key. If not found, proceed with the existing upsert.
+
+**Recommendation:** Fix A (date normalization) is sufficient and has no downside. Fix B is a nice-to-have for extra safety. Implement A first; add B only if duplicate events are still observed in production after A ships.
+
+### What changes vs. what stays the same
+
+| Component | Change |
+|-----------|--------|
+| `normalizer.ts` — `upsertEvent()` | Truncate `eventDate` to midnight UTC (one line) |
+| `deduplicator.ts` | NEW (optional — implement if Fix A is not enough) |
+| `schema.ts` | No change |
+| Frontend | No change |
+
+**Build dependency:** Feature 2 should be built after Feature 1. Correct venue matching is the prerequisite for cross-source dedup to work end-to-end. Date normalization alone is useful but incomplete without venue merge.
+
+---
+
+## Feature 3: Zoom-to-Location on Event Cards
+
+### Current state — the infrastructure already exists
+
+The zoom-to-location machinery is fully implemented. Tracing the current wiring:
+
+1. `EventCard.tsx` accepts `onClickVenue?: (venueId: number, lat: number, lng: number) => void` and calls it on card click.
+2. `EventList.tsx` threads `onClickVenue` down to each `EventCard`.
+3. `page.tsx` implements `handleClickVenue` which calls `setFlyToTarget({ lat, lng, venueId })`.
+4. `MapViewController.tsx` observes `flyToTarget` prop and calls `map.flyTo([lat, lng], 15)`, then opens the venue marker popup after the animation completes.
+
+**The behavior works today.** The entire card is a click target that triggers the zoom. The issue is discoverability: there is no explicit button, so users may not realize clicking the card pans the map.
+
+### What needs to change: `EventCard.tsx` only
+
+Add a small map-pin icon button inside the card. The button calls the existing `onClickVenue` prop — no other changes anywhere.
+
+```tsx
+// In EventCard, after the venue/city line:
+{onClickVenue && venue.lat != null && venue.lng != null && (
+  <button
+    onClick={(e) => {
+      e.stopPropagation(); // prevent card-level click
+      onClickVenue(venue.id, venue.lat!, venue.lng!);
+    }}
+    aria-label={`Show ${venue.name} on map`}
+    title="Show on map"
+    className="ml-auto text-gray-400 hover:text-[#E85D26] transition-colors"
+  >
+    {/* Map pin SVG icon */}
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+    </svg>
+  </button>
+)}
+```
+
+The button conditionally renders: only when `onClickVenue` is provided AND the venue has coordinates. In timelapse mode, `onClickVenue` is already passed through, so the button appears there too.
+
+### What changes vs. what stays the same
+
+| Component | Change |
+|-----------|--------|
+| `EventCard.tsx` | Add explicit zoom button (calls existing `onClickVenue` prop) |
+| `MapViewController.tsx` | No change |
+| `page.tsx` | No change |
+| `EventList.tsx` | No change |
+| `MapClient.tsx` | No change |
+
+---
+
+## Feature 4: Category Filter Chips in Timelapse Mode
+
+### Current state
+
+In `page.tsx`, the `EventFilters` component is hidden in timelapse mode:
+
+```tsx
+{mapMode === 'cluster' ? (
+  <EventFilters eventCount={sidebarEvents.length} />
+) : null}
+```
+
+The `category` URL param is still read from nuqs and applied to the filter chain in both modes — `filterByCategory()` runs regardless of `mapMode`. The user simply has no UI to change the category while in timelapse mode.
+
+`EventFilters.tsx` renders three sections: date chips, category chips, and province dropdown. In timelapse mode, only the category chips are relevant (date filtering is replaced by the timeline scrubber; province filtering is secondary).
+
+### Integration point: Extract `CategoryChips` as a standalone component
+
+Extract the category chip section from `EventFilters.tsx` into a new reusable component:
+
+**New file: `src/components/events/CategoryChips.tsx`**
+
+```tsx
+'use client';
+
+import { useQueryState } from 'nuqs';
+import { EVENT_CATEGORIES } from '@/lib/db/schema';
+import { CATEGORY_META, type EventCategory } from '@/lib/categories';
+
+export default function CategoryChips() {
+  const [category, setCategory] = useQueryState('category');
+
+  return (
+    <div className="flex gap-1 overflow-x-auto no-scrollbar">
+      <button
+        onClick={() => setCategory(null)}
+        className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
+          !category
+            ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+            : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+        }`}
+      >
+        All
+      </button>
+      {EVENT_CATEGORIES.map((cat) => {
+        const isActive = category === cat;
+        const meta = CATEGORY_META[cat as EventCategory];
+        return (
+          <button
+            key={cat}
+            onClick={() => setCategory(cat)}
+            className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
+              isActive
+                ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
+            }`}
+          >
+            {meta.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+```
+
+`CategoryChips` owns its own `useQueryState('category')` call. It reads from and writes to the same `category` URL param that the filter chain in `page.tsx` already reads. No prop threading needed — shared state is the URL.
+
+`EventFilters.tsx` imports `CategoryChips` and renders it in place of the inline chip section — behavior is identical.
+
+### Change in `page.tsx`
+
+```tsx
+// Import at top
+import CategoryChips from '@/components/events/CategoryChips';
+
+// In JSX, replace:
+{mapMode === 'cluster' ? (
+  <EventFilters eventCount={sidebarEvents.length} />
+) : null}
+
+// With:
+{mapMode === 'cluster' ? (
+  <EventFilters eventCount={sidebarEvents.length} />
+) : (
+  <div className="flex-shrink-0 px-3 py-2 border-b border-gray-200 bg-white">
+    <CategoryChips />
+  </div>
+)}
+```
+
+This renders a compact chip strip in timelapse mode — same styling as the filter bar, no date/province controls.
+
+### What changes vs. what stays the same
+
+| Component | Change |
+|-----------|--------|
+| `CategoryChips.tsx` | NEW — extracted chip strip |
+| `EventFilters.tsx` | Import and render `CategoryChips` instead of inline chips |
+| `page.tsx` | Render `CategoryChips` strip in timelapse mode (2 lines) |
+| `TimelineBar.tsx` | No change |
+| `filter-utils.ts` | No change |
+| `timelapse-utils.ts` | No change |
+
+---
+
+## Build Order (v1.5, Dependency-Aware)
+
+```
+Step 1 (backend): Enable pg_trgm extension + migrate
+  - SQL: CREATE EXTENSION IF NOT EXISTS pg_trgm
+  - Drizzle migration
+  - Prerequisite for venue fuzzy match
+
+Step 2 (backend): Venue fuzzy matching
+  - Extract findOrCreateVenue() to venue-utils.ts
+  - Add trigram similarity Pass 2
+  - Update ticketmaster.ts to import from venue-utils.ts
+  - Validate: manually trigger TM scrape, confirm near-duplicate venues merge
+
+Step 3 (backend): Cross-source event dedup
+  - Add midnight UTC normalization to upsertEvent() (one line)
+  - Optionally add deduplicator.ts for windowed pre-check
+  - Validate: verify no duplicate events for same performer/date across TM and venue source
+
+Step 4 (frontend): Zoom-to-location button
+  - Add map-pin icon button to EventCard.tsx
+  - Independent of Steps 1-3
+
+Step 5 (frontend): Category chips in timelapse
+  - Create CategoryChips.tsx (extract from EventFilters.tsx)
+  - Update EventFilters.tsx to import CategoryChips
+  - Update page.tsx to render CategoryChips in timelapse mode
+  - Independent of Steps 1-3
+```
+
+Steps 4 and 5 are fully independent of the backend steps and of each other. They can be built and shipped before Steps 1-3 if desired.
+
+Steps 2 and 3 are sequential — venue merging must work before cross-source dedup is meaningful.
+
+---
+
+## Component Responsibilities (v1.5 Delta)
+
+| Component | Responsibility | Status |
+|-----------|---------------|--------|
+| `venue-utils.ts` | Shared venue lookup with ILIKE + trigram fallback | NEW |
+| `ticketmaster.ts` | Imports findOrCreateVenue from venue-utils | MODIFY (import change) |
+| `deduplicator.ts` | Windowed cross-source event match (optional) | NEW (optional) |
+| `normalizer.ts` — `upsertEvent()` | Date normalized to midnight UTC before upsert | MODIFY (one line) |
+| `CategoryChips.tsx` | Standalone category filter chip strip | NEW |
+| `EventFilters.tsx` | Full filter bar — imports CategoryChips | MODIFY (extract + import) |
+| `EventCard.tsx` | Explicit zoom-to-location button | MODIFY (add button) |
+| `page.tsx` | CategoryChips in timelapse mode | MODIFY (2 lines) |
+| `MapViewController.tsx` | FlyTo behavior | NO CHANGE |
+| `TimelineBar.tsx` | Timelapse controls | NO CHANGE |
+| `MapClient.tsx` | Map orchestration | NO CHANGE |
+| `schema.ts` | DB schema | NO CHANGE |
+| `/api/events` | Event API | NO CHANGE |
+
+---
+
+## Data Flow Changes (v1.5)
+
+### Scrape pipeline (backend features)
+
+```
+Before (v1.4):
+  TM event → findOrCreateVenue (ILIKE only) → upsertEvent (conflict key: venue_id+date+performer)
+
+After (v1.5):
+  TM event → findOrCreateVenue (ILIKE → trigram fallback → insert)
+           → upsertEvent (date normalized to midnight → conflict key fires correctly)
+```
+
+### Frontend (UI features)
+
+```
+Before (v1.4, timelapse mode):
+  allEvents → filterByTimeWindow → filterByProvince → filterByCategory → sidebarEvents
+  EventFilters: HIDDEN — category param unchangeable in timelapse UI
+  EventCard: entire card click = zoom (undiscoverable)
+
+After (v1.5, timelapse mode):
+  allEvents → filterByTimeWindow → filterByProvince → filterByCategory → sidebarEvents
+  CategoryChips: VISIBLE — user can change category while in timelapse mode
+  EventCard: explicit map-pin button = zoom (discoverable)
+```
+
+---
+
+## Integration Points (v1.5)
+
+### Internal Boundaries
+
+| Boundary | Communication | Notes |
+|----------|---------------|-------|
+| `venue-utils.ts` ↔ Neon Postgres | Drizzle `sql` tagged template for trigram query | Requires pg_trgm extension |
+| `deduplicator.ts` ↔ `upsertEvent()` | Optional pre-check function call | Returns existing event ID or null |
+| `CategoryChips` ↔ URL state | `useQueryState('category')` — same key read by filter chain | No prop threading required |
+| `EventCard` button ↔ `MapViewController` | Existing `onClickVenue` → `setFlyToTarget` → `map.flyTo()` | No changes to this chain |
+
+---
+
+## Anti-Patterns to Avoid (v1.5)
+
+### Anti-Pattern 1: Post-hoc venue merge jobs
+
+**What people do:** Run a nightly background job to find and merge duplicate venue rows after the fact.
+**Why it's wrong:** Requires reassigning event foreign keys; race condition with live scraper; false merges are hard to roll back.
+**Do this instead:** Prevent duplicates at creation time in `findOrCreateVenue()`.
+
+### Anti-Pattern 2: Trigram threshold too low
+
+**What people do:** Set similarity threshold at 0.3 to catch more potential duplicates.
+**Why it's wrong:** Atlantic Canada has venues with similar generic names. A threshold this low will merge genuinely different venues (e.g., two pubs with "The" in the name in the same city).
+**Do this instead:** Start at 0.5. Log near-misses in the 0.4-0.5 range for a few scrape runs before adjusting.
+
+### Anti-Pattern 3: Category chips inside TimelineBar
+
+**What people do:** Thread category state and chip click handlers down into `TimelineBar` to co-locate all timelapse controls in one component.
+**Why it's wrong:** `TimelineBar` owns playback concerns. Adding filter state creates unwanted coupling and makes both components harder to test independently.
+**Do this instead:** Render `CategoryChips` as a sibling to the map panel in `page.tsx`. The `category` URL param is the shared state — no prop threading needed.
+
+### Anti-Pattern 4: Skipping date normalization, relying only on windowed dedup
+
+**What people do:** Implement `deduplicator.ts` windowed pre-check without fixing the root cause (date format mismatch).
+**Why it's wrong:** The windowed query adds a SELECT before every upsert — extra latency across all events. The root cause (TM stores date-only, scrapers store datetime) is a one-line fix.
+**Do this instead:** Fix `upsertEvent()` to normalize to midnight UTC first. Add windowed dedup only if problems persist.
+
+---
+
+*Architecture research for: East Coast Local v1.5 — deduplication and UX polish*
+*Researched: 2026-03-15*

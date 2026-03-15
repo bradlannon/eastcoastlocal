@@ -1,8 +1,8 @@
 # Pitfalls Research
 
 **Domain:** Local events discovery app with AI-powered web scraping (Atlantic Canada live music)
-**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added) · 2026-03-14 (v1.2 discovery + categorization pitfalls added) · 2026-03-15 (v1.4 API integrations, multi-page scraping, rate limiting, quality metrics, auto-approve pitfalls added)
-**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research), HIGH (v1.2 discovery/categorization pitfalls — verified via Vercel official docs, Gemini API pricing docs, LLM drift empirical research), HIGH (v1.4 API integration pitfalls — verified via Ticketmaster ToS, official API docs, Songkick developer portal)
+**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added) · 2026-03-14 (v1.2 discovery + categorization pitfalls added) · 2026-03-15 (v1.4 API integrations, multi-page scraping, rate limiting, quality metrics, auto-approve pitfalls added) · 2026-03-15 (v1.5 cross-source deduplication, venue merge, zoom-to-location, timelapse filter chips added)
+**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research), HIGH (v1.2 discovery/categorization pitfalls — verified via Vercel official docs, Gemini API pricing docs, LLM drift empirical research), HIGH (v1.4 API integration pitfalls — verified via Ticketmaster ToS, official API docs, Songkick developer portal), HIGH (v1.5 pitfalls — verified via Neon pg_trgm docs, Leaflet GitHub issues, Crunchy Data fuzzy match guide, Leaflet API reference)
 
 ---
 
@@ -1068,6 +1068,298 @@ Phase 1 of v1.4 (Ticketmaster integration). Extend the events schema and dedup l
 - [LLM Evaluation Metrics — Confident AI](https://www.confident-ai.com/blog/llm-evaluation-metrics-everything-you-need-for-llm-evaluation) — field-level confidence scoring; hallucination detection patterns
 - [Neon Postgres Connection Pooling](https://neon.com/docs/connect/connection-pooling) — PgBouncer transaction mode; connection limits per project; serverless function connection patterns
 
+
+
 ---
-*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition + v1.2 discovery/categorization addition + v1.4 API integrations/multi-page/rate limiting/quality metrics/auto-approve addition*
-*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1) · 2026-03-14 (v1.2) · 2026-03-15 (v1.4)*
+
+## v1.5 — Cross-Source Deduplication, Venue Merge, Map Interaction, and Timelapse Filter Pitfalls
+
+### Pitfall 31: Cross-Source Event Dedup Fails Because the Same Venue Has Two Different `venue_id` Values
+
+**What goes wrong:**
+The existing dedup key is `(venue_id, event_date, normalized_performer)`. This works perfectly when both sources write to the same venue record. But Ticketmaster creates new venue records via `findOrCreateVenue()` using `ilike` on the TM-provided venue name — which often differs from the manually-entered venue name. "Casino Nova Scotia" (TM) vs. "Scotiabank Centre" or "Live! Casino Halifax" — the `ilike` match fails, a new venue row is inserted, and the same concert now has two database records at two different `venue_id` values. The composite dedup key never fires because it requires a matching `venue_id`.
+
+**Why it happens:**
+The root assumption of the dedup scheme is "same venue = same `venue_id`." This holds when all sources route through the same venue lookup — but Ticketmaster's `findOrCreateVenue()` is an exact-match `ilike` against the TM-supplied name. Atlantic Canada venue naming is inconsistent: abbreviations, "The" prefixes, branding changes, and TM-specific labels all diverge from the admin-entered canonical name. The `ilike` falls through, creates a ghost venue, and the dedup key becomes useless.
+
+**How to avoid:**
+- Add geo-proximity matching to `findOrCreateVenue()`: before creating a new venue, query for existing venues within ~250 meters of the TM-provided geocoordinates. If one is found, return its `id` rather than inserting. Geocoordinates are more stable than names.
+- If geocoordinates are unavailable, fall back to trigram similarity on venue name + city: `similarity(name, $1) > 0.6 AND city = $2`. The `pg_trgm` extension is available on Neon (confirmed supported, installed in 10k+ Neon databases).
+- Never rely solely on `ilike` for venue identity across sources. `ilike` requires exact case-insensitive match — it cannot catch "Scotiabank Centre" vs. "Casino Nova Scotia."
+- After geo/fuzzy match, log every "matched existing venue" decision so the admin can audit false positives.
+
+**Warning signs:**
+- Two venue rows with nearly identical `lat`/`lng` values in the database
+- The same physical location appearing twice in the map's cluster layer
+- `findOrCreateVenue()` logs showing high insertion rate relative to TM event count (suggests matching is failing)
+- Admin venue list showing entries like "Casino Nova Scotia" alongside a pre-existing "Scotiabank Centre" at the same address
+
+**Phase to address:**
+The deduplication phase (v1.5). The fix to `findOrCreateVenue()` must happen before any cross-source dedup logic is built on top of it — the venue merge is the prerequisite to all event-level dedup.
+
+---
+
+### Pitfall 32: Venue Merge Is Irreversible Without an Audit Trail
+
+**What goes wrong:**
+An automated venue merge incorrectly identifies two different physical venues as duplicates (e.g., two bars on the same block with similar names) and merges all events from one into the other. Events are now under the wrong venue. If the merge is a hard `UPDATE venue_id` + `DELETE` of the ghost venue, there is no way to identify which events were affected or restore the original state. The only recovery is manual inspection of every event — expensive and error-prone with hundreds of events.
+
+**Why it happens:**
+Fuzzy matching has a false positive rate. A similarity threshold of 0.6 on trigrams catches most matches but also catches legitimate near-misses. "The Marquee Club" and "The Marquee Ballroom" are different venues that would score > 0.6 on trigram similarity. When merge is automated without an audit log, false positives cause irreversible data corruption.
+
+**How to avoid:**
+- Never auto-merge with a hard `DELETE`. Instead, implement soft merge: add a `canonical_venue_id` column to the venues table. Duplicate venues point to their canonical. Events are not moved; queries JOIN through the canonical.
+- Alternatively: log every merge decision to a `venue_merge_log` table (ghost_venue_id, canonical_venue_id, similarity_score, merged_at, method). If a merge is found to be wrong, the log enables reversal with a targeted `UPDATE`.
+- For automated fuzzy matches above threshold but below a high-confidence threshold (e.g., 0.6–0.85), stage for admin review rather than auto-merging. Auto-merge only when similarity > 0.9 AND geocoordinates are within 50 meters.
+- Surface the merge queue in the admin dashboard — same interface as discovery review — so the admin can approve or reject each proposed merge.
+
+**Warning signs:**
+- Venue merge logic uses `DELETE` without logging the deleted ID and its events
+- No admin interface to review pending venue merges before they execute
+- Merge threshold set to a single value without empirical testing on the actual Atlantic Canada dataset
+
+**Phase to address:**
+Venue deduplication phase (v1.5). The audit trail and admin review queue must be designed before the first automated merge runs against production data.
+
+---
+
+### Pitfall 33: Cross-Source Event Dedup Using Performer Name Normalization Breaks on Bands With Articles, Punctuation, and "feat."
+
+**What goes wrong:**
+The existing `normalizePerformer()` strips all non-alphanumeric characters and lowercases. This means "AC/DC" → "acdc", "Guns N' Roses" → "guns n roses", and "Dave Matthews Band feat. Tim Reynolds" → "dave matthews band feat tim reynolds". When TM returns the same act as "Dave Matthews Band" (no feat.), and the venue website lists "Dave Matthews Band feat. Tim Reynolds", the normalized forms differ and the dedup fails. Two event records appear for the same show.
+
+**Why it happens:**
+The normalization was designed for single-source dedup within one venue — it assumed the same source would describe a performer consistently. Cross-source normalization must survive variations in how different platforms format performer names. TM uses clean canonical artist names (from their Attractions entity), while scraped venue text often includes supporting acts, "featuring" clauses, and promotional suffixes.
+
+**How to avoid:**
+- Strip "feat.", "ft.", "featuring", "w/", "with", and everything after them before normalizing. The headliner is the identity; supporting acts are decorative.
+- Strip common promotional suffixes: "- An Evening With...", "- Greatest Hits Tour", "- Live!", "Tour", "Live". These appear in Ticketmaster event names but not in scraped venue text.
+- After normalization, use a secondary fuzzy match: if the normalized forms differ but the Levenshtein distance is <= 3 characters and the date matches exactly, treat as the same event. Levenshtein is available in PostgreSQL via `fuzzystrmatch` extension (available on Neon).
+- Keep the exact `performer` string from the most authoritative source (TM > venue website > scraped text); use `normalized_performer` only for dedup, not display.
+
+**Warning signs:**
+- Same band appearing twice in the event list for the same date at the same venue
+- `normalized_performer` values in the DB containing "feat", "ft", or "featuring" — these should be stripped before storage
+- Levenshtein distance between TM and scraped performer for known same-show events > 5 characters
+
+**Phase to address:**
+Cross-source deduplication phase (v1.5). Extend `normalizePerformer()` with the suffix/feat stripping before any cross-source dedup runs.
+
+---
+
+### Pitfall 34: pg_trgm Fuzzy Match Threshold Set Too Aggressively Merges Different Venues
+
+**What goes wrong:**
+The default `pg_trgm` similarity operator threshold is 0.3 — very permissive. At 0.3, "The Vault" would match "The Vault Kitchen & Bar" would match "The Velvet Underground Bar" in the same city. Using this threshold for venue matching causes false positive merges: two completely different bars are treated as the same venue. All events from "The Velvet Underground Bar" get merged into "The Vault Kitchen & Bar."
+
+**Why it happens:**
+Developers read the pg_trgm docs, see "higher threshold = stricter", and pick a starting point. 0.3 is the documented default and is appropriate for typo-tolerant search — it is not appropriate for venue identity matching where a false positive is a data integrity violation. Short strings (< 15 characters) are especially vulnerable: trigrams derived from short strings have high overlap with unrelated strings.
+
+**How to avoid:**
+- For venue identity matching, use similarity threshold >= 0.7 for names shorter than 20 characters, and >= 0.6 for longer names. Test against the actual Atlantic Canada venue set before deploying.
+- Always require city match in addition to name similarity — "The Horseshoe" in Halifax is different from "The Horseshoe" in Moncton.
+- Use `word_similarity()` rather than `similarity()` when TM venue names may be substrings of the canonical name (e.g., "Scotiabank Centre" as a substring of "Halifax Scotiabank Centre").
+- Validate the threshold empirically: run the fuzzy match against all existing venue pairs and manually inspect any pair with similarity > 0.5. Set the threshold just above the highest similarity of any known-different pair.
+
+**Warning signs:**
+- Fuzzy match threshold set to 0.3 or 0.4 for venue name matching (appropriate for search, not identity)
+- No city equality check alongside name similarity
+- Similarity threshold chosen without empirical testing against real Atlantic Canada venue names
+
+**Phase to address:**
+Venue deduplication phase (v1.5). Test thresholds against the real venue set before writing the merge logic.
+
+---
+
+### Pitfall 35: `flyTo` on Event Card Click Fights With Province Filter and User Panning
+
+**What goes wrong:**
+The EventCard click triggers `flyTo` via `setFlyToTarget`. Simultaneously, the user may have just changed the province filter (which calls `map.fitBounds()`) or may be in the middle of a manual pan. Two competing programmatic map movements fire in quick succession: `fitBounds` from the province change followed by `flyTo` from the card click (or vice versa). The map jerks between positions, lands at neither target, and `moveend` may not fire cleanly — leaving the popup-open handler registered on a stale marker that no longer exists at that position.
+
+**Why it happens:**
+The existing `MapViewController` already has both a province-change `fitBounds` effect and a `flyToTarget` effect, but they fire independently based on their respective `useEffect` dependency arrays. If both dependencies change in the same render cycle (user clicks a card while a province filter change is in flight), both effects run. Leaflet does not queue animations — a new `flyTo` during an active animation aborts the first without firing `moveend`.
+
+**How to avoid:**
+- Add a guard to the `flyToTarget` effect: if `map.isMoving()` returns true when `flyToTarget` changes, defer the `flyTo` by listening for the in-progress `moveend` before starting the new animation. Do not fire two Leaflet animations in the same tick.
+- Clear `flyToTarget` immediately in `MapViewController` when the effect fires (not 2 seconds later from a `setTimeout` in the parent). The 2-second timeout in `handleClickVenue` is a hack that can cause re-trigger on re-render; clearing it synchronously is safer.
+- The popup-open handler registered on `moveend` must be removed before a new `flyTo` starts. The existing cleanup in the `useEffect` return does this correctly — verify the cleanup fires when `flyToTarget` changes (it does, because the effect re-runs).
+- On mobile, where the user may be mid-pan when they tap a card (switching from the list tab to map tab), delay the `flyTo` by one frame (`requestAnimationFrame`) to let the map settle after the tab switch renders.
+
+**Warning signs:**
+- Map visibly snapping between two locations when a card is clicked with a province filter active
+- Popup failing to open after `flyTo` completes — `moveend` fired before the animation finished
+- `setTimeout(() => setFlyToTarget(null), 2000)` in `handleClickVenue` — this is the existing workaround that can cause re-triggers
+
+**Phase to address:**
+Zoom-to-location phase (v1.5). Test the interaction specifically with province filter active and with the mobile tab switch before considering the feature complete.
+
+---
+
+### Pitfall 36: `flyTo` in Timelapse Mode Interrupts Playback Animation Without Pausing It
+
+**What goes wrong:**
+When the map is in timelapse mode and the user clicks an event card in the sidebar, `flyTo` fires. The map pans smoothly to the venue. But `isPlaying` is still `true` — the play loop continues advancing `timePosition` during the animation. The heatmap layer calls `setLatLngs()` every second while `flyTo` is animating. This causes visible jitter: the heatmap redraws mid-animation, the canvas flickers as Leaflet re-composites the canvas layer during the pan. On mobile this is particularly jarring.
+
+**Why it happens:**
+The `flyTo` on card click and the play loop are independent state machines with no coordination. `handleClickVenue` does not pause playback. The play interval fires independently of map animation state.
+
+**How to avoid:**
+- When `flyToTarget` is set (card click triggers zoom-to), pause playback: call `setIsPlaying(false)` in `handleClickVenue` if `mapMode === 'timelapse'`. The user's intent is to inspect a specific venue — playback during inspection is disruptive.
+- Resume playback only on explicit user action (pressing Play), not automatically after `moveend`.
+- In cluster mode, `flyTo` + popup works correctly without pausing anything, because cluster mode has no animation loop. The pause-on-flyTo logic should be conditional on `mapMode === 'timelapse'`.
+
+**Warning signs:**
+- `handleClickVenue` does not reference `isPlaying` or `setIsPlaying` — no coordination with playback state
+- Heatmap flicker visible on the map during a `flyTo` animation in timelapse mode
+- Play loop fires during `flyTo` (verify by logging `timePosition` changes against `flyTo` start/end timestamps)
+
+**Phase to address:**
+Zoom-to-location phase (v1.5), specifically the timelapse integration test. Verify the interaction with timelapse mode active before shipping.
+
+---
+
+### Pitfall 37: Category Filter Chips Rendered in Timelapse Mode Without Coordinating With TimelineBar Layout
+
+**What goes wrong:**
+The category filter chips are currently rendered only in cluster mode (the `EventFilters` component is conditionally hidden when `mapMode === 'timelapse'`). Adding filter chips to timelapse mode requires placing them somewhere visible — likely above or inside the `TimelineBar`. The `TimelineBar` is absolutely positioned at `bottom-0` of the map container. Adding filter chips above it stacks another absolutely-positioned bar, pushing the TimelineBar up and potentially overlapping the map controls (zoom buttons, geolocation button). On mobile, where the entire bottom strip is only ~100px, two stacked bars leave no usable map area.
+
+**Why it happens:**
+The `TimelineBar` was designed as a self-contained bottom overlay with no expectation of sibling UI. Adding filters as a sibling element without measuring the combined height against mobile viewports causes layout collapse.
+
+**How to avoid:**
+- Render category chips inside the `TimelineBar` component itself, not as a sibling overlay. The `TimelineBar` already has a flex row layout; add the chip strip as a wrapping flex row above the existing scrubber row. This keeps all timelapse controls in one overflow-aware container.
+- The `TimelineBar` already passes `eventCount` — pipe the `category` filter state down to it as a prop, and render chips there. The `when` date filter is not relevant in timelapse mode (timeline position controls time); only `category` and `province` chips add value.
+- Test on mobile (375px width): both the scrubber row and chip row must fit without overlap. Chips may need to scroll horizontally (`overflow-x: auto`, `no-scrollbar`) — the existing `EventFilters` component already uses this pattern.
+- Do not duplicate the `useQueryState('category')` call inside `TimelineBar`. Read the current value from a shared hook (the existing `useEventFilters()` export from `EventFilters`) or pass it as a prop from `page.tsx` where it is already read.
+
+**Warning signs:**
+- Category chips implemented as a new absolutely-positioned element above `TimelineBar` — measure height before shipping
+- `useQueryState('category')` called in more than two components — duplicate state reads are fine but duplicate setters cause race conditions
+- TimelineBar height not verified on 375px viewport width with chips visible
+
+**Phase to address:**
+Category filter chips in timelapse phase (v1.5). Design the chip layout inside `TimelineBar` before writing any rendering code — measure the combined height on mobile.
+
+---
+
+### Pitfall 38: Province Filter Still Applies Province-Level `fitBounds` While `flyTo` Is Targeting a Specific Venue
+
+**What goes wrong:**
+In the event list, a user filters by province (NS), which triggers `map.fitBounds(PROVINCE_BOUNDS['NS'])`. They then click an event card in Halifax, which triggers `flyTo` to zoom to zoom level 15 on that specific venue. The province `fitBounds` fires on the next render cycle (because `province` state changed), zooming back out to show all of Nova Scotia — undoing the zoom-to-venue just completed. The user sees a zoom-in immediately followed by a zoom-out.
+
+**Why it happens:**
+The province effect in `MapViewController` fires whenever `province` changes. If the province is already set when the card is clicked, the province doesn't change — so this race condition only occurs when the user changes province and clicks a card in the same interaction window (e.g., via URL sharing or direct URL navigation that sets both `province` and causes an event card to be visible). However, a more subtle version occurs: the `flyToTarget` state is set, the component re-renders, and if `province` changed in the same batch, both effects trigger. React 18 batches state updates but `useEffect` runs are not synchronously ordered.
+
+**How to avoid:**
+- Add a `flyToActiveRef` to `MapViewController`: set it to `true` when a `flyToTarget` is active, clear it on `moveend`. In the province effect, if `flyToActiveRef.current === true`, skip `fitBounds` — a venue-specific zoom takes priority over a province-level zoom.
+- Alternatively, clear `flyToTarget` before setting province, or set province before `flyToTarget`, with explicit ordering. But explicit ordering is fragile with async state updates — the `flyToActiveRef` guard is more robust.
+- The simplest mitigation: in the province `useEffect`, add a guard that skips `fitBounds` if `flyToTarget` is currently non-null.
+
+**Warning signs:**
+- Map zooming in to a venue and then immediately zooming back out to province level
+- `prevProvinceRef` comparison passing when it shouldn't (province didn't change but effect fired due to re-render)
+
+**Phase to address:**
+Zoom-to-location phase (v1.5), specifically integration testing with province filter active.
+
+---
+
+## v1.5 — Technical Debt Patterns (additions)
+
+The following rows extend the Technical Debt Patterns table:
+
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| `findOrCreateVenue()` using `ilike` name match only | Simple, no new dependencies | Ghost venues created for every TM name variant; dedup key becomes useless | Never for cross-source — add geo-proximity fallback |
+| Fuzzy venue merge with hard `DELETE` | Simpler code | Irreversible false-positive merges corrupt event data | Never — use soft merge with audit log or admin review queue |
+| pg_trgm threshold < 0.6 for venue identity matching | Catches more near-misses | False positives merge distinct venues | Never — validate threshold empirically against Atlantic Canada dataset |
+| Strip punctuation from performer names without stripping "feat./w." clauses | Handles simple cases | "Artist feat. Guest" and "Artist" treated as different — dedup fails | Never — strip supporting-act clauses before normalization |
+| `flyTo` without pausing timelapse playback | Less state coordination | Heatmap canvas flickers during pan animation | Never in timelapse mode — pause on card click |
+| Category chips as sibling overlay above TimelineBar | Faster to position | Overlaps map controls on mobile; stacks unexpectedly | Never — embed chips inside TimelineBar layout |
+
+---
+
+## v1.5 — Integration Gotchas (additions)
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| TM `findOrCreateVenue()` | `ilike` match on TM-provided name fails for name variants | Add geo-proximity check (< 250m) as primary match; trigram name similarity as fallback |
+| Venue fuzzy merge | Use default pg_trgm threshold (0.3) | Use >= 0.7 threshold + city equality + geocoordinate proximity; require all three signals |
+| Performer dedup across sources | Compare `normalized_performer` directly | Strip "feat./ft./w." and promotional suffixes before normalization; fuzzy fallback on Levenshtein distance |
+| `flyTo` + province filter | Both effects fire independently in `MapViewController` | Guard province `fitBounds` when `flyToTarget` is active via a `flyToActiveRef` |
+| `flyTo` + timelapse playback | Card click zooms map while play loop continues | Pause playback (`setIsPlaying(false)`) on card click when in timelapse mode |
+| Category chips in timelapse | Add as sibling overlay above `TimelineBar` | Embed inside `TimelineBar` component; test on 375px viewport |
+
+---
+
+## v1.5 — Performance Traps (additions)
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Fuzzy venue match via pg_trgm on every TM event ingestion | Scrape cron slows as venue table grows | Add GIN index on `venues.name` for trigram queries; geo-proximity check is O(1) with spatial index | Noticeable above ~500 venues without index |
+| Levenshtein distance computed in SQL across full events table for cross-source dedup | Dedup query becomes O(n) per event | Narrow candidates first by exact date match + city, then apply Levenshtein | Breaks above ~5,000 events without pre-filtering |
+| Heatmap canvas redraw during `flyTo` animation | Visual flicker on map pan | Pause play loop before `flyTo`; resume after `moveend` | Immediately visible on any device |
+
+---
+
+## v1.5 — "Looks Done But Isn't" Checklist (additions)
+
+**v1.5 Deduplication and Map Interaction:**
+- [ ] **Cross-source dedup:** Add a known-duplicate pair (same show from TM and venue website) to staging; confirm only one event row exists after both sources run
+- [ ] **Venue geo-match:** Fetch a TM event for a venue already in the DB; confirm `findOrCreateVenue()` returns the existing ID, not a new row — verify no second venue entry appears in admin dashboard
+- [ ] **Fuzzy match threshold:** Run similarity query against all existing venue pairs; document the highest similarity score among known-different venues; set threshold above this value
+- [ ] **Performer normalization:** Test `normalizePerformer()` on "Artist feat. Guest" — confirm output is "artist", not "artist feat guest"
+- [ ] **Venue merge audit log:** Trigger a test merge; confirm `venue_merge_log` row exists with ghost_venue_id, canonical_venue_id, and similarity_score
+- [ ] **flyTo + province filter:** Set province to NS, then click an event card; confirm the map zooms to the venue and does not immediately zoom back out to province bounds
+- [ ] **flyTo + timelapse:** With timelapse playing, click an event card; confirm playback pauses and map zooms to venue without heatmap flicker
+- [ ] **flyTo + map.isMoving():** Click a card while a province fitBounds is in progress; confirm the venue flyTo completes without competing animations
+- [ ] **Category chips in timelapse:** Enable timelapse mode on a 375px viewport; confirm chip row and scrubber row both fit without overlapping map controls or each other
+- [ ] **Category filter applies to heatmap in timelapse:** Select a category chip while timelapse is active; confirm heatmap only shows heat for events in that category
+- [ ] **Category chip state shared correctly:** Chips in timelapse mode read from the same `category` URL param as cluster mode — switching modes preserves selected category
+
+---
+
+## v1.5 — Recovery Strategies (additions)
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| Ghost venues from TM name mismatch already in DB | MEDIUM | Query venue pairs within 250m geocoordinates; manually review; merge confirmed pairs; delete ghost rows after re-assigning events |
+| False-positive venue merge without audit log | HIGH | Manual inspection of all events under merged venue; compare against TM source records to identify misassigned events; re-assign by performer+date |
+| Performer dedup failure — duplicate events from TM and venue scrape | LOW | Run one-time dedup query: find (venue_id, event_date, performer) groups with count > 1 after applying extended normalization; merge keeping TM record |
+| pg_trgm threshold too aggressive — undetected wrong merges | MEDIUM | Re-run merge query with tighter threshold; identify any over-merged pairs in merge log; reverse via log-recorded ghost_venue_id |
+| `flyTo` competing with province bounds — user-visible jank | LOW | Add `flyToActiveRef` guard to province effect; deploy; no data migration needed |
+| Category chips layout broken on mobile | LOW | Move chips inside TimelineBar; adjust flex layout; verify on 375px; deploy |
+
+---
+
+## v1.5 — Pitfall-to-Phase Mapping (additions)
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| Ghost venues from TM name mismatch | v1.5 Phase 1: Venue dedup | Re-ingesting a known TM event produces no new venue row |
+| Irreversible venue merge | v1.5 Phase 1: Venue dedup | Merge log table exists; admin review queue wired before auto-merge runs |
+| pg_trgm false positive threshold | v1.5 Phase 1: Venue dedup | Threshold validated against all existing venue pairs before deployment |
+| Performer normalization across sources | v1.5 Phase 2: Event dedup | Known cross-source duplicate (TM + scrape) produces one event row |
+| flyTo vs. province filter race | v1.5 Phase 3: Zoom-to-location | Click event card with province filter active; map stays zoomed to venue |
+| flyTo during timelapse playback | v1.5 Phase 3: Zoom-to-location | Playback pauses on card click in timelapse mode; no heatmap flicker |
+| flyTo competing animations | v1.5 Phase 3: Zoom-to-location | Two simultaneous animation triggers produce one clean animation |
+| Category chips layout in timelapse | v1.5 Phase 4: Timelapse filter chips | Chips and scrubber visible on 375px without overlap |
+| Category state shared across modes | v1.5 Phase 4: Timelapse filter chips | Category param preserved when toggling between cluster and timelapse |
+
+---
+
+**v1.5 Cross-Source Deduplication, Venue Merge, Map Interaction:**
+- [Crunchy Data — Fuzzy Name Matching in PostgreSQL](https://www.crunchydata.com/blog/fuzzy-name-matching-in-postgresql) — pg_trgm threshold recommendations; word_similarity vs. similarity for substrings
+- [Neon Docs — pg_trgm extension](https://neon.com/docs/extensions/pg_trgm) — confirmed available on Neon; CREATE EXTENSION activation; GIN index for performance
+- [PostgreSQL Docs — F.35. pg_trgm](https://www.postgresql.org/docs/current/pgtrgm.html) — similarity() vs. word_similarity(); threshold configuration
+- [Insycle Blog — Data Retention When Merging Duplicates](https://blog.insycle.com/data-retention-merging-duplicates) — audit trail for merge operations; master record selection rules
+- [Leaflet GitHub — Issue #3395: Implement zoom/pan options in flyTo()](https://github.com/Leaflet/Leaflet/issues/3395) — flyTo interruption behavior; map.isMoving() usage
+- [Leaflet GitHub — Issue #9569: flyTo buggy when offscreen](https://github.com/Leaflet/Leaflet/issues/9569) — flyTo animation edge cases; moveend event reliability
+- [Leaflet Docs — map.isMoving()](https://leafletjs.com/reference.html) — returns true during pan and zoom animations; use as animation guard
+- [React-Leaflet Docs — useMapEvents hook](https://react-leaflet.js.org/docs/example-events/) — accessing Leaflet map instance inside MapContainer children
+- [WinPure — Ultimate Data Deduplication Guide](https://winpure.com/data-deduplication-guide/) — cross-source dedup strategy; composite key design; fuzzy matching thresholds
+- [Medium (Tilores) — How to Normalize Company Names for Deduplication](https://medium.com/tilo-tech/how-to-normalize-company-names-for-deduplication-and-matching-21e9720b30ba) — prefix/suffix stripping; "feat." clause handling; phonetic fallbacks
+
+---
+*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition + v1.2 discovery/categorization addition + v1.4 API integrations/multi-page/rate limiting/quality metrics/auto-approve addition + v1.5 cross-source deduplication/venue merge/map interaction/timelapse filter chips addition*
+*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1) · 2026-03-14 (v1.2) · 2026-03-15 (v1.4) · 2026-03-15 (v1.5)*

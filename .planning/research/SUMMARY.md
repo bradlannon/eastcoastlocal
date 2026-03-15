@@ -1,20 +1,19 @@
 # Project Research Summary
 
-**Project:** East Coast Local — Atlantic Canada Events Discovery Platform
-**Domain:** AI-powered event aggregation with web scraping, API integrations, and interactive map
-**Researched:** 2026-03-13 (v1.0 baseline) / 2026-03-14 (v1.1 heatmap, v1.2 discovery + categorization) / 2026-03-15 (v1.4 API integrations + scraping improvements)
-**Milestone:** v1.4 — Platform Integrations and Scraping Improvements (current build target)
-**Confidence:** HIGH (stack, architecture, pitfalls), MEDIUM (automated venue discovery yield), MEDIUM (auto-approve heuristic calibration)
+**Project:** East Coast Local v1.5
+**Domain:** Event/venue deduplication + map UX polish on an existing Atlantic Canada event discovery platform
+**Researched:** 2026-03-15
+**Confidence:** HIGH
 
 ---
 
 ## Executive Summary
 
-East Coast Local is a deployed Next.js application aggregating local event listings across Atlantic Canada via AI-powered web scraping, displaying them on an interactive Leaflet map with pin-cluster and heatmap timelapse modes. As of v1.3, the platform scrapes 26 venues, integrates Eventbrite and Bandsintown APIs, runs automated source discovery, and categorizes events across 8 types. The v1.4 milestone extends this foundation with higher-coverage data (Ticketmaster for major ticketed venues), improved scraping reliability (multi-page support, rate limiting), lower extraction cost (Google Events JSON-LD fast-path), operational visibility (scrape quality metrics), and reduced admin burden (auto-approve for high-confidence discovered sources).
+East Coast Local v1.5 is a focused polish milestone on an already-working platform. The four features break cleanly into two backend pipeline changes (venue deduplication, cross-source event deduplication) and two frontend wiring tasks (zoom-to-location on event cards, timelapse category chip visibility). Research confirms that three of the four features require zero new packages — the entire UX improvement surface is wiring against existing infrastructure already in production. Only deduplication requires a new dependency, and that dependency is a single lightweight library: `fastest-levenshtein@1.0.16`.
 
-The recommended v1.4 approach is a dependency-ordered build sequence: schema migration first (all new columns on existing tables, one Drizzle migration), then fetch pipeline improvements (rate limiting, multi-page, JSON-LD — these improve the 26 existing sources immediately), then quality metrics instrumentation, and finally Ticketmaster integration and auto-approve discovery. All schema changes are additive. The existing `source_type` dispatch pattern in `orchestrator.ts` is the well-established extension point — every new API integration follows it without touching existing handlers. Songkick is explicitly excluded: it requires a paid commercial partnership at $500+/month, confirmed at the developer portal on 2026-03-15. Ticketmaster's free Discovery API covers the same Atlantic Canada concert inventory.
+The recommended approach is dependency-first sequencing: venue deduplication must run before cross-source event deduplication, because event dedup is fully solved once the canonical `venue_id` is resolved correctly. When TM-created venues are merged into the canonical venue row before `upsertEvent` is called, the existing `(venue_id, event_date, normalized_performer)` composite key handles cross-source dedup automatically — no separate event-level fuzzy matching is required. This is a significantly simpler implementation path than it first appears.
 
-The binding architectural constraint throughout v1.4 is the Vercel 60-second function timeout (extendable to 300s with Fluid Compute). Multi-page scraping is the highest-risk addition: each additional page requires a fetch plus Gemini call plus throttle delay, and adding pagination to half of the 26 sources can push job duration from ~110s to ~220s. The mitigation is a hard 3-page cap enforced in code (not configuration), per-domain rate limiting (not global delays), and monitoring `consecutive_failures` to detect sources timing out silently. A secondary risk is Ticketmaster ToS compliance: events must carry `source=ticketmaster` attribution, link back to the TM event page, and be treated as ephemeral (refreshed daily) rather than accumulated indefinitely.
+The key risk is venue merge correctness. Auto-merging on name similarity alone produces false positives; geocoordinate proximity alone is unreliable at meter-level precision. Research confirms the safe pattern is a two-signal gate: name similarity AND geocoordinate proximity must both meet thresholds for auto-merge. Borderline cases (name match but distant, or geo close but name differs) should be logged rather than silently merged or silently rejected. The frontend features carry minimal risk — both are conditional-render/state-wiring changes against existing components with no architectural impact.
 
 ---
 
@@ -22,166 +21,104 @@ The binding architectural constraint throughout v1.4 is the Vercel 60-second fun
 
 ### Recommended Stack
 
-The core stack is already in production and requires no changes for v1.4. No new npm packages are needed. Ticketmaster uses raw `fetch()`. Google JSON-LD parsing uses the existing `cheerio` dependency.
+Three features require no new packages. `MapViewController.flyTo`, the `useEventFilters()` hook, and the `nuqs` category state are already in production and need to be wired in new contexts only. The sole new dependency is `fastest-levenshtein@1.0.16` for edit-distance scoring in the deduplication pipeline.
 
-**Core technologies (existing, all correct for v1.4):**
-- **Next.js 16.x**: Full-stack framework — Vercel-native cron, App Router Server Components, Fluid Compute (Hobby max duration 300s with Fluid Compute enabled)
-- **Neon Postgres + Drizzle ORM 0.39.x**: Serverless Postgres; 7.4KB bundle vs Prisma's 40KB; critical for Vercel cold start performance
-- **Vercel AI SDK 5.x + Gemini**: Provider-agnostic `generateObject()` with Zod schemas; fallback path when JSON-LD is absent
-- **cheerio 1.x**: HTML parsing — used for JSON-LD `<script>` block extraction and static HTML preprocessing
-- **leaflet.heat 0.2.0**: Canvas heatmap for timelapse mode (v1.1 feature, already deployed)
-- **nuqs 2**: URL-persistent filter state for date, province, and category filters
+**Core technologies:**
+- `fastest-levenshtein@1.0.16`: edit-distance scoring for venue and performer name fuzzy matching — zero dependencies, 78K ops/sec, pure JS, works in Node.js scraper context, ships its own TypeScript types
+- `react-leaflet` (existing): `MapViewController.flyTo` already implemented with animated pan + marker popup open; `useMap()` via `useMapEvents` already in use — zoom-to-location is pure wiring
+- `nuqs` (existing): category state already URL-persisted and silently applied in timelapse; chips need conditional rendering removed only
+- `fastest-levenshtein` vs rejected alternatives: `natural` is 13.8MB overkill for two-string edit distance; `string-similarity` unmaintained since 2023; `fuse.js` built for interactive search not batch dedup; `pg_trgm` adds infra coupling and moves threshold logic out of testable application code
 
-**New dependency for v1.4:** None.
-
-**Critical version constraints carried forward:**
-- `react-leaflet@5.x` incompatible with `leaflet@2.x` — pin to `leaflet@1.9.x`
-- `ai@5.x` has breaking changes from v4 — do not mix versions
-- Export all Drizzle `pgEnum` definitions — confirmed open bug #5174, silently omitted from migration SQL otherwise
-- `leaflet.heat` must only be imported inside `useEffect` or within a second `dynamic(..., { ssr: false })` boundary
-
-See `.planning/research/STACK.md` for full alternatives matrix and version compatibility notes.
+**Critical integration notes:**
+- `fastest-levenshtein` runs server-side in the nightly scrape cron only — no bundle size concern, no Edge runtime constraint
+- Venue dedup integrates into `findOrCreateVenue()` in `src/lib/scraper/ticketmaster.ts` after the existing `ilike` exact-match miss
+- Event dedup requires no changes — relies on existing `INSERT ON CONFLICT DO UPDATE` in `normalizer.ts` once venue is resolved correctly
+- Use proportional threshold `distance / Math.max(a.length, b.length) < 0.15` for venue names; `distance <= 2` for normalized performer names under 20 chars
 
 ### Expected Features
 
-**Must have for v1.4 launch (P1):**
-- **Ticketmaster Discovery API** — Major Atlantic Canada venues (Scotiabank Centre Halifax, Avenir Centre Moncton) list events exclusively through TM; users notice these gaps. Free API, 5000 calls/day, 4 province queries/day is trivial against quota.
-- **Multi-page scraping** — Current scraper silently drops events on pages 2+. Hard cap at 3 pages in code (not config) to stay within Vercel timeout.
-- **Rate limiting** — Operational reliability: per-domain delay (2–5s jitter), Retry-After header handling, exponential backoff (2 retries). Pairs with multi-page support — build together.
-- **Google Events JSON-LD extraction** — Pre-pass before Gemini: deterministic extraction for venues that embed `schema.org/Event` markup. Reduces Gemini calls. Tiered fallback (JSON-LD → Gemini) is the correct architecture.
+**Must have (table stakes — v1.5 launch blockers):**
+- Venue deduplication: detect TM-created duplicate venue rows using name similarity + geocoordinate proximity; auto-merge at high confidence; log borderline cases without acting on them
+- Cross-source event deduplication: fully resolved once venue merge runs; the existing composite key upsert handles it automatically
+- Category filter chips rendered in timelapse mode: remove the conditional that hides chips when `timelapse === true`; filter logic already works correctly in timelapse, only visibility is broken
+- Zoom-to-location: "Show on map" button on event cards calls `map.flyTo([lat, lng], 15)` with animated pan+zoom; zoom 15 is correct for city-block venue resolution on CartoDB Positron
 
-**Should have for v1.4 (P2, add when P1 is stable):**
-- **Scrape quality metrics** — Per-source tracking of `last_event_count`, `avg_confidence`, `consecutive_failures`, `total_scrapes`, `total_events_extracted` on `scrape_sources`. Admin dashboard surfaces health signals. High complexity (pipeline instrumentation + schema + UI).
-- **Auto-approve high-confidence sources** — Score discovered candidates; auto-promote those scoring >= 0.8 (configurable env var). Reduces admin review queue. Medium complexity; reuses existing `promoteSource()` unchanged.
+**Should have (v1.5.x differentiators — add after validation):**
+- Admin UI for borderline venue merge candidates: surface near-match pairs with side-by-side comparison and one-click merge or "keep separate" action
+- Source attribution: `event_sources` join table tracking which sources each event was seen on (enables admin debugging and future ticket link preference)
+- Canonical ticket link preference: on cross-source conflict, if existing row has no `ticket_link` and incoming row does, update it non-destructively
 
-**Defer to v1.4.x / v2+:**
-- TM venue deduplication cleanup (after first run identifies merge candidates)
-- Quality metric alerting (email/log on consecutive failure threshold)
-- JavaScript-rendered site scraping (requires self-hosted Playwright — blocked on Vercel Hobby 50MB function limit)
-- SeatGeek API (viable Songkick alternative if concert coverage gaps emerge post-TM)
-
-**Anti-features (do not build):**
-- Songkick API — commercial license required, confirmed hobbyist access rejected
-- Unlimited pagination — will cause Vercel timeout; hard cap at 3 pages
-- Real-time Ticketmaster sync — 5000 call/day quota exhausted by per-request user traffic
-- Headless browser on Vercel — 50MB function limit blocks Playwright/Puppeteer
-
-See `.planning/research/FEATURES.md` for full API behavior details, dependency graph, and scrape quality metrics design.
+**Defer to v2+:**
+- Bulk venue merge audit (retrospective full scan for missed historical merges; run once after v1.5 ships and monitor for regressions)
+- Event title fuzzy match as a secondary dedup signal for rare cross-source performer name spelling variations
+- Animated `flyTo` on scroll or hover (confirmed anti-feature; bind only to explicit button click)
 
 ### Architecture Approach
 
-V1.4 extends the existing `source_type` dispatch pattern without structural changes. `orchestrator.ts` dispatches on `scrape_sources.source_type`; every new integration adds a handler module plus an `else if` branch. The most significant interface change in v1.4 is `fetcher.ts` returning `{ text: string; rawHtml: string }` instead of `string`, enabling the JSON-LD pre-pass. All schema changes are additive — new columns with defaults on existing tables, one migration file.
+V1.5 changes are additive to the existing scraper pipeline architecture established in v1.4. The orchestrator dispatches on `source_type`; venue deduplication integrates as an enhancement to `findOrCreateVenue()` in the Ticketmaster handler — not as a new pipeline stage. Event dedup requires no separate function. Both frontend changes are isolated to the map client and event card components with no backend or schema dependencies. Source attribution is the only feature that would require a new schema object (an `event_sources` join table), and it is correctly deferred to post-validation.
 
-**Major components (v1.4 target state):**
-1. **`orchestrator.ts`** — Source dispatch, HTTP throttle between venue_website sources, quality metric writes on success/failure paths
-2. **`fetcher.ts`** — Rate-limited HTTP fetch with `fetchWithRetry()`, multi-page loop (3-page hard cap), returns `{ text, rawHtml }`
-3. **`json-ld.ts`** (new) — Parse `<script type="application/ld+json">` for `@type: "Event"`; confidence = 1.0 (deterministic); falls through to Gemini when absent
-4. **`ticketmaster.ts`** (new) — TM Discovery API handler: 4 province-scoped requests per cron run, venue find-or-create (ILIKE match on name + city), map TM `classifications` to 8-category enum, `upsertEvent()`
-5. **`discovery-orchestrator.ts`** (modified) — Existing discovery pipeline + scoring pass + auto-promote for candidates scoring >= 0.8
-6. **`schema.ts`** (modified) — 5 new columns on `scrape_sources`, 1 new column on `discovered_sources`; one Drizzle migration covers all
-
-**Key patterns:**
-- **Source type dispatch** — new API source = new `source_type` value + handler module + `else if` in orchestrator
-- **Fast path before AI fallback** — JSON-LD first (zero LLM cost), Gemini only when absent; short-circuit if JSON-LD events found (never merge both)
-- **Synthetic URL as config carrier** — `ticketmaster:province:NB` decoded by handler (precedent: `eventbrite:org:12345`, `bandsintown:artist:name`)
-- **Additive schema only** — no destructive migrations on production data; all new columns have safe defaults
-
-**Build order (dependency-aware, from ARCHITECTURE.md):**
-1. Schema migration (prerequisite for all metric/score writes)
-2. Rate limiting (no schema deps, validates independently)
-3. Multi-page support (depends on schema for `max_pages` column; changes `fetcher.ts` return type)
-4. JSON-LD extraction (depends on Step 3 for `rawHtml` return)
-5. Scrape quality metrics (depends on schema; can run in parallel with Steps 2–4)
-6. Ticketmaster integration (benefits from stable, instrumented pipeline; should be last)
-7. Auto-approve discovery (depends on schema for `discovery_score`; independent of Steps 2–6)
-
-See `.planning/research/ARCHITECTURE.md` for full data flow diagrams, exact code-level interfaces, and anti-patterns to avoid.
+**Major components and their v1.5 responsibilities:**
+1. `src/lib/scraper/ticketmaster.ts` (`findOrCreateVenue`) — enhanced with `fastest-levenshtein` to fuzzy-match incoming TM venue names against all existing venues in the same city before creating new rows; two-signal gate prevents false-positive merges
+2. `src/lib/scraper/normalizer.ts` (`upsertEvent`) — no change; existing composite key `(venue_id, event_date, normalized_performer)` handles cross-source dedup once venue is resolved
+3. `src/components/map/MapClient.tsx` — add category chip strip inside timelapse overlay conditionally on `mapMode === 'timelapse'`; accept `flyToTarget` prop and forward to `MapViewController`
+4. `src/components/events/EventCard.tsx` — add "Show on map" button wired to existing `onClickVenue(venueId, lat, lng)` callback; lift `flyToTarget` state to parent
+5. `src/components/map/MapViewController.tsx` — no change; `flyTo([lat, lng], 15, { animate: true, duration: 0.8 })` already implemented
 
 ### Critical Pitfalls
 
-**v1.4 — highest priority for this milestone:**
+1. **Name similarity alone causes venue merge false positives** — "The Marquee" in Halifax and "The Marquee" in Sydney, NS are different venues; name match alone must never trigger a merge. Prevention: require both name score (proportional distance < 0.15) AND geo proximity (< 100m) for auto-merge; same name + geo distance > 500m = log as suspicious, do NOT merge.
 
-1. **Multi-page scraping breaches Vercel timeout** — Each page = additional fetch + Gemini call + throttle delay. With 26 sources, half with pagination averaging 3 pages, job duration roughly doubles to 220s. Prevention: hard cap at 3 pages in code (`Math.min(options?.maxPages ?? 1, 3)`), measure scrape duration in staging before deploying, consider splitting API integrations and web scraping into separate cron endpoints.
+2. **Cross-source event dedup attempted without resolving venue first** — fuzzy event title matching independent of venue produces false positives ("Jazz Night at The Marquee" and "Jazz Night at The Casino" look similar but are different events). Prevention: anchor all event dedup to a resolved `venue_id`; fix venue resolution, not event matching.
 
-2. **Ticketmaster ToS requires attribution and TTL** — Events stored without `source=ticketmaster` flag or without link back to TM event page violates Terms of Use; key revocation is without notice. Prevention: mark all TM events with source column, display "via Ticketmaster" attribution, implement refresh TTL (re-fetch daily) rather than indefinite accumulation.
+3. **Zoom level too high on `flyTo`** — CartoDB Positron tiles become sparse and lose legibility above zoom 16; venue context is lost. Prevention: cap `flyTo` at zoom 15.
 
-3. **Ticketmaster daily quota exhausted by naive pagination** — Fetching broadly by country and filtering client-side can exhaust 5000 calls/day in one run. Prevention: always filter by `countryCode=CA` + province `stateCode`, limit date window to 30 days, log running call count and alert at 80% quota (4000/5000).
+4. **`flyTo` bound to scroll or hover events** — constant `flyTo` calls during list scroll are visually jarring and make mobile map unusable. Prevention: bind only to explicit "Show on map" button click intent.
 
-4. **Rate limiting applied globally instead of per-domain** — Global delays serialize requests to different domains unnecessarily while still allowing rapid-fire hits to the same domain across paginated pages. Prevention: `Map<domain, lastRequestTime>` per-domain throttle; allow concurrent requests across different domains; add ±500ms jitter.
-
-5. **Songkick access is gated behind a paid commercial partnership** — Confirmed as of 2026-03-15: $500+/month license required, hobbyist/indie access rejected. Do not build. Ticketmaster + Bandsintown (already integrated) cover the same Atlantic Canada concert use cases.
-
-6. **JSON-LD extraction covers fewer than 20% of Atlantic Canada venues** — Small venues using basic WordPress or hand-coded HTML rarely implement schema.org markup. Prevention: audit the existing 26 venues for JSON-LD presence before scoping (expected: 3–6 out of 26), design as tiered fallback not primary strategy, never merge JSON-LD and Gemini results for the same source (causes duplicate events with conflicting confidence scores).
-
-7. **Auto-approve threshold too low floods the scrape pipeline** — Setting threshold to 0.5 promotes aggregator pages, social profiles, and irrelevant sites that fail scraping, waste Gemini quota, and increment `consecutive_failures`. Prevention: keep threshold at 0.8; apply URL penalties in scoring heuristic (penalize `/events/`, `/tickets/` paths; heavily penalize `facebook.com`, `instagram.com`, `eventbrite.com` hostnames).
-
-**v1.0–v1.2 pitfalls — still relevant, not resolved by v1.4 work:**
-
-8. **LLM hallucinates dates and times** — Preserve "return null, do not infer or guess" discipline through any prompt updates. Adding new event types in v1.2 expanded prompt scope; validate updated prompts against real venue HTML before deploying.
-
-9. **Leaflet.heat SSR build failure** — `import 'leaflet.heat'` at module top level causes `next build` failure even within `dynamic(..., { ssr: false })`. Always import inside `useEffect` or within a nested `dynamic()` boundary. Test with `next build && next start` after any HeatLayer change.
-
-10. **Discovery pulls irrelevant pages swamping the scrape queue** — `discovered_sources` staging table + pre-screening quality gate is the mitigation (already built for v1.2). The v1.4 auto-approve threshold (0.8) reinforces this gate.
-
-See `.planning/research/PITFALLS.md` for the complete 28-pitfall catalog organized by milestone.
+5. **Category chips restored but state not confirmed in timelapse context** — the chips are hidden, but the filter logic already applies silently. Prevention: remove only the conditional render; verify `useEventFilters()` reads the same nuqs `category` state in timelapse context before shipping; no filter logic changes needed.
 
 ---
 
 ## Implications for Roadmap
 
-### v1.4 Phase Structure
+Based on combined research, the v1.5 work maps cleanly to 2 phases with an optional third:
 
-Based on the build order verified against the codebase (ARCHITECTURE.md Steps 1–7), the v1.4 work groups into 4 phases:
+### Phase 1: Venue Deduplication (Backend Pipeline)
+**Rationale:** All cross-source event dedup is blocked on correct venue resolution. This phase is the prerequisite that makes everything else work automatically. Install `fastest-levenshtein`, enhance `findOrCreateVenue()` with the two-signal fuzzy match, and run the dedup step at the end of each Ticketmaster ingest cron. Cross-source event dedup is delivered as a consequence — no additional work.
+**Delivers:** TM-created venue rows correctly merged into canonical existing venues; no more double venue pins for the same physical location; cross-source event dedup working automatically via the existing composite key
+**Addresses:** Venue dedup (P1), cross-source event dedup (P1)
+**Uses:** `fastest-levenshtein@1.0.16` (only new dependency); existing Haversine function from codebase for geo proximity; existing `ilike` exact-match as the fast-pass before fuzzy scoring
+**Avoids:** False positive merges (two-signal gate: name AND geo required); same-name-different-city merges (log, do not auto-merge); O(n²) full-scan overhead (run only on venues created since last cron run, not all venues every day)
+**Research flag:** Threshold calibration (0.15 ratio for name, 100m for auto-merge, 500m for queue-to-review) should be validated against a sample of actual TM venue names in the existing database before enabling production auto-merge. Build a dry-run mode that logs match candidates without executing merges.
 
-#### Phase A: Schema Migration and Fetch Pipeline
-**Rationale:** All metric writes, quality columns, and per-source pagination config depend on the new schema. Rate limiting and fetch improvements are pure code changes that validate independently and immediately benefit all 26 existing sources. These should be in production before any new API integrations are added.
-**Delivers:** Drizzle migration adding 5 columns to `scrape_sources` and 1 column to `discovered_sources`; `fetchWithRetry()` with exponential backoff; per-domain rate limiting (`Map<domain, lastRequestTime>`); multi-page loop with 3-page hard cap; `fetcher.ts` returns `{ text, rawHtml }`; `json-ld.ts` new module; orchestrator updated to use all of the above.
-**Addresses:** Multi-page scraping (P1), rate limiting (P1), Google JSON-LD extraction (P1)
-**Avoids:** Timeout from pagination (3-page hard cap), bot blocking (per-domain rate limit + jitter), JSON-LD/Gemini result merging (short-circuit pattern)
-**Research flag:** Standard patterns — well-documented. Codebase was directly inspected. No additional research needed.
+### Phase 2: Frontend UX Fixes
+**Rationale:** Both frontend features are independent of the backend dedup work and of each other. They can be built in parallel with Phase 1 or after it. They should ship together as they represent the visible UX improvements users will notice.
+**Delivers:** Category chips visible and interactive in timelapse mode; "Show on map" button on event cards animates map to venue coordinates with a smooth flyTo
+**Addresses:** Category chips in timelapse (P1), zoom-to-location (P1)
+**Implements:** Remove `timelapse` conditional from chip bar render in `MapClient.tsx`; pass `flyToTarget: { lat, lng, venueId }` state from `EventCard.onClickVenue` through `MapWrapper`/`page.tsx` to `MapClient` → `MapViewController`; use React context (not restructured `<MapContainer>` children) for map ref access from the sidebar
+**Avoids:** Binding `flyTo` to scroll or hover (explicit button click only); zoom level above 16; breaking the existing component tree structure
+**Research flag:** Standard patterns — well-documented against existing codebase components. No additional research phase needed.
 
-#### Phase B: Scrape Quality Metrics and Admin Visibility
-**Rationale:** Metric columns are created in Phase A schema. Instrumentation of the orchestrator and admin UI extension can proceed independently of new API integrations. Having metrics live before Ticketmaster adds new event volume means TM source health is tracked from day one.
-**Delivers:** Success/failure metric writes in `orchestrator.ts` for all source types; `/admin` source list extended with `last_event_count`, `avg_confidence`, `consecutive_failures` columns; `consecutive_failures >= 3` highlighted as a health signal.
-**Addresses:** Scrape quality metrics (P2)
-**Avoids:** Measuring volume instead of accuracy — use confidence score distribution and field completeness, not just event count
-**Research flag:** Standard patterns. Orchestrator instrumentation and admin table extension follow established code patterns.
-
-#### Phase C: Ticketmaster Discovery API Integration
-**Rationale:** Ticketmaster should go in after the pipeline is stable and instrumented. The handler follows the established `source_type` dispatch pattern. Venue find-or-create logic is the highest-complexity piece in v1.4; having quality metrics live means TM source health is visible immediately.
-**Delivers:** `ticketmaster.ts` handler module; `else if (source_type === 'ticketmaster')` in `orchestrator.ts`; `TICKETMASTER_API_KEY` env var; 4 seed rows in `scrape_sources` (one per province); major Atlantic Canada ticketed events appearing in the map daily.
-**Avoids:** Quota exhaustion (province-filtered queries + 30-day window + quota monitoring), ToS violations (source attribution + TTL strategy), venue duplicate sprawl (ILIKE find-or-create)
-**Research flag:** Needs tactical validation — venue ILIKE matching for Atlantic Canada name variants (e.g., "Rebecca Cohn" vs. "Rebecca Cohn Auditorium") should be tested on TM response data before finalizing the normalization logic.
-
-#### Phase D: Auto-Approve Discovery Pipeline
-**Rationale:** Auto-approve touches `discovery-orchestrator.ts` and the `discovered_sources` schema (column added in Phase A). Can proceed after Phase A in parallel with Phase C. Benefits from Phase B quality metrics insights (actual confidence score distributions) to calibrate the 0.8 threshold before locking it in.
-**Delivers:** `scoreCandidate()` scoring function in `discovery-orchestrator.ts`; `discovery_score` written to all inserted candidates; candidates >= 0.8 promoted automatically via existing `promoteSource()` (unchanged); `/admin/discovery` UI extended with `discovery_score` column.
-**Avoids:** Over-aggressive auto-approve (URL and hostname penalties in scoring heuristic), promoting social/aggregator domains (explicit negative scoring for facebook.com, instagram.com, eventbrite.com)
-**Research flag:** Threshold (0.8) is a starting recommendation with no canonical precedent for this exact use case. Plan a calibration review after first discovery run post-deployment.
+### Phase 3: Admin Merge Review (Optional, Post-validation)
+**Rationale:** Auto-merge at high confidence handles the common case. Borderline cases are logged but not surfaced to the admin without this phase. Build only after Phase 1 is validated in production and the actual borderline case volume is understood from logs.
+**Delivers:** Admin UI showing near-match venue pairs queued for review; side-by-side comparison of name, address, and coordinates; one-click merge or "keep separate" action
+**Addresses:** Admin merge review UI (P2 differentiator)
+**Research flag:** Standard admin CRUD pattern. No research needed; defer planning to implementation time.
 
 ### Phase Ordering Rationale
 
-- Phase A schema migration is a hard prerequisite for all metric/score column writes — must be first and deployed before Phase B, C, or D work goes to production
-- Rate limiting and multi-page are pure code changes that can be tested independently against existing sources without affecting any new integrations
-- JSON-LD extraction depends on the `{ text, rawHtml }` return type change in Phase A `fetcher.ts`
-- Phase B (quality metrics) and Phase D (auto-approve) are both independent of Phase C (Ticketmaster) after Phase A is complete — Phases B, C, D can proceed in parallel if capacity allows
-- Ticketmaster integration is last among new integrations because it introduces venue find-or-create logic (novel for TM sources) and benefits from all pipeline improvements being stable
-- Phase D auto-approve reuses `promoteSource()` unchanged — it is truly additive work with no risk to the existing promotion flow
-
-### v1.0–v1.2 Phase Reference
-
-The v1.0–v1.2 phase structure (Foundation, Scraping Pipeline, Cron Wiring, Events API, Map Frontend, Heatmap Core, Heatmap Validation, DB Migration, Extraction Extension, Category Filter, Discovery Pipeline, Source Promotion) is documented in the v1.2 version of this file and remains valid as historical context. Those phases are complete. V1.4 builds on their outputs.
+- Venue dedup (Phase 1) is a prerequisite for cross-source event dedup trust; cannot be skipped or deferred
+- Frontend features (Phase 2) are entirely independent — they can proceed in parallel with Phase 1 or after it; there is no dependency between them
+- Source attribution requires a new join table (`event_sources`) — correctly deferred to v1.5.x after the core dedup is validated and stable
+- Admin merge review (Phase 3) depends on having real production data from Phase 1 to understand the volume and character of borderline cases before designing the review UI
 
 ### Research Flags
 
-Phases with standard, well-documented patterns (no additional research needed):
-- **Phase A (Schema + Pipeline):** Drizzle additive migrations, exponential backoff, and cheerio JSON-LD parsing are well-documented. Codebase extension points verified by direct inspection.
-- **Phase B (Quality Metrics):** Column-level metric writes and admin UI table extension follow the existing `orchestrator.ts` and `/admin` patterns precisely.
-- **Phase D (Auto-Approve):** Heuristic scoring and threshold-based promotion use `promoteSource()` unchanged. The pattern is clear from the existing discovery pipeline.
+Needs threshold validation during planning (not a full research phase):
+- **Phase 1:** Dedup threshold calibration — run `fastest-levenshtein` against a sample of actual TM venue names vs. existing venue names in the database; adjust 0.15 ratio and 100m/500m geo thresholds based on real Atlantic Canada name data distribution before enabling auto-merge
 
-Phases needing tactical research or validation during planning:
-- **Phase C (Ticketmaster):** Venue find-or-create with ILIKE matching needs validation against real TM response data for Atlantic Canada venue name variants. Run a single manual TM API call for one province and inspect the `_embedded.venues[]` response format before finalizing normalization logic.
-- **Phase D calibration:** The 0.8 auto-approve threshold has no canonical precedent for this use case. Plan a post-deployment review after the first discovery run to evaluate auto-approve rate (target: 10–30% of candidates auto-promoted).
+Standard patterns — skip research-phase:
+- **Phase 2:** Both frontend features follow existing patterns already in the codebase; `MapViewController.flyTo`, `useEventFilters()`, and chip render are all live and inspected
+- **Phase 3:** Admin CRUD follows existing admin UI patterns; no research needed
 
 ---
 
@@ -189,53 +126,41 @@ Phases needing tactical research or validation during planning:
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Existing production codebase; no new dependencies for v1.4; all v1.4 integrations use existing fetch/cheerio/Drizzle patterns |
-| Features | MEDIUM-HIGH | Ticketmaster and Google JSON-LD are HIGH (verified official docs); Songkick confirmed commercial-only (HIGH); auto-approve heuristic threshold is MEDIUM (no canonical benchmark for this use case) |
-| Architecture | HIGH | Based on direct codebase inspection 2026-03-15 + verified API documentation; build order is dependency-validated; code-level interfaces provided in ARCHITECTURE.md |
-| Pitfalls | HIGH | Scraping/LLM pitfalls empirically grounded; Ticketmaster ToS and Songkick access status verified at source; Vercel timeout constraints verified via official docs; v1.0–v1.2 pitfalls remain HIGH from prior research |
+| Stack | HIGH | Direct codebase analysis confirms all three no-new-library features against actual source files; `fastest-levenshtein` verified via npm registry; integration points confirmed in `ticketmaster.ts` and `normalizer.ts` |
+| Features | HIGH | Feature dependencies clearly mapped; dedup approach validated against established data engineering patterns; frontend features confirmed against existing component interfaces |
+| Architecture | HIGH | Based on direct codebase inspection; integration points in `ticketmaster.ts`, `MapClient.tsx`, and `EventCard.tsx` verified with specific function names and file paths |
+| Pitfalls | HIGH | v1.5-specific pitfalls verified via Leaflet API reference, Crunchy Data fuzzy match guide, and established event aggregation dedup patterns; all five critical pitfalls have explicit prevention strategies |
 
-**Overall confidence:** HIGH for execution plan; MEDIUM for auto-approve threshold calibration and JSON-LD adoption rate among the 26 target venues.
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **JSON-LD coverage audit:** Before scoping Phase A JSON-LD work, manually fetch the 26 existing scrape source URLs and count those with `<script type="application/ld+json">` containing `@type: "Event"`. Expected count: 3–6. This calibrates expected Gemini call reduction and confirms the feature is worth the implementation cost. If the count is 0–2, deprioritize JSON-LD below Phase A and build it later.
-
-- **TM venue name normalization edge cases:** First Ticketmaster scrape run will reveal how well ILIKE matching handles real Atlantic Canada venue name variants. Plan a cleanup pass after the first run to merge any duplicate venue rows created for the same physical location.
-
-- **Vercel Fluid Compute status:** The discovery endpoint's `maxDuration` should be confirmed at 300s, but this requires verifying Fluid Compute is enabled in the Vercel project settings. Confirm before any discovery pipeline changes go to production.
-
-- **Auto-approve threshold calibration:** The 0.8 threshold is a starting recommendation. After Phase D is live, review the percentage of candidates auto-approved vs. sent to manual review. If auto-approve rate is > 40% (potential noise), raise threshold. If < 5% (admin burden not reduced), lower slightly and add more granular URL signals.
-
-- **Ticketmaster event volume for Atlantic Canada:** Unknown without running the API. After first run, check whether 4 province queries return < 200 events each (fits in one page) or require pagination (needs the API's `page` param, max `size × page < 1000`).
+- **Dedup threshold calibration:** The 0.15 name similarity ratio and 100m/500m geo thresholds are research-recommended starting points. They should be validated against real TM venue name data before enabling production auto-merge. Plan a dry-run logging pass first.
+- **Merge operation strategy:** Research leaves open whether to delete merged duplicate venue rows or mark them with a `merged_into_venue_id` nullable FK. This is a schema design decision for planning — deletion is simpler but irreversible; the FK approach is auditable but adds schema complexity.
+- **Map ref access pattern for flyTo:** Research identifies two valid implementation paths: React context carrying the map ref, or restructuring sidebar components to be children of `<MapContainer>`. Planning should confirm which pattern the current codebase uses to avoid introducing inconsistency.
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- East Coast Local codebase direct inspection — `/src/lib/scraper/*`, `/src/lib/db/schema.ts`, `/src/app/api/cron/*`, `/src/app/admin/*` (2026-03-15)
-- Ticketmaster Discovery API v2 official docs (developer.ticketmaster.com 2026-03-15) — endpoints, rate limits, geographic filtering, response format, stateCode values for Atlantic Canada
-- Ticketmaster Terms of Use (ticketmaster.com 2026-03-15) — caching restrictions, commercial use prohibitions, attribution requirements
-- Google Event Structured Data — Search Central docs (developers.google.com 2026-03-15) — required/recommended JSON-LD properties, extraction approach
-- schema.org/Event — full schema definition for JSON-LD field mapping
-- Songkick Developer Portal (songkick.com/developer 2026-03-15) — confirmed commercial partnership requirement, hobbyist access rejection, $500+/month license
-- Vercel Fluid Compute official docs — maxDuration limits per plan, Hobby ceiling of 300s with Fluid Compute enabled
-- Drizzle ORM pgEnum export bug #5174 — confirmed open issue, enum silently omitted from migration SQL
+- Codebase analysis (direct file reads) — `MapViewController.tsx`, `EventCard.tsx`, `MapClient.tsx`, `EventFilters.tsx`, `TimelineBar.tsx`, `normalizer.ts`, `ticketmaster.ts`, `schema.ts` — confirmed existing infrastructure and integration points
+- npm registry — `npm info fastest-levenshtein` — version 1.0.16, stable; ships own TypeScript types; pure JS, no native bindings
+- [react-leaflet official docs — Map creation and interactions](https://react-leaflet.js.org/docs/api-map/) — confirmed `useMap()` hook and `flyTo` via Leaflet instance
+- [Leaflet map.flyTo documentation](https://leafletjs.com/reference.html) — animated pan+zoom API, zoom level behavior
+- [Haversine formula — Movable Type Scripts](https://www.movable-type.co.uk/scripts/latlong.html) — distance calculation for geocoordinate proximity
 
 ### Secondary (MEDIUM confidence)
-- Web scraping pagination patterns (ScrapingAnt blog) — next-page link detection strategies, `rel="next"` and `aria-label` selectors
-- Exponential backoff for scraping (TheWebScraping.club Substack) — retry strategy, jitter timing, Retry-After header handling
-- Data quality in web scraping (Litport blog) — proxy metrics (field completeness, confidence score, duplicate rate) without ground truth
-- Confidence threshold in AI systems (LlamaIndex glossary) — threshold-based auto-approval pattern and common calibration approaches
-- Scraping quality metrics framework (witanworld.com 2026-02-02) — pipeline evaluation metrics for web scraping systems
+- [Fuzzy Matching 101 — Data Ladder](https://dataladder.com/fuzzy-matching-101/) — algorithm comparison for name matching in dedup contexts; Levenshtein vs Jaro-Winkler vs token-sort
+- [Streamline Data Deduplication — Capella Solutions](https://www.capellasolutions.com/blog/streamline-data-deduplication-advanced-matching-techniques) — multi-field matching strategies and threshold approaches
+- [List and Details — Map UI Patterns](https://mapuipatterns.com/list-details/) — expected UX: selecting a list item zooms map to that item's location
+- [Filter UI Patterns — Arounda](https://arounda.agency/blog/filter-ui-examples) — chip filter visibility best practices; active filters should be visible in all app modes
+- [npm-compare: fuse.js vs string-similarity vs natural](https://npm-compare.com/fuse.js,natural,string-natural-compare,string-similarity) — download and maintenance comparison for alternative library evaluation
 
-### Tertiary (LOW confidence / needs runtime validation)
-- **Auto-approve threshold at 0.8** — Inferred from standard binary classification threshold practices; no canonical threshold exists for venue discovery scoring at this scale. Treat as starting point; calibrate after first deployment.
-- **JSON-LD adoption rate < 20% for Atlantic Canada venues** — Based on general structured data adoption research, not an audit of the actual 26 target sources. Audit before finalizing Phase A scope.
-- **Ticketmaster Atlantic Canada event volume** — Unknown without running the API. Four province queries at `size=200` should cover the inventory, but pagination may be needed for larger provinces. Verify on first manual run.
+### Tertiary (LOW confidence)
+- None — all findings in this summary are backed by HIGH or MEDIUM confidence sources
 
 ---
-
 *Research completed: 2026-03-15*
-*Covers: v1.0 core scraping + map, v1.1 heatmap timelapse, v1.2 discovery + categorization, v1.4 API integrations + scraping improvements*
+*Covers: v1.5 — cross-source deduplication, venue merge, zoom-to-location, timelapse filter chip visibility*
 *Ready for roadmap: yes*
