@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
 status: planning
-stopped_at: Completed 17-01-PLAN.md
-last_updated: "2026-03-15T07:54:04.727Z"
+stopped_at: Completed 17-02-PLAN.md
+last_updated: "2026-03-15T07:57:37.828Z"
 last_activity: 2026-03-15 — Phase 15 complete (SCRP-04 satisfied)
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 50
 ---
 
@@ -61,6 +61,7 @@ Progress: [█████░░░░░] 50% (2/4 phases complete)
 | Phase 16-ticketmaster-integration P01 | 4m | 2 tasks | 3 files |
 | Phase 16-ticketmaster-integration P02 | 94s | 2 tasks | 6 files |
 | Phase 17-auto-approve-discovery P01 | 3min | 1 tasks | 4 files |
+| Phase 17-auto-approve-discovery P02 | 8min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -93,6 +94,9 @@ Recent decisions affecting current work:
 - [Phase 17-auto-approve-discovery]: Social domain penalty set to -1.0 (not -0.50) to guarantee Math.clamp(0) for any score combination
 - [Phase 17-auto-approve-discovery]: AUTO_APPROVE_THRESHOLD reads from env var at module load (default 0.8) — configurable without code deploy
 - [Phase 17-auto-approve-discovery]: discovery_score nullable — null means not yet scored (pre-Phase 17 rows)
+- [Phase 17-auto-approve-discovery]: Revoke mirrors RejectForm confirmation pattern — amber styling distinguishes from red reject
+- [Phase 17-auto-approve-discovery]: Auto-approved badge conditioned on discovery_score !== null — null means pre-Phase 17 or manually approved
+- [Phase 17-auto-approve-discovery]: revokeCandidate disables scrape_sources before resetting discovered_sources — non-destructive, restores to pending for re-review
 
 ### Pending Todos
 
@@ -109,7 +113,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15T07:54:04.723Z
-Stopped at: Completed 17-01-PLAN.md
+Last session: 2026-03-15T07:57:32.114Z
+Stopped at: Completed 17-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 16`

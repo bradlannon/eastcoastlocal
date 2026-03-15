@@ -52,7 +52,7 @@
 - [x] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction (completed 2026-03-15)
 - [x] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility (completed 2026-03-15)
 - [x] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map (completed 2026-03-15)
-- [ ] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke
+- [x] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke (completed 2026-03-15)
 
 ## Phase Details
 
@@ -104,7 +104,7 @@ Plans:
   1. After a discovery run, candidates scoring 0.8 or higher are promoted to active scrape sources without any admin action
   2. Auto-approved sources appear in the admin discovery UI with a distinct label (e.g., "auto-approved") so they are identifiable
   3. An admin can revoke an auto-approved source from the admin UI, returning it to a reviewable state or disabling it
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 17-01-PLAN.md — Schema migration, scoreCandidate() heuristic, auto-promote loop in discovery orchestrator + unit tests
 - [ ] 17-02-PLAN.md — revokeCandidate server action, admin UI (score column, auto-approved badge, revoke button)
@@ -129,4 +129,4 @@ Plans:
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
 | 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
 | 16. Ticketmaster Integration | 2/2 | Complete    | 2026-03-15 | - |
-| 17. Auto-Approve Discovery | 1/2 | In Progress|  | - |
+| 17. Auto-Approve Discovery | 2/2 | Complete   | 2026-03-15 | - |
