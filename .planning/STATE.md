@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Admin Tools
 status: planning
-stopped_at: Phase 12 context gathered
-last_updated: "2026-03-15T02:52:33.440Z"
+stopped_at: Completed 12-01-PLAN.md
+last_updated: "2026-03-15T03:02:34.664Z"
 last_activity: "2026-03-15 — v1.3 roadmap created (4 phases: 10-13)"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 2
-  completed_plans: 2
+  total_plans: 4
+  completed_plans: 3
   percent: 0
 ---
 
@@ -48,6 +48,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 10-admin-auth P01 | 18 | 2 tasks | 8 files |
 | Phase 11-admin-dashboard P01 | 12 | 2 tasks | 4 files |
+| Phase 12-venue-source-management P01 | 8 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -61,6 +62,9 @@ Recent decisions affecting current work:
 - [Phase 10-admin-auth]: SHA-256 via Web Crypto (not bcrypt) for single-admin credential — Edge-compatible, no native dependency
 - [Phase 10-admin-auth]: jose library for JWT (not jsonwebtoken) — ESM-native, Edge runtime compatible
 - [Phase 11-admin-dashboard]: Inline relativeTime helper in page.tsx, failures-first sort via SQL CASE expression, nav links centered in header
+- [Phase 12-venue-source-management]: Server component page passes venue data as props to VenueEditForm client component — clean separation of async DB access from useActionState form state
+- [Phase 12-venue-source-management]: Admin layout converted to client component for usePathname active nav — simplest approach, no async data cost
+- [Phase 12-venue-source-management]: Geocoding failure on venue update is non-fatal: saves with null lat/lng and logs warning
 
 ### Pending Todos
 
@@ -74,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T02:52:33.433Z
-Stopped at: Phase 12 context gathered
-Resume file: .planning/phases/12-venue-source-management/12-CONTEXT.md
+Last session: 2026-03-15T03:02:34.659Z
+Stopped at: Completed 12-01-PLAN.md
+Resume file: None

@@ -14,9 +14,9 @@ Requirements for admin tools. Each maps to roadmap phases.
 
 ### Venue Management
 
-- [ ] **VENUE-01**: Admin can view a list of all venues with name, province, and source count
+- [x] **VENUE-01**: Admin can view a list of all venues with name, province, and source count
 - [ ] **VENUE-02**: Admin can add a new venue with name, address, city, province
-- [ ] **VENUE-03**: Admin can edit an existing venue's details
+- [x] **VENUE-03**: Admin can edit an existing venue's details
 - [ ] **VENUE-04**: Admin can add a scrape source URL to a venue (creates scrape_sources row)
 - [ ] **VENUE-05**: Admin can enable/disable a scrape source without deleting it
 
@@ -65,9 +65,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-02 | Phase 10 | Complete |
 | DASH-01 | Phase 11 | Complete |
 | DASH-02 | Phase 11 | Complete |
-| VENUE-01 | Phase 12 | Pending |
+| VENUE-01 | Phase 12 | Complete |
 | VENUE-02 | Phase 12 | Pending |
-| VENUE-03 | Phase 12 | Pending |
+| VENUE-03 | Phase 12 | Complete |
 | VENUE-04 | Phase 12 | Pending |
 | VENUE-05 | Phase 12 | Pending |
 | DISC-01 | Phase 13 | Pending |

@@ -84,7 +84,7 @@ Plans:
   3. Admin can edit an existing venue's name, address, city, or province and save changes
   4. Admin can add a scrape source URL to any venue, creating a new scrape_sources row
   5. Admin can toggle a scrape source enabled or disabled without deleting it
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 12-01-PLAN.md — Venue list page, venue detail/edit form, update action with geocoding, active nav
@@ -120,5 +120,5 @@ Plans:
 | 9. Source Discovery | v1.2 | 2/2 | Complete | 2026-03-15 |
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
 | 11. Admin Dashboard | 1/1 | Complete    | 2026-03-15 | - |
-| 12. Venue & Source Management | v1.3 | 0/2 | Not started | - |
+| 12. Venue & Source Management | 1/2 | In Progress|  | - |
 | 13. Discovery Review | v1.3 | 0/TBD | Not started | - |
