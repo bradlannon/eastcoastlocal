@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
 stopped_at: "Completed 21-01-PLAN.md — tech debt cleanup: ticket_link COALESCE, findBestMatch removal, eventCount fix"
-last_updated: "2026-03-15T21:54:32.538Z"
+last_updated: "2026-03-15T22:00:11.798Z"
 last_activity: "2026-03-15 — Plan 20-02 executed: admin merge review UI with human-verify approval"
 progress:
   total_phases: 8

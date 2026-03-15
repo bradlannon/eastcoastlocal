@@ -187,4 +187,4 @@ Plans:
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 21. Tech Debt Cleanup | 1/1 | Complete   | 2026-03-15 | — |
+| 21. Tech Debt Cleanup | 1/1 | Complete    | 2026-03-15 | — |
