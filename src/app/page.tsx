@@ -43,7 +43,7 @@ function HomeContent() {
   const [mapMode, setMapMode] = useState<MapMode>('cluster');
   const [timePosition, setTimePosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [showPins, setShowPins] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(false);
   const [referenceDate] = useState(() => new Date());
 
   // Play loop: advance scrubber at 1s per step
@@ -122,7 +122,7 @@ function HomeContent() {
   }, []);
   const handleScrubStart = useCallback(() => setIsPlaying(false), []);
   const handlePlayPause = useCallback(() => setIsPlaying((p) => !p), []);
-  const handleTogglePins = useCallback(() => setShowPins((p) => !p), []);
+  const handleToggleHeatmap = useCallback(() => setShowHeatmap((p) => !p), []);
 
   // Compute friendly empty state message
   function getEmptyMessage(): string {
@@ -207,8 +207,8 @@ function HomeContent() {
               onTimePositionChange={setTimePosition}
               onScrubStart={handleScrubStart}
               onPlayPause={handlePlayPause}
-              showPins={showPins}
-              onTogglePins={handleTogglePins}
+              showHeatmap={showHeatmap}
+              onToggleHeatmap={handleToggleHeatmap}
               referenceDate={referenceDate}
               timeFilteredEvents={timeFilteredEvents}
             />

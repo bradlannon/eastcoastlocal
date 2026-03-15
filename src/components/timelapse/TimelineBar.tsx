@@ -7,11 +7,11 @@ interface TimelineBarProps {
   isPlaying: boolean;
   currentLabel: string;
   eventCount: number;
-  showPins: boolean;
+  showHeatmap: boolean;
   onPositionChange: (pos: number) => void;
   onScrubStart: () => void;
   onPlayPause: () => void;
-  onTogglePins: () => void;
+  onToggleHeatmap: () => void;
 }
 
 export default function TimelineBar({
@@ -19,11 +19,11 @@ export default function TimelineBar({
   isPlaying,
   currentLabel,
   eventCount,
-  showPins,
+  showHeatmap,
   onPositionChange,
   onScrubStart,
   onPlayPause,
-  onTogglePins,
+  onToggleHeatmap,
 }: TimelineBarProps) {
   return (
     <div className="backdrop-blur-md bg-white/70 rounded-xl shadow-lg px-4 py-3 flex flex-row items-center gap-2">
@@ -86,24 +86,29 @@ export default function TimelineBar({
         >
           {eventCount}
         </span>
-        {/* Pin visibility toggle */}
+        {/* Heatmap visibility toggle */}
         <button
-          onClick={onTogglePins}
-          aria-label={showPins ? 'Hide venue pins' : 'Show venue pins'}
-          title={showPins ? 'Hide pins' : 'Show pins'}
+          onClick={onToggleHeatmap}
+          aria-label={showHeatmap ? 'Hide heatmap' : 'Show heatmap'}
+          title={showHeatmap ? 'Hide heatmap' : 'Show heatmap'}
           className={`ml-2 w-7 h-7 flex items-center justify-center rounded-md cursor-pointer transition-colors ${
-            showPins ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'
+            showHeatmap ? 'text-blue-600 bg-blue-50' : 'text-gray-400 hover:text-gray-600'
           }`}
         >
+          {/* Heatmap/layers icon — concentric circles */}
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="16"
             height="16"
             viewBox="0 0 24 24"
-            fill="currentColor"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
             aria-hidden="true"
           >
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+            <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none" />
+            <circle cx="12" cy="12" r="6" strokeOpacity="0.6" />
+            <circle cx="12" cy="12" r="10" strokeOpacity="0.4" />
           </svg>
         </button>
       </div>

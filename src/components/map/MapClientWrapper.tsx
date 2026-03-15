@@ -35,8 +35,8 @@ export interface MapClientWrapperProps {
   onTimePositionChange?: (pos: number) => void;
   onScrubStart?: () => void;
   onPlayPause?: () => void;
-  showPins?: boolean;
-  onTogglePins?: () => void;
+  showHeatmap?: boolean;
+  onToggleHeatmap?: () => void;
   referenceDate?: Date;
   timeFilteredEvents?: EventWithVenue[];
 }

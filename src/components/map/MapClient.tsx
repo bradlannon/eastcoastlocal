@@ -40,8 +40,8 @@ interface MapClientProps {
   onTimePositionChange?: (pos: number) => void;
   onScrubStart?: () => void;
   onPlayPause?: () => void;
-  showPins?: boolean;
-  onTogglePins?: () => void;
+  showHeatmap?: boolean;
+  onToggleHeatmap?: () => void;
   referenceDate?: Date;
   timeFilteredEvents?: EventWithVenue[];
 }
@@ -62,8 +62,8 @@ export default function MapClient({
   onTimePositionChange,
   onScrubStart,
   onPlayPause,
-  showPins,
-  onTogglePins,
+  showHeatmap,
+  onToggleHeatmap,
   referenceDate,
   timeFilteredEvents,
 }: MapClientProps) {
@@ -90,14 +90,12 @@ export default function MapClient({
           maxZoom={20}
         />
         <MapBoundsTracker onBoundsChange={onBoundsChange} />
-        {(mapMode !== 'timelapse' || showPins) && (
-          <ClusterLayer
-            events={mapMode === 'timelapse' ? (timeFilteredEvents ?? []) : events}
-            highlightedVenueId={highlightedVenueId}
-            markersRef={markersRef}
-          />
-        )}
-        {mapMode === 'timelapse' && (
+        <ClusterLayer
+          events={mapMode === 'timelapse' ? (timeFilteredEvents ?? []) : events}
+          highlightedVenueId={highlightedVenueId}
+          markersRef={markersRef}
+        />
+        {mapMode === 'timelapse' && showHeatmap && (
           <>
             <HeatmapLayer points={heatPoints ?? []} visible={true} />
             <HeatmapClickLayer
@@ -131,11 +129,11 @@ export default function MapClient({
             isPlaying={isPlaying ?? false}
             currentLabel={currentLabel ?? ''}
             eventCount={eventCount ?? 0}
-            showPins={showPins ?? false}
+            showHeatmap={showHeatmap ?? false}
             onPositionChange={onTimePositionChange ?? (() => {})}
             onScrubStart={onScrubStart ?? (() => {})}
             onPlayPause={onPlayPause ?? (() => {})}
-            onTogglePins={onTogglePins ?? (() => {})}
+            onToggleHeatmap={onToggleHeatmap ?? (() => {})}
           />
         </div>
       )}
