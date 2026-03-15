@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth";
 
 export async function login(
+  _prevState: { error?: string },
   formData: FormData
 ): Promise<{ error?: string }> {
   const email = (formData.get("email") as string | null) ?? "";
