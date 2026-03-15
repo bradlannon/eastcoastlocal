@@ -3,7 +3,8 @@ import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Mock the db client
 jest.mock('@/lib/db/client', () => {
-  const onConflictDoUpdate = jest.fn().mockResolvedValue(undefined);
+  const returning = jest.fn().mockResolvedValue([{ id: 1 }]);
+  const onConflictDoUpdate = jest.fn().mockReturnValue({ returning });
   const values = jest.fn().mockReturnValue({ onConflictDoUpdate });
   const insert = jest.fn().mockReturnValue({ values });
   return {
@@ -11,11 +12,14 @@ jest.mock('@/lib/db/client', () => {
   };
 });
 
-// Mock the schema to get reference to events table
+// Mock the schema to get reference to events table and event_sources table
 jest.mock('@/lib/db/schema', () => ({
-  events: { venue_id: 'venue_id', event_date: 'event_date', normalized_performer: 'normalized_performer' },
+  events: { venue_id: 'venue_id', event_date: 'event_date', normalized_performer: 'normalized_performer', source_url: 'source_url', id: 'id' },
+  event_sources: { event_id: 'event_id', source_type: 'source_type' },
   EVENT_CATEGORIES: ['live_music', 'comedy', 'theatre', 'arts', 'sports', 'festival', 'community', 'other'],
   eventCategoryEnum: jest.fn(),
+  SOURCE_TYPES: ['scrape', 'ticketmaster', 'manual'],
+  sourceTypeEnum: jest.fn(),
 }));
 
 import { db } from '@/lib/db/client';
@@ -49,6 +53,28 @@ describe('normalizePerformer', () => {
 describe('upsertEvent', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Reset the mock chain for each test so both calls work correctly
+    const mockDb = db as unknown as { insert: jest.Mock };
+
+    // First call (events insert): .values().onConflictDoUpdate().returning() → [{ id: 1 }]
+    // Second call (event_sources insert): .values().onConflictDoUpdate() → undefined
+    let insertCallCount = 0;
+    mockDb.insert.mockImplementation(() => {
+      insertCallCount++;
+      if (insertCallCount === 1) {
+        // events insert — needs .returning()
+        const returning = jest.fn().mockResolvedValue([{ id: 1 }]);
+        const onConflictDoUpdate = jest.fn().mockReturnValue({ returning });
+        const values = jest.fn().mockReturnValue({ onConflictDoUpdate });
+        return { values };
+      } else {
+        // event_sources insert — no .returning() needed
+        const onConflictDoUpdate = jest.fn().mockResolvedValue(undefined);
+        const values = jest.fn().mockReturnValue({ onConflictDoUpdate });
+        return { values };
+      }
+    });
   });
 
   it('calls db.insert with events table', async () => {
@@ -84,7 +110,7 @@ describe('upsertEvent', () => {
 
     await upsertEvent(1, extracted, 'https://example.com');
 
-    // Retrieve the values call args
+    // Retrieve the values call args from the first insert (events)
     const mockDb = db as unknown as { insert: jest.Mock };
     const insertedValues = mockDb.insert.mock.results[0].value.values.mock.calls[0][0];
     expect(insertedValues.normalized_performer).toBe('the trews');
@@ -159,5 +185,93 @@ describe('upsertEvent', () => {
     const mockDb = db as unknown as { insert: jest.Mock };
     const insertedValues = mockDb.insert.mock.results[0].value.values.mock.calls[0][0];
     expect(insertedValues.event_category).toBe('comedy');
+  });
+
+  // ─── New event_sources tests ───────────────────────────────────────────────
+
+  it('inserts event_sources row after event upsert (db.insert called twice)', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'Attribution Band',
+      event_date: '2026-10-01',
+      event_time: null,
+      price: null,
+      ticket_link: null,
+      description: null,
+      cover_image_url: null,
+      confidence: 1.0,
+      event_category: 'live_music',
+    };
+
+    await upsertEvent(1, extracted, 'https://source.com', 5, 'scrape');
+
+    expect(db.insert).toHaveBeenCalledTimes(2);
+  });
+
+  it('passes correct source_type and scrape_source_id to event_sources insert', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'TM Artist',
+      event_date: '2026-11-01',
+      event_time: null,
+      price: null,
+      ticket_link: null,
+      description: null,
+      cover_image_url: null,
+      confidence: 1.0,
+      event_category: 'live_music',
+    };
+
+    await upsertEvent(1, extracted, 'https://ticketmaster.com/event', null, 'ticketmaster');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    // Second insert is event_sources
+    const eventSourcesValues = mockDb.insert.mock.results[1].value.values.mock.calls[0][0];
+    expect(eventSourcesValues.source_type).toBe('ticketmaster');
+    expect(eventSourcesValues.scrape_source_id).toBeNull();
+    expect(eventSourcesValues.event_id).toBe(1);
+  });
+
+  it('uses COALESCE for source_url in onConflictDoUpdate set clause', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'COALESCE Test',
+      event_date: '2026-12-01',
+      event_time: null,
+      price: null,
+      ticket_link: null,
+      description: null,
+      cover_image_url: null,
+      confidence: 0.9,
+      event_category: 'other',
+    };
+
+    await upsertEvent(1, extracted, 'https://source.com');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const conflictArgs = mockDb.insert.mock.results[0].value.values.mock.results[0].value.onConflictDoUpdate.mock.calls[0][0];
+    // source_url should be a SQL expression object (not a plain string) — indicates COALESCE usage
+    const sourceUrlVal = conflictArgs.set.source_url;
+    expect(typeof sourceUrlVal).not.toBe('string');
+    expect(sourceUrlVal).toBeDefined();
+  });
+
+  it('defaults scrapeSourceId to null and sourceType to scrape when called with 3 args', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'Default Args Band',
+      event_date: '2026-10-15',
+      event_time: null,
+      price: null,
+      ticket_link: null,
+      description: null,
+      cover_image_url: null,
+      confidence: 0.9,
+      event_category: 'other',
+    };
+
+    // Call with only 3 args — backward-compatible
+    await upsertEvent(1, extracted, 'https://source.com');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const eventSourcesValues = mockDb.insert.mock.results[1].value.values.mock.calls[0][0];
+    expect(eventSourcesValues.scrape_source_id).toBeNull();
+    expect(eventSourcesValues.source_type).toBe('scrape');
   });
 });

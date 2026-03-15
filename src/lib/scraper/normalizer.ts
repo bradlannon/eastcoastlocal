@@ -1,5 +1,6 @@
 import { db } from '@/lib/db/client';
-import { events } from '@/lib/db/schema';
+import { events, event_sources } from '@/lib/db/schema';
+import { sql } from 'drizzle-orm';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 export function normalizePerformer(name: string): string {
@@ -13,13 +14,15 @@ export function normalizePerformer(name: string): string {
 export async function upsertEvent(
   venueId: number,
   extracted: ExtractedEvent,
-  sourceUrl: string
+  sourceUrl: string,
+  scrapeSourceId: number | null = null,
+  sourceType: 'scrape' | 'ticketmaster' | 'manual' = 'scrape'
 ): Promise<void> {
   if (!extracted.performer || !extracted.event_date) return;
   const normalizedPerformer = normalizePerformer(extracted.performer);
   const eventDate = new Date(extracted.event_date);
 
-  await db
+  const [row] = await db
     .insert(events)
     .values({
       venue_id: venueId,
@@ -40,7 +43,7 @@ export async function upsertEvent(
       set: {
         performer: extracted.performer!,
         event_time: extracted.event_time ?? null,
-        source_url: sourceUrl,
+        source_url: sql`COALESCE(${events.source_url}, ${sourceUrl})`,
         scrape_timestamp: new Date(),
         price: extracted.price ?? null,
         ticket_link: extracted.ticket_link ?? null,
@@ -49,5 +52,20 @@ export async function upsertEvent(
         event_category: extracted.event_category ?? 'other',
         updated_at: new Date(),
       },
+    })
+    .returning({ id: events.id });
+
+  await db
+    .insert(event_sources)
+    .values({
+      event_id: row.id,
+      scrape_source_id: scrapeSourceId,
+      source_type: sourceType,
+      first_seen_at: new Date(),
+      last_seen_at: new Date(),
+    })
+    .onConflictDoUpdate({
+      target: [event_sources.event_id, event_sources.source_type],
+      set: { last_seen_at: new Date() },
     });
 }

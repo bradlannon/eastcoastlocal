@@ -36,6 +36,20 @@
       "when": 1773561155081,
       "tag": "0004_yielding_the_hunter",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773597653383,
+      "tag": "0005_wide_polaris",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773597690792,
+      "tag": "0006_skinny_sentry",
+      "breakpoints": true
     }
   ]
 }

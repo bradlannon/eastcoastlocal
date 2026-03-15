@@ -114,6 +114,25 @@ export const venueMergeCandidates = pgTable('venue_merge_candidates', {
   reviewed_at: timestamp('reviewed_at'),
 });
 
+export const SOURCE_TYPES = ['scrape', 'ticketmaster', 'manual'] as const;
+export const sourceTypeEnum = pgEnum('source_type', SOURCE_TYPES);
+
+export const event_sources = pgTable(
+  'event_sources',
+  {
+    id: serial('id').primaryKey(),
+    event_id: integer('event_id').references(() => events.id).notNull(),
+    scrape_source_id: integer('scrape_source_id').references(() => scrape_sources.id),
+    source_type: sourceTypeEnum('source_type').notNull(),
+    first_seen_at: timestamp('first_seen_at').defaultNow().notNull(),
+    last_seen_at: timestamp('last_seen_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('event_sources_dedup').on(table.event_id, table.source_type),
+    index('event_sources_event_id_idx').on(table.event_id),
+  ]
+);
+
 export const discovered_sources = pgTable('discovered_sources', {
   id: serial('id').primaryKey(),
   url: text('url').notNull().unique(),
