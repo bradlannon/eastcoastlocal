@@ -17,7 +17,7 @@ Requirements for event/venue deduplication, source attribution, and UX polish. E
 ### Source Attribution
 
 - [x] **ATTR-01**: System tracks which sources each event was discovered from via an event_sources join table
-- [ ] **ATTR-02**: On cross-source conflict, ticket link is updated non-destructively if existing event has none
+- [x] **ATTR-02**: On cross-source conflict, ticket link is updated non-destructively if existing event has none
 
 ### UX Polish
 
@@ -112,7 +112,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEDUP-03 | Phase 18 | Complete |
 | DEDUP-04 | Phase 20 | Complete |
 | ATTR-01 | Phase 19 | Complete |
-| ATTR-02 | Phase 21 | Pending |
+| ATTR-02 | Phase 21 | Complete |
 | UX-01 | Phase 19 | Complete |
 | UX-02 | Phase 19 | Complete |
 

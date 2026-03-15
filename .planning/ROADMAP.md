@@ -64,7 +64,7 @@
 - [x] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table (completed 2026-03-15)
 - [x] **Phase 20: Admin Merge Review** — Admin UI for surfacing and resolving borderline venue merge candidates logged in Phase 18
  (completed 2026-03-15)
-- [ ] **Phase 21: Tech Debt Cleanup** — COALESCE fix for ticket_link, orphaned export removal, eventCount badge accuracy (gap closure)
+- [x] **Phase 21: Tech Debt Cleanup** — COALESCE fix for ticket_link, orphaned export removal, eventCount badge accuracy (gap closure) (completed 2026-03-15)
 ## Phase Details
 
 ### Phase 14: Fetch Pipeline
@@ -187,4 +187,4 @@ Plans:
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 21. Tech Debt Cleanup | v1.5 | 0/1 | In Progress | — |
+| 21. Tech Debt Cleanup | 1/1 | Complete   | 2026-03-15 | — |

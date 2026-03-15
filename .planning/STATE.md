@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: Completed 20-02-PLAN.md — Phase 20 admin merge review UI complete
-last_updated: "2026-03-15T21:16:24.154Z"
+stopped_at: "Completed 21-01-PLAN.md — tech debt cleanup: ticket_link COALESCE, findBestMatch removal, eventCount fix"
+last_updated: "2026-03-15T21:54:32.538Z"
 last_activity: "2026-03-15 — Plan 20-02 executed: admin merge review UI with human-verify approval"
 progress:
-  total_phases: 7
-  completed_phases: 6
-  total_plans: 11
-  completed_plans: 11
+  total_phases: 8
+  completed_phases: 7
+  total_plans: 12
+  completed_plans: 12
   percent: 100
 ---
 
@@ -53,6 +53,7 @@ Progress: [██████████] 100% (11 of 11 v1.5 plans)
 | Phase 19-ux-polish-source-attribution P01 | 15 | 3 tasks | 3 files |
 | Phase 20-admin-merge-review P01 | 5 | 2 tasks | 4 files |
 | Phase 20-admin-merge-review P02 | 2 | 2 tasks | 4 files |
+| Phase 21-tech-debt-cleanup P01 | 3 | 3 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,9 @@ Recent decisions affecting current work:
 - [Phase 20-admin-merge-review]: canonical determination in mergePair: higher event count wins; ties break to venue_a
 - [Phase 20-admin-merge-review]: Ticketmaster dedup guard checks both (a,b) and (b,a) orderings before inserting candidate
 - [Phase 20-admin-merge-review]: Drizzle alias() used for venue self-join (venue_a/venue_b); NavLinks extracted as client component so AdminLayout can be async server component
+- [Phase 21-tech-debt-cleanup]: COALESCE applied to ticket_link in upsertEvent — keeps existing TM link when scraper produces null (ATTR-02)
+- [Phase 21-tech-debt-cleanup]: findBestMatch was orphaned since Phase 18; removed cleanly with no callers in src/
+- [Phase 21-tech-debt-cleanup]: eventCount badge uses mapEvents.length (pre-bounds) not sidebarEvents.length (bounds-clipped)
 
 ### Pending Todos
 
@@ -95,6 +99,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T21:06:09.260Z
-Stopped at: Completed 20-02-PLAN.md — Phase 20 admin merge review UI complete
+Last session: 2026-03-15T21:54:32.533Z
+Stopped at: Completed 21-01-PLAN.md — tech debt cleanup: ticket_link COALESCE, findBestMatch removal, eventCount fix
 Resume file: None
