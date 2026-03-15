@@ -29,6 +29,13 @@
       "when": 1773558358514,
       "tag": "0003_yielding_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1773561155081,
+      "tag": "0004_yielding_the_hunter",
+      "breakpoints": true
     }
   ]
 }

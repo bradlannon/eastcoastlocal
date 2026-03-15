@@ -1,8 +1,10 @@
 import { google } from '@ai-sdk/google';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
+import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { discovered_sources, scrape_sources } from '@/lib/db/schema';
+import { promoteSource } from './promote-source';
 
 const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
   { city: 'Halifax', province: 'NS' },
@@ -14,6 +16,8 @@ const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
 ];
 
 const AGGREGATOR_DOMAINS = ['eventbrite.com', 'bandsintown.com', 'facebook.com', 'ticketmaster.com'];
+
+const AUTO_APPROVE_THRESHOLD = parseFloat(process.env.AUTO_APPROVE_THRESHOLD ?? '0.8');
 
 const CandidateSchema = z.object({
   candidates: z.array(
@@ -29,6 +33,22 @@ const CandidateSchema = z.object({
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export function scoreCandidate(candidate: {
+  url: string;
+  city: string | null;
+  province: string | null;
+  source_name: string | null;
+}): number {
+  let score = 0.5;
+  if (candidate.city) score += 0.15;
+  if (candidate.province) score += 0.15;
+  if (candidate.source_name) score += 0.10;
+  if (candidate.url.startsWith('https://')) score += 0.05;
+  if (/\/events\/|\/tickets\/|\/shows\//i.test(candidate.url)) score -= 0.20;
+  if (/facebook\.com|instagram\.com|eventbrite\.com/i.test(candidate.url)) score -= 1.0;
+  return Math.max(0, Math.min(score, 1.0));
 }
 
 export async function runDiscoveryJob(): Promise<void> {
@@ -57,6 +77,14 @@ export async function runDiscoveryJob(): Promise<void> {
 
   let totalInserted = 0;
   const throttleMs = parseInt(process.env.DISCOVERY_THROTTLE_MS ?? '2000', 10);
+
+  // Collect inserted candidates for scoring after city loop
+  const insertedCandidates: Array<{
+    url: string;
+    city: string | null;
+    province: string | null;
+    source_name: string | null;
+  }> = [];
 
   // Step 2: Loop over ATLANTIC_CITIES, query Gemini per city
   for (let i = 0; i < ATLANTIC_CITIES.length; i++) {
@@ -107,10 +135,44 @@ For each venue return: url (full URL with https://), name, province ("${province
         })
         .onConflictDoNothing();
 
+      insertedCandidates.push({
+        url: candidate.url,
+        city: candidate.city ?? null,
+        province: candidate.province ?? null,
+        source_name: candidate.name ?? null,
+      });
+
       knownDomains.add(hostname); // Prevent intra-run duplicates
       totalInserted++;
     }
   }
 
-  console.log(`Discovery complete: ${totalInserted} new candidates staged`);
+  // Step 4: Score all inserted candidates and auto-promote high scorers
+  let autoApproved = 0;
+  for (const candidate of insertedCandidates) {
+    const score = scoreCandidate(candidate);
+
+    // Write discovery_score to DB
+    await db
+      .update(discovered_sources)
+      .set({ discovery_score: score })
+      .where(eq(discovered_sources.url, candidate.url));
+
+    // Auto-promote if score meets threshold
+    if (score >= AUTO_APPROVE_THRESHOLD) {
+      const staged = await db.query.discovered_sources.findFirst({
+        where: eq(discovered_sources.url, candidate.url),
+      });
+
+      if (staged && staged.status === 'pending') {
+        await promoteSource(staged.id);
+        autoApproved++;
+        console.log(`Auto-approved: ${candidate.url} (score: ${score.toFixed(2)})`);
+      }
+    }
+  }
+
+  console.log(
+    `Discovery complete: ${totalInserted} new candidates staged, ${autoApproved} auto-approved`
+  );
 }

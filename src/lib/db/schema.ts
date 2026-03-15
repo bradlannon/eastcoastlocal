@@ -96,6 +96,7 @@ export const discovered_sources = pgTable('discovered_sources', {
   status: text('status').notNull().default('pending'),
   discovery_method: text('discovery_method'),
   raw_context: text('raw_context'),
+  discovery_score: doublePrecision('discovery_score'),
   discovered_at: timestamp('discovered_at').defaultNow().notNull(),
   reviewed_at: timestamp('reviewed_at'),
   added_to_sources_at: timestamp('added_to_sources_at'),

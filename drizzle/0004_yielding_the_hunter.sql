@@ -1,0 +1,1 @@
+ALTER TABLE "discovered_sources" ADD COLUMN "discovery_score" double precision;
