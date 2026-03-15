@@ -50,7 +50,7 @@
 ### v1.4 More Scrapers (Phases 14-17)
 
 - [x] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction (completed 2026-03-15)
-- [ ] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility
+- [x] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility (completed 2026-03-15)
 - [ ] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map
 - [ ] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke
 
@@ -78,7 +78,7 @@ Plans:
   1. The admin source list shows event count, average confidence, and consecutive failure count for each source
   2. Sources with 3 or more consecutive failures are visually flagged in the admin UI
   3. Metric values update after each scrape run without manual intervention
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 15-01-PLAN.md — Schema migration, orchestrator metric writes, admin dashboard metric columns + failure badge
 
@@ -121,6 +121,6 @@ Plans:
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
-| 15. Scrape Quality Metrics | v1.4 | 0/1 | Not started | - |
+| 15. Scrape Quality Metrics | 1/1 | Complete   | 2026-03-15 | - |
 | 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |

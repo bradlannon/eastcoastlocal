@@ -19,7 +19,7 @@ Requirements for more scrapers, pipeline improvements, and discovery automation.
 - [x] **SCRP-01**: Scraper follows pagination links on venue websites up to a configurable page limit
 - [x] **SCRP-02**: Per-domain rate limiting prevents sources from being blocked during scrape runs
 - [x] **SCRP-03**: Failed scrape requests are retried with exponential backoff
-- [ ] **SCRP-04**: Admin dashboard displays per-source quality metrics (event count, confidence, failure rate)
+- [x] **SCRP-04**: Admin dashboard displays per-source quality metrics (event count, confidence, failure rate)
 
 ### Discovery Automation
 
@@ -106,7 +106,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCRP-01 | Phase 14 | Complete |
 | SCRP-02 | Phase 14 | Complete |
 | SCRP-03 | Phase 14 | Complete |
-| SCRP-04 | Phase 15 | Pending |
+| SCRP-04 | Phase 15 | Complete |
 | DISC-05 | Phase 17 | Pending |
 | DISC-06 | Phase 17 | Pending |
 

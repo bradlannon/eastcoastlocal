@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
 status: planning
-stopped_at: Completed 14-fetch-pipeline 14-02-PLAN.md
-last_updated: "2026-03-15T06:43:19.491Z"
+stopped_at: "Task 3 checkpoint: human-verify admin dashboard at /admin"
+last_updated: "2026-03-15T07:10:40.662Z"
 last_activity: 2026-03-15 — v1.4 roadmap created
 progress:
   total_phases: 4
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
   percent: 0
 ---
 
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0% (0/4 phases complete)
 *Updated after each plan completion*
 | Phase 14-fetch-pipeline P01 | 6 | 2 tasks | 9 files |
 | Phase 14-fetch-pipeline P02 | 2m | 1 tasks | 1 files |
+| Phase 15-scrape-quality-metrics P01 | 25 | 2 tasks | 7 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 14-fetch-pipeline]: Multi-page hard cap of 3 enforced in code (Math.min(maxPages, 3)) not just config — Vercel timeout constraint
 - [Phase 14-fetch-pipeline]: AI throttle scoped to Gemini branch only — no delay on JSON-LD fast path since no AI API call made
 - [Phase 14-fetch-pipeline]: HTTP_THROTTLE_MS (default 1000ms) applied between ALL venue_website sources after each upsert loop
+- [Phase 15-scrape-quality-metrics]: Metric vars initialized as null before source_type branches — eventbrite/bandsintown always write null for event-specific metrics
+- [Phase 15-scrape-quality-metrics]: consecutive_failures reset to 0 on success; sql`col + 1` atomic increment on failure — avoids read-modify-write race
+- [Phase 15-scrape-quality-metrics]: Failure path omits last_event_count and avg_confidence from .set() to preserve last known values across failures
 
 ### Pending Todos
 
@@ -96,7 +100,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15T06:39:07.681Z
-Stopped at: Completed 14-fetch-pipeline 14-02-PLAN.md
+Last session: 2026-03-15T07:10:40.658Z
+Stopped at: Task 3 checkpoint: human-verify admin dashboard at /admin
 Resume file: None
 Next action: `/gsd:plan-phase 14`
