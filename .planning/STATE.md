@@ -4,7 +4,7 @@ milestone: v1.4
 milestone_name: More Scrapers
 status: planning
 stopped_at: Completed 14-fetch-pipeline 14-02-PLAN.md
-last_updated: "2026-03-15T06:39:07.684Z"
+last_updated: "2026-03-15T06:43:19.491Z"
 last_activity: 2026-03-15 — v1.4 roadmap created
 progress:
   total_phases: 4
