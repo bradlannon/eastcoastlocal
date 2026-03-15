@@ -60,6 +60,14 @@ Users can instantly see what events are happening near them on a map — where, 
 
 <!-- Current scope. Building toward these. -->
 
+- [ ] Ticketmaster Discovery API integration for Atlantic Canada events — v1.4
+- [ ] Songkick concert listings integration — v1.4
+- [ ] Google Events structured data extraction — v1.4
+- [ ] Multi-page/pagination support for venue website scraping — v1.4
+- [ ] Rate limiting to avoid being blocked by venue websites — v1.4
+- [ ] Scrape quality metrics (accuracy tracking, confidence scores, false positive detection) — v1.4
+- [ ] Auto-approve high-confidence discovered sources without manual review — v1.4
+
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
@@ -73,6 +81,7 @@ Users can instantly see what events are happening near them on a map — where, 
 - Multi-select category filter — single-select chips sufficient for current taxonomy size
 - Real-time discovery (user-triggered) — discovery is a periodic cron job, not on-demand
 - Category customization by users — fixed 8-category taxonomy enforced by AI
+- Facebook Events integration — requires headless browser, blocked by Vercel Hobby constraints; deferred to v1.5
 
 ## Context
 
@@ -127,4 +136,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | Rejection reason appended to raw_context | Avoids schema migration for dedicated column | ✓ Good — pragmatic; reason preserved without new column |
 
 ---
-*Last updated: 2026-03-15 after v1.3 milestone completed*
+*Last updated: 2026-03-15 after v1.4 milestone started*
