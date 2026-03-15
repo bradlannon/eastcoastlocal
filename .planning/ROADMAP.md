@@ -6,7 +6,8 @@
 - ✅ **v1.1 Heatmap Timelapse** — Phases 4-5 (shipped 2026-03-14)
 - ✅ **v1.2 Event Discovery** — Phases 6-9 (shipped 2026-03-15)
 - ✅ **v1.3 Admin Tools** — Phases 10-13 (shipped 2026-03-15)
-- 🔄 **v1.4 More Scrapers** — Phases 14-17 (in progress)
+- ✅ **v1.4 More Scrapers** — Phases 14-17 (shipped 2026-03-15)
+- 🔄 **v1.5 Event Dedup & UX Polish** — Phases 18-20 (in progress)
 
 ## Phases
 
@@ -47,12 +48,21 @@
 
 </details>
 
-### v1.4 More Scrapers (Phases 14-17)
+<details>
+<summary>✅ v1.4 More Scrapers (Phases 14-17) — SHIPPED 2026-03-15</summary>
 
-- [x] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction (completed 2026-03-15)
-- [x] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility (completed 2026-03-15)
-- [x] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map (completed 2026-03-15)
-- [x] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke (completed 2026-03-15)
+- [x] Phase 14: Fetch Pipeline (2/2 plans) — completed 2026-03-15
+- [x] Phase 15: Scrape Quality Metrics (1/1 plans) — completed 2026-03-15
+- [x] Phase 16: Ticketmaster Integration (2/2 plans) — completed 2026-03-15
+- [x] Phase 17: Auto-Approve Discovery (2/2 plans) — completed 2026-03-15
+
+</details>
+
+### v1.5 Event Dedup & UX Polish (Phases 18-20)
+
+- [ ] **Phase 18: Venue Deduplication** — Two-signal fuzzy merge of TM-created duplicate venue rows; cross-source event dedup falls out automatically
+- [ ] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table
+- [ ] **Phase 20: Admin Merge Review** — Admin UI for surfacing and resolving borderline venue merge candidates logged in Phase 18
 
 ## Phase Details
 
@@ -65,10 +75,7 @@
   2. Multiple sources on the same domain are not blocked during a scrape run — the per-domain delay is visible in orchestrator logs
   3. A source that fails with a transient HTTP error is retried automatically with exponential backoff before being logged as failed
   4. Venue pages containing schema.org Event JSON-LD produce events without a Gemini API call (visible via confidence=1.0 on extracted events)
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 14-01-PLAN.md — Enhanced fetcher (retry, rate limit, multi-page) + JSON-LD extraction module + schema migration
-- [ ] 14-02-PLAN.md — Orchestrator integration (JSON-LD fast path, multi-page wiring, HTTP throttle)
+**Plans**: 2/2 plans complete
 
 ### Phase 15: Scrape Quality Metrics
 **Goal**: Admins can see the health of each scrape source at a glance — how many events it yields, how often it fails, and whether it needs attention
@@ -78,9 +85,7 @@ Plans:
   1. The admin source list shows event count, average confidence, and consecutive failure count for each source
   2. Sources with 3 or more consecutive failures are visually flagged in the admin UI
   3. Metric values update after each scrape run without manual intervention
-**Plans:** 1/1 plans complete
-Plans:
-- [ ] 15-01-PLAN.md — Schema migration, orchestrator metric writes, admin dashboard metric columns + failure badge
+**Plans**: 1/1 plans complete
 
 ### Phase 16: Ticketmaster Integration
 **Goal**: Major Atlantic Canada ticketed events from Scotiabank Centre, Avenir Centre, and other large venues appear on the map, sourced from Ticketmaster's Discovery API
@@ -91,10 +96,7 @@ Plans:
   2. Ticketmaster events display "via Ticketmaster" attribution and link back to the TM event page
   3. A Ticketmaster event for a venue that already exists in the database is matched to that venue rather than creating a duplicate
   4. A Ticketmaster event for a venue not yet in the database results in a new venue being auto-created with geocoding
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 16-01-PLAN.md — TM handler with venue find-or-create, category mapping, and unit tests + seed script
-- [ ] 16-02-PLAN.md — Orchestrator wiring, attribution UI, admin source type recognition
+**Plans**: 2/2 plans complete
 
 ### Phase 17: Auto-Approve Discovery
 **Goal**: High-confidence discovered venue sources are promoted to active scraping automatically, reducing the admin review queue without introducing noise into the pipeline
@@ -104,10 +106,39 @@ Plans:
   1. After a discovery run, candidates scoring 0.8 or higher are promoted to active scrape sources without any admin action
   2. Auto-approved sources appear in the admin discovery UI with a distinct label (e.g., "auto-approved") so they are identifiable
   3. An admin can revoke an auto-approved source from the admin UI, returning it to a reviewable state or disabling it
-**Plans:** 2/2 plans complete
-Plans:
-- [ ] 17-01-PLAN.md — Schema migration, scoreCandidate() heuristic, auto-promote loop in discovery orchestrator + unit tests
-- [ ] 17-02-PLAN.md — revokeCandidate server action, admin UI (score column, auto-approved badge, revoke button)
+**Plans**: 2/2 plans complete
+
+### Phase 18: Venue Deduplication
+**Goal**: TM-created venue rows that duplicate an existing canonical venue are automatically merged, and cross-source duplicate events are eliminated as a direct consequence
+**Depends on**: Phase 17 (stable TM pipeline producing venue rows to deduplicate)
+**Requirements**: DEDUP-01, DEDUP-02, DEDUP-03
+**Success Criteria** (what must be TRUE):
+  1. After a Ticketmaster ingest, a TM-created venue with the same name and location as an existing venue is merged into the canonical row — no duplicate venue pin appears on the map
+  2. The same event appearing from both a TM ingest and a venue website scrape shows as a single event, not two identical entries
+  3. Merge candidates that match on name but not geo (or geo but not name) are written to a review log and not auto-merged
+  4. A dry-run mode logs all merge candidates with scores without executing any merges, enabling threshold validation before enabling production auto-merge
+**Plans**: TBD
+
+### Phase 19: UX Polish & Source Attribution
+**Goal**: Users can navigate directly from event cards to venue locations on the map, category filters are accessible in timelapse mode, and the system records which source each event was discovered from
+**Depends on**: Phase 18 (clean venue data makes source tracking meaningful; frontend features are independent but ship together for coherent UX release)
+**Requirements**: UX-01, UX-02, ATTR-01, ATTR-02
+**Success Criteria** (what must be TRUE):
+  1. Clicking "Show on map" on any event card smoothly animates the map to the venue location at zoom level 15 with the venue marker highlighted
+  2. Category filter chips are visible and interactive while the heatmap timelapse is playing — selecting a chip filters both the heatmap intensity and the event list sidebar
+  3. Each event row in the database records the source(s) it was seen from in an event_sources join table — queryable by source_type and source_id
+  4. When a cross-source event match occurs and the existing row has no ticket link, the incoming ticket link is applied non-destructively
+**Plans**: TBD
+
+### Phase 20: Admin Merge Review
+**Goal**: Admin can inspect and resolve borderline venue merge candidates that Phase 18 logged but did not auto-merge, preventing permanent data gaps from under-merging
+**Depends on**: Phase 18 (borderline case log must exist and contain real production data before designing the review UI)
+**Requirements**: DEDUP-04
+**Success Criteria** (what must be TRUE):
+  1. Admin can see a list of near-match venue pairs queued for review, showing name, address, and coordinates side by side
+  2. Admin can merge a pair with one click — the duplicate venue's events and sources are reassigned to the canonical venue and the duplicate row is removed
+  3. Admin can mark a pair as "keep separate" so it no longer appears in the review queue
+**Plans**: TBD
 
 ## Progress
 
@@ -126,7 +157,10 @@ Plans:
 | 11. Admin Dashboard | v1.3 | 1/1 | Complete | 2026-03-15 |
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
-| 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
-| 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
-| 16. Ticketmaster Integration | 2/2 | Complete    | 2026-03-15 | - |
-| 17. Auto-Approve Discovery | 2/2 | Complete    | 2026-03-15 | - |
+| 14. Fetch Pipeline | v1.4 | 2/2 | Complete | 2026-03-15 |
+| 15. Scrape Quality Metrics | v1.4 | 1/1 | Complete | 2026-03-15 |
+| 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
+| 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
+| 18. Venue Deduplication | v1.5 | 0/? | Not started | — |
+| 19. UX Polish & Source Attribution | v1.5 | 0/? | Not started | — |
+| 20. Admin Merge Review | v1.5 | 0/? | Not started | — |

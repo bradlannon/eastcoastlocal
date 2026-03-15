@@ -3,11 +3,11 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: planning
-stopped_at: Milestone started
+stopped_at: Roadmap created — ready for Phase 18 planning
 last_updated: "2026-03-15"
-last_activity: "2026-03-15 — Milestone v1.5 started"
+last_activity: "2026-03-15 — Roadmap created for v1.5 (Phases 18-20)"
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 0
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Defining requirements for v1.5 Event Dedup & UX Polish
+**Current focus:** Phase 18 — Venue Deduplication
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 18 — Venue Deduplication (not started)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-03-15 — Milestone v1.5 started
+Status: Roadmap complete, ready for Phase 18 planning
+Last activity: 2026-03-15 — Roadmap created for v1.5 (Phases 18-20)
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -43,7 +43,9 @@ Progress: [░░░░░░░░░░] 0%
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| - | - | - | - |
+| 18. Venue Deduplication | — | — | — |
+| 19. UX Polish & Source Attribution | — | — | — |
+| 20. Admin Merge Review | — | — | — |
 
 *Updated after each plan completion*
 
@@ -54,15 +56,20 @@ Progress: [░░░░░░░░░░] 0%
 Decisions are logged in PROJECT.md Key Decisions table.
 
 Recent decisions affecting current work:
-- [v1.4] Ticketmaster venue find-or-create uses ILIKE name matching — may create duplicates for name variants
+- [v1.4] Ticketmaster venue find-or-create uses ILIKE name matching — creates duplicates for name variants; Phase 18 resolves this
 - [v1.4] TM synthetic URL pattern: ticketmaster:province:NB
 - [v1.4] JSON-LD short-circuits Gemini — confidence=1.0 events never go through AI
-- [v1.4] Songkick excluded — commercial API ($500+/month)
+- [v1.5] Roadmap: coarse granularity → 3 phases (18-20); venue dedup is prerequisite for event dedup and admin review UI
+- [v1.5] Two-signal merge gate confirmed: name similarity (proportional distance < 0.15) AND geocoordinate proximity (< 100m) required for auto-merge
+- [v1.5] Borderline cases (name match but geo > 500m, or geo close but name differs) logged without acting — surfaced in Phase 20 admin UI
+- [v1.5] `fastest-levenshtein@1.0.16` selected for edit-distance scoring; zero dependencies, pure JS, server-side only
 
 ### Pending Todos
 
-- After TM first run: review venue name matching edge cases, merge any duplicate venues
-- After first discovery run: check auto-approve rate (target 10-30%), calibrate threshold
+- Phase 18: Run dry-run mode against real TM venue names in production DB to validate 0.15 name ratio and 100m/500m geo thresholds before enabling auto-merge
+- Phase 18: Decide merge operation strategy — delete duplicate row vs. `merged_into_venue_id` nullable FK (deletion simpler but irreversible; FK auditable)
+- Phase 19: Confirm map ref access pattern — React context vs. restructuring sidebar components as children of `<MapContainer>`
+- Phase 20: Schedule after Phase 18 has run in production — need real borderline case volume to understand review UI requirements
 
 ### Blockers/Concerns
 
@@ -71,5 +78,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-15
-Stopped at: Milestone started
+Stopped at: Roadmap created
 Resume file: None

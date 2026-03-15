@@ -107,20 +107,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DEDUP-01 | — | Pending |
-| DEDUP-02 | — | Pending |
-| DEDUP-03 | — | Pending |
-| DEDUP-04 | — | Pending |
-| ATTR-01 | — | Pending |
-| ATTR-02 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
+| DEDUP-01 | Phase 18 | Pending |
+| DEDUP-02 | Phase 18 | Pending |
+| DEDUP-03 | Phase 18 | Pending |
+| DEDUP-04 | Phase 20 | Pending |
+| ATTR-01 | Phase 19 | Pending |
+| ATTR-02 | Phase 19 | Pending |
+| UX-01 | Phase 19 | Pending |
+| UX-02 | Phase 19 | Pending |
 
 **Coverage:**
 - v1.5 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠️
+- Mapped to phases: 8
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after v1.5 requirements scoped*
+*Last updated: 2026-03-15 after v1.5 roadmap created*
