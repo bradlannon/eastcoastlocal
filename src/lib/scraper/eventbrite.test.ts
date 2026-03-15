@@ -20,6 +20,11 @@ const mockSource: ScrapeSource = {
   source_type: 'eventbrite',
   enabled: true,
   max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
   created_at: new Date(),
 };
 

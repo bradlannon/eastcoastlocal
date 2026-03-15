@@ -1,3 +1,7 @@
+// Set throttle env vars before module load so constants are initialized to 0
+process.env.SCRAPE_THROTTLE_MS = '0';
+process.env.HTTP_THROTTLE_MS = '0';
+
 // Mock modules before importing anything that uses them
 jest.mock('@/lib/db/client', () => ({
   db: {
@@ -89,6 +93,11 @@ const mockVenueWebsiteSource = {
   source_type: 'venue_website',
   enabled: true,
   max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
   created_at: new Date(),
 };
 
@@ -102,6 +111,11 @@ const mockEventbriteSource = {
   source_type: 'eventbrite',
   enabled: true,
   max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
   created_at: new Date(),
 };
 
@@ -115,24 +129,19 @@ const mockBandsinTownSource = {
   source_type: 'bandsintown',
   enabled: true,
   max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
   created_at: new Date(),
 };
 
 const mockExtractedEvents: ExtractedEvent[] = [
-  { performer: 'Band A', date: '2026-04-01', confidence: 0.9 },
-  { performer: 'Band B', date: '2026-04-02', confidence: 0.8 },
-  { performer: 'Band C', date: '2026-04-03', confidence: 0.7 },
+  { performer: 'Band A', event_date: '2026-04-01', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.9, event_category: 'other' },
+  { performer: 'Band B', event_date: '2026-04-02', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'other' },
+  { performer: 'Band C', event_date: '2026-04-03', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.7, event_category: 'other' },
 ];
-
-beforeAll(() => {
-  process.env.SCRAPE_THROTTLE_MS = '0';
-  process.env.HTTP_THROTTLE_MS = '0';
-});
-
-afterAll(() => {
-  delete process.env.SCRAPE_THROTTLE_MS;
-  delete process.env.HTTP_THROTTLE_MS;
-});
 
 beforeEach(() => {
   jest.clearAllMocks();

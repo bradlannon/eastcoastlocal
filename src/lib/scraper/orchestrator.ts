@@ -1,6 +1,6 @@
 import { db } from '@/lib/db/client';
 import { scrape_sources, venues } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { fetchAndPreprocess } from './fetcher';
 import { extractEvents } from './extractor';
 import { extractJsonLdEvents } from './json-ld';
@@ -33,6 +33,10 @@ export async function runScrapeJob(): Promise<void> {
 
   for (const source of sources) {
     try {
+      // Track per-source metrics — set inside venue_website branch, null for other types
+      let sourceEventCount: number | null = null;
+      let avgConf: number | null = null;
+
       if (source.source_type === 'venue_website') {
         // Fetch venue record to check for geocoding needs
         const venue = await db.query.venues.findFirst({
@@ -43,7 +47,12 @@ export async function runScrapeJob(): Promise<void> {
           console.error(`Venue not found for source ${source.id} (venue_id=${source.venue_id})`);
           await db
             .update(scrape_sources)
-            .set({ last_scraped_at: new Date(), last_scrape_status: 'failure' })
+            .set({
+              last_scraped_at: new Date(),
+              last_scrape_status: 'failure',
+              consecutive_failures: sql`consecutive_failures + 1`,
+              total_scrapes: sql`total_scrapes + 1`,
+            })
             .where(eq(scrape_sources.id, source.id));
           failCount++;
           continue;
@@ -84,6 +93,12 @@ export async function runScrapeJob(): Promise<void> {
           }
         }
 
+        // Compute quality metrics for this source
+        sourceEventCount = extracted.length;
+        avgConf = sourceEventCount > 0
+          ? extracted.reduce((sum, e) => sum + (e.confidence ?? 0), 0) / sourceEventCount
+          : null;
+
         for (const event of extracted) {
           await upsertEvent(source.venue_id, event, source.url);
         }
@@ -104,17 +119,30 @@ export async function runScrapeJob(): Promise<void> {
         console.warn(`Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }
 
-      // Mark success
+      // Mark success with quality metrics
       await db
         .update(scrape_sources)
-        .set({ last_scraped_at: new Date(), last_scrape_status: 'success' })
+        .set({
+          last_scraped_at: new Date(),
+          last_scrape_status: 'success',
+          last_event_count: sourceEventCount,
+          avg_confidence: avgConf,
+          consecutive_failures: 0,
+          total_scrapes: sql`total_scrapes + 1`,
+          total_events_extracted: sql`total_events_extracted + ${sourceEventCount ?? 0}`,
+        })
         .where(eq(scrape_sources.id, source.id));
       successCount++;
     } catch (err) {
       console.error(`  ✗ Source ${source.id} (${source.url}):`, err instanceof Error ? err.message : err);
       await db
         .update(scrape_sources)
-        .set({ last_scraped_at: new Date(), last_scrape_status: 'failure' })
+        .set({
+          last_scraped_at: new Date(),
+          last_scrape_status: 'failure',
+          consecutive_failures: sql`consecutive_failures + 1`,
+          total_scrapes: sql`total_scrapes + 1`,
+        })
         .where(eq(scrape_sources.id, source.id));
       failCount++;
       // Continue to next source — never abort full run

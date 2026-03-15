@@ -78,6 +78,11 @@ export const scrape_sources = pgTable('scrape_sources', {
   source_type: text('source_type').notNull(), // venue_website, eventbrite, bandsintown
   enabled: boolean('enabled').notNull().default(true),
   max_pages: integer('max_pages').notNull().default(1),
+  last_event_count: integer('last_event_count'),
+  avg_confidence: doublePrecision('avg_confidence'),
+  consecutive_failures: integer('consecutive_failures').notNull().default(0),
+  total_scrapes: integer('total_scrapes').notNull().default(0),
+  total_events_extracted: integer('total_events_extracted').notNull().default(0),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
 
