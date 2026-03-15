@@ -60,13 +60,17 @@ Users can instantly see what events are happening near them on a map — where, 
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Ticketmaster Discovery API integration for Atlantic Canada events — v1.4
-- [ ] Songkick concert listings integration — v1.4
-- [ ] Google Events structured data extraction — v1.4
-- [ ] Multi-page/pagination support for venue website scraping — v1.4
-- [ ] Rate limiting to avoid being blocked by venue websites — v1.4
-- [ ] Scrape quality metrics (accuracy tracking, confidence scores, false positive detection) — v1.4
-- [ ] Auto-approve high-confidence discovered sources without manual review — v1.4
+- ✓ Ticketmaster Discovery API integration for Atlantic Canada events — v1.4
+- ✓ Google Events JSON-LD structured data extraction (fast path before Gemini) — v1.4
+- ✓ Multi-page/pagination support for venue website scraping — v1.4
+- ✓ Rate limiting to avoid being blocked by venue websites — v1.4
+- ✓ Scrape quality metrics (event count, confidence, failure rate per source) — v1.4
+- ✓ Auto-approve high-confidence discovered sources without manual review — v1.4
+
+- [ ] Auto-detect and merge duplicate events across sources — v1.5
+- [ ] Auto-detect and merge duplicate venues (TM-created vs existing) — v1.5
+- [ ] Zoom-to-location button on event cards — v1.5
+- [ ] Category filter chips visible in timelapse mode — v1.5
 
 ### Out of Scope
 
@@ -136,4 +140,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | Rejection reason appended to raw_context | Avoids schema migration for dedicated column | ✓ Good — pragmatic; reason preserved without new column |
 
 ---
-*Last updated: 2026-03-15 after v1.4 milestone started*
+*Last updated: 2026-03-15 after v1.5 milestone started*
