@@ -1,8 +1,8 @@
 # Pitfalls Research
 
 **Domain:** Local events discovery app with AI-powered web scraping (Atlantic Canada live music)
-**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added) · 2026-03-14 (v1.2 discovery + categorization pitfalls added)
-**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research), HIGH (v1.2 discovery/categorization pitfalls — verified via Vercel official docs, Gemini API pricing docs, LLM drift empirical research)
+**Researched:** 2026-03-13 (v1.0 scraping pitfalls) · 2026-03-14 (v1.1 heatmap timelapse pitfalls added) · 2026-03-14 (v1.2 discovery + categorization pitfalls added) · 2026-03-15 (v1.4 API integrations, multi-page scraping, rate limiting, quality metrics, auto-approve pitfalls added)
+**Confidence:** HIGH (scraping/LLM pitfalls), MEDIUM (geocoding accuracy for Atlantic Canada specifically), HIGH (map performance), HIGH (heatmap/timelapse pitfalls — verified via official Leaflet.heat source, react-leaflet docs, WCAG 2.2 spec, and React memory leak empirical research), HIGH (v1.2 discovery/categorization pitfalls — verified via Vercel official docs, Gemini API pricing docs, LLM drift empirical research), HIGH (v1.4 API integration pitfalls — verified via Ticketmaster ToS, official API docs, Songkick developer portal)
 
 ---
 
@@ -532,6 +532,235 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 
 ---
 
+## v1.4 — API Integrations, Multi-Page Scraping, Rate Limiting, Quality Metrics & Auto-Approve Pitfalls
+
+### Pitfall 22: Songkick API Access Is Not Guaranteed — Application May Stall Indefinitely
+
+**What goes wrong:**
+The Songkick API requires an approved API key obtained through an application process. As of early 2026, Songkick has periodically paused new applications while making "changes and improvements to their API." The developer portal page accepts applications but processing timelines are undefined and have historically stretched to 30+ working days — or been suspended entirely with no ETA. Building the Songkick integration into the roadmap as a firm deliverable creates a hard blocker on an uncontrollable external dependency.
+
+**Why it happens:**
+Songkick is a mature platform with no public SLA on API key approvals. The API is free but gated. Developers assume approval is automatic or fast because the signup form exists. The actual status of new applications is not visible from outside; you only find out the application is stalled after weeks of silence.
+
+**How to avoid:**
+- Submit the Songkick API key application immediately when the milestone starts — do not wait until the integration phase. Processing time is outside your control.
+- Treat Songkick as an optional enhancement with a fallback: if the key is not approved by the time the integration phase begins, skip Songkick and ship with Ticketmaster + Google Events. Do not hold the release.
+- Check the Songkick API Google Groups forum for current status before investing any implementation time.
+- If Songkick access remains unavailable, Bandsintown (already integrated as a pattern in v1.0) covers the artist-tour-dates use case. Songkick's incremental value over existing sources is limited for Atlantic Canada specifically — it indexes large touring acts, not small-venue local shows.
+
+**Warning signs:**
+- No email response from Songkick within 2 weeks of application
+- Songkick API Google Groups showing recent posts about application closures
+- Planning documents treating Songkick as a required deliverable rather than optional
+
+**Phase to address:**
+Apply immediately at milestone kickoff. Treat as best-effort in Phase 1 of v1.4 integration work. Build Ticketmaster and Google Events first; Songkick only if key arrives in time.
+
+---
+
+### Pitfall 23: Ticketmaster API Rate Limit Is 5 Requests/Second — But Daily Quota Is the Real Constraint
+
+**What goes wrong:**
+The Ticketmaster Discovery API has a default quota of 5,000 API calls per day and a rate limit of 5 requests per second. For a daily cron scraping Atlantic Canada events, the daily quota is the binding constraint, not the per-second limit. A naive implementation that paginates deeply through all Canadian events, then filters by province/city client-side, can exhaust the daily quota in a single run. When quota is exhausted, all subsequent calls return HTTP 429 for the rest of the calendar day — including any re-runs triggered by monitoring alerts.
+
+**Why it happens:**
+Developers focus on the per-second rate limit (easy to handle with throttling) and underestimate the daily quota impact of pagination. The Ticketmaster API's geographic filtering (`city`, `stateCode`, `countryCode`) reduces result sets, but Atlantic Canada's provinces require multiple queries (NB, NS, PEI, NL have separate `stateCode` values). Each province query may return multiple pages. The quota burn is non-obvious until the first full production run.
+
+**How to avoid:**
+- Use all available geographic filters in every request: `countryCode=CA`, `stateCode=NB` (or NS/PE/NL), and optionally `city=Halifax`. This reduces pages returned per query from dozens to 2–3.
+- Fetch only upcoming events within a tight date window: `startDateTime=NOW` and `endDateTime=NOW+30days`. Do not paginate beyond the immediate 30-day horizon.
+- Cache Ticketmaster responses aggressively. Venue details (address, lat/lng) and event metadata that doesn't change (artist, title, venue) should be cached for at least 6 hours. Only the event list itself needs daily refresh.
+- Monitor daily quota consumption: log each API call to Ticketmaster with a running count. Alert when 80% of the daily quota (4,000/5,000 calls) is consumed.
+- The Ticketmaster Discovery Feed is an alternative for high-volume use cases, but requires separate approval and is scoped to commercial partners. Not appropriate for this project.
+
+**Warning signs:**
+- HTTP 429 responses from Ticketmaster during the scrape cron
+- Ticketmaster API call count in logs growing faster than (provinces × events_per_province)
+- Cron completing but Ticketmaster events missing from DB despite known events in the region
+
+**Phase to address:**
+Phase 1 of v1.4 API integrations. Design the query strategy (geographic filters + date window + caching) before writing any Ticketmaster fetch code.
+
+---
+
+### Pitfall 24: Ticketmaster Terms of Service Restrict Event Data Caching and Commercial Use
+
+**What goes wrong:**
+Ticketmaster's Terms of Use state that developers "must not cache or store any Event Content other than for reasonable periods in order to provide the service you are providing." The definition of "reasonable" is intentionally vague. A developer stores Ticketmaster events in Neon Postgres indefinitely alongside scraped venue events, treating them as first-class records. If Ticketmaster data is used to attract traffic to a site that also displays ads or affiliate links, the ToS prohibition on deriving "revenues from the use or provision of the Ticketmaster API" applies. Key revocation can happen without notice.
+
+**Why it happens:**
+Developers read the API documentation (endpoints, parameters, response format) but skip the Terms of Use. The restrictions are in the legal docs, not the technical docs. "Caching for reasonable periods" is not defined, so developers assume it means "as long as needed."
+
+**How to avoid:**
+- Treat Ticketmaster data as ephemeral: store it in the database for display purposes but implement a TTL. Events fetched from Ticketmaster should be marked with `source=ticketmaster` and automatically expired/re-fetched on the next cron cycle rather than accumulated indefinitely.
+- Do not present Ticketmaster events without attribution. Display "via Ticketmaster" on any event sourced from their API, linking back to the Ticketmaster event page.
+- EastCoastLocal has no ads or affiliate revenue — this fits the "non-commercial" use pattern. If monetization is added in future, re-evaluate ToS compliance before using Ticketmaster data.
+- Keep API keys in Vercel environment variables only. Do not commit them to git. Rotate keys immediately if suspected of leakage.
+
+**Warning signs:**
+- Ticketmaster-sourced events stored without a `source` column or TTL
+- No attribution or link back to Ticketmaster on displayed events
+- API key committed to git history (check with `git log -S "TICKETMASTER_API_KEY"`)
+
+**Phase to address:**
+Phase 1 of v1.4 API integrations. Data model for Ticketmaster events must include `source`, `source_event_id`, and a refresh/TTL strategy before any events are written to the database.
+
+---
+
+### Pitfall 25: Google Events Structured Data Is Not Present on Most Atlantic Canada Venue Sites
+
+**What goes wrong:**
+The plan assumes venue websites and event platforms expose Google Events structured data (JSON-LD `Event` schema). In practice, fewer than 20% of small-venue websites in Atlantic Canada implement structured data. Pubs, bars, and small theatres that hand-code their "shows" page or use basic WordPress sites rarely add JSON-LD. The integration that was expected to supplement or replace AI scraping for many sources instead yields data on only a handful of sources — usually the larger venues using EventBrite embed or a structured WordPress events plugin.
+
+**Why it happens:**
+Structured data is an SEO optimization, not a requirement. Small venue operators who manage their own sites are unlikely to implement it. Developers evaluate the technology (Google Event schema is well-documented) and assume adoption is widespread. They don't spot-check the actual target venues before committing to the integration.
+
+**How to avoid:**
+- Before implementing the extraction logic, manually audit the existing 26 venues: fetch each scrape source URL, look for `<script type="application/ld+json">` tags containing `"@type": "Event"`. Count how many actually have it. The number is likely 3–6.
+- Set expectations accordingly: JSON-LD extraction is a high-confidence complement for venues that have it, not a replacement for Gemini-based extraction for those that don't. It should run first (cheap, zero LLM cost) and fall through to Gemini when absent.
+- Design the scraper as a tiered pipeline: (1) check for JSON-LD Event schema and extract if present, (2) if not present, pass to Gemini. This reduces Gemini calls for venues that do have structured data.
+- Track per-source `extraction_method` in the scrape logs to measure actual JSON-LD yield over time.
+
+**Warning signs:**
+- Assuming JSON-LD extraction will "work for most sources" without auditing the target set
+- No fallback to Gemini extraction when JSON-LD is absent
+- Gemini call count not decreasing after JSON-LD extraction is added (suggests JSON-LD is rarely present)
+
+**Phase to address:**
+Phase 1 of v1.4 API integrations. Audit target sites for JSON-LD coverage before writing any extraction code. Design as a tiered fallback, not a primary strategy.
+
+---
+
+### Pitfall 26: Multi-Page Pagination Multiplies Scrape Duration and Can Hit Vercel Timeout
+
+**What goes wrong:**
+Adding pagination support means the scraper follows "next page" links to retrieve all events from a multi-page listing. A venue with 4 pages of upcoming events now requires 4 fetches and 4 Gemini calls instead of 1. With 26 venues, if half have pagination and average 3 pages each, the scrape job goes from 26 to 52+ Gemini calls. With a 4-second throttle between calls, the job duration roughly doubles — from ~110 seconds to ~220 seconds. Combined with the existing API integrations (Ticketmaster, Songkick), the daily scrape cron becomes the longest-running function in the system and approaches the Vercel 300-second limit.
+
+**Why it happens:**
+Pagination is added to existing sources without re-evaluating the total job duration budget. Each page requires an additional fetch + LLM call + throttle delay. The additive cost is not modeled before implementation. The scrape cron's `maxDuration` was set conservatively and never revisited as new features increased job complexity.
+
+**How to avoid:**
+- Set a hard cap on pages followed per source: no more than 3 pages maximum. Events beyond page 3 are typically 2+ weeks out and will be scraped on the next cycle anyway.
+- Only follow pagination if the previous page contained events within the target date window. If page 1 shows only events >30 days out, stop.
+- Process paginated sources in parallel where possible: if 3 sources need pagination, fetch their pages concurrently (with per-domain rate limiting) rather than sequentially.
+- After adding pagination, measure the full scrape job duration in staging before deploying. If duration exceeds 180 seconds (60% of the 300s limit), reduce the page cap or add parallelism.
+- Consider splitting the scrape cron into two endpoints: one for API integrations (Ticketmaster, Songkick) and one for web scraping. This allows independent `maxDuration` tuning and prevents a slow API response from blocking all venue scraping.
+
+**Warning signs:**
+- Scrape cron duration growing proportionally to the number of paginated sources
+- Vercel function logs showing jobs completing at 250+ seconds (danger zone)
+- Gemini call count in logs significantly higher than source count (ratio > 2:1 signals deep pagination)
+
+**Phase to address:**
+Phase 2 of v1.4 (multi-page scraping). Set the page cap and measure duration impact before enabling pagination for all sources.
+
+---
+
+### Pitfall 27: Rate Limiting Logic Applied at the Wrong Scope — Per-Run Instead of Per-Domain
+
+**What goes wrong:**
+Rate limiting is implemented as a global delay: every outbound request waits 2 seconds before firing, regardless of domain. This means requests to domain-A and domain-B are unnecessarily serialized — waiting 2 seconds between them even though they could be sent simultaneously without overloading either server. The scrape job takes 2× longer than necessary. Alternatively, rate limiting is applied only globally and a source with 3 paginated pages hits the same domain 3 times in rapid succession with no per-domain throttle, triggering that site's bot detection while other domains are idle.
+
+**Why it happens:**
+Global rate limiting is the simplest implementation: one sleep/delay call before every fetch. Per-domain throttling requires tracking the last-request time per domain and coordinating concurrency — more code, more state. Developers default to simple global throttling and discover its limitations when the first multi-page source gets blocked.
+
+**How to avoid:**
+- Implement per-domain rate limiting: maintain a `Map<domain, lastRequestTime>`. Before each request, check when the last request to that domain was made; if less than the minimum interval (e.g., 2 seconds for small venues, 1 second for large platforms with explicit rate limits), wait the remainder.
+- Allow concurrent requests to different domains. The limiting factor is per-domain load, not global request rate.
+- Honor `Crawl-delay` from each domain's `robots.txt` — this is the site's declared preference. Respect it even if it is longer than your default delay.
+- Add randomized jitter to delays (±500ms) to avoid creating a predictable request pattern that bot-detection systems recognize.
+- For the Ticketmaster and Songkick APIs, use their documented rate limits (5 req/sec for Ticketmaster) as the ceiling, not the floor. Stay well below to avoid consuming quota faster than necessary.
+
+**Warning signs:**
+- Scrape duration scaling linearly with total source count instead of with max per-domain source count
+- Anti-bot blocks (Cloudflare 403s, empty responses) on sources that were previously healthy
+- `robots.txt` `Crawl-delay` directive present but not read or respected in the scraper
+
+**Phase to address:**
+Phase 2 of v1.4 (rate limiting). Design per-domain throttle with a `Map` before enabling multi-page scraping — the interaction between pagination and rate limiting is where most blocking occurs.
+
+---
+
+### Pitfall 28: Scrape Quality Metrics That Measure Output Volume Instead of Output Accuracy
+
+**What goes wrong:**
+Quality metrics are implemented as counts: events extracted per source, extraction success rate (non-null response), average events per run. These metrics look healthy even when the data is wrong. A source that returns 5 plausible-looking hallucinated events scores better than a source that returns 0 events because it correctly returned null when the page was a Cloudflare block. "Events extracted" is a proxy for quality, not a measure of it. Accuracy tracking — comparing extracted data against ground truth — is missing.
+
+**Why it happens:**
+Output counts are easy to implement (count rows inserted). Accuracy requires ground truth — knowing what the correct output should be — which requires either manual verification or a comparison baseline. Building ground-truth verification feels like extra work when the system is already scraping. It gets deferred until users complain about bad data.
+
+**How to avoid:**
+- Define quality metrics that measure confidence in addition to volume:
+  - **Extraction confidence score:** Gemini returns a structured field indicating how confident it is in each extracted event (e.g., based on how complete and unambiguous the source data was). Flag low-confidence events for admin review rather than silently inserting them.
+  - **Field completeness rate:** What percentage of extracted events have all required fields (performer, date, time, venue)? A high extraction rate with low completeness means the extractor is hallucinating partial records.
+  - **False positive rate:** For sources previously verified as valid, what percentage of scrape runs return at least one event? A sudden drop signals a site change or block.
+  - **Cross-source agreement rate:** When the same event appears in both a venue scrape and Ticketmaster, do the dates and titles match? Disagreement flags extraction errors.
+- Store a `confidence_score` per scraped event. Surface low-confidence events in the admin dashboard for manual review.
+- Do not build a quality dashboard that shows only green metrics — include amber (low confidence) and red (zero events for a historically active source) states.
+
+**Warning signs:**
+- Quality dashboard shows only aggregate counts (total events, total sources) with no per-event confidence signal
+- No admin interface to review or override extracted event data
+- Quality metrics improve as more sources are added, but user-reported data errors also increase
+
+**Phase to address:**
+Phase 3 of v1.4 (quality metrics). Define what "quality" means in the schema (confidence fields) before implementing any metrics display. Metrics that cannot be acted on are vanity metrics.
+
+---
+
+### Pitfall 29: Auto-Approve Threshold Tuned Too High Misses Good Sources; Too Low Approves Junk
+
+**What goes wrong:**
+Auto-approve is configured with a confidence threshold (e.g., approve sources scoring > 0.85 from the pre-screening LLM). In practice, the LLM's confidence scores are not calibrated to this threshold — the model returns 0.7–0.9 for most plausible-looking pages regardless of whether they actually host active event listings. Sources that score 0.86 and get auto-approved turn out to be venue homepages with no events calendar, empty placeholder pages, or seasonal venues closed for the winter. The admin sees a growing list of "approved" sources returning zero events.
+
+**Why it happens:**
+LLM confidence scores are not the same as classification accuracy. A score of 0.85 from Gemini's output means the model is 85% confident in its own assessment — it does not mean there is an 85% chance the source is a valid event calendar. The threshold is set based on the score range (0–1) without empirical calibration against real outcomes. The false positive rate is unknown until the system runs in production.
+
+**How to avoid:**
+- Do not treat LLM confidence scores as directly calibrated probabilities. Instead, use the score as one input among several signals.
+- Require multiple positive signals for auto-approval, not just LLM confidence alone:
+  1. LLM says YES (the source appears to list upcoming events)
+  2. At least one event was successfully extracted from the source in a test scrape
+  3. The extracted event has a date in the future (not a past event)
+  4. The source URL does not match known non-event patterns (e.g., `/news/`, `/blog/`, `facebook.com`, `instagram.com`)
+- Set the auto-approve threshold conservatively at launch (require all 4 signals). Monitor the false positive rate for the first month. Only loosen the threshold if false positives are consistently low.
+- Auto-reject with high confidence: sources that clearly fail (no event keywords, Cloudflare block, social media login gate) should be auto-rejected without requiring admin review.
+- Always show auto-approved sources in the admin dashboard with a distinct visual marker. The admin should be able to review and reverse any auto-approval. Auto-approve is a time-saver, not a trust boundary.
+
+**Warning signs:**
+- Auto-approved sources with zero events scraped in their first 2 weeks active
+- Admin dashboard showing auto-approved sources without any reviewable confidence breakdown
+- Confidence threshold set before any empirical measurement of score distribution on real Atlantic Canada venue URLs
+
+**Phase to address:**
+Phase 4 of v1.4 (auto-approve discovery). Implement the multi-signal approval logic and admin override UI before enabling auto-approve in production. Validate against 10–20 known-good and known-bad URLs before setting the threshold.
+
+---
+
+### Pitfall 30: Cross-Source Deduplication Becomes Harder When Ticketmaster Uses Its Own Event IDs
+
+**What goes wrong:**
+Ticketmaster returns events with its own stable identifiers (`id` field, e.g., `vvG1VZKS5_S0kl`). The existing deduplication key (normalized venue name + date + performer) was designed for scraped events where no external ID exists. When Ticketmaster reports "The Trews - Halifax" with its event ID and the venue's own website also lists the same show, the dedup key fails to match because venue name spellings differ ("The Casino Nova Scotia" vs. "Casino Nova Scotia") or the performer name has slight variation ("The Trews" vs. "The Trews - An Evening With..."). Two records for the same show persist in the database.
+
+**Why it happens:**
+The existing dedup strategy was designed for a single-source world and extended incrementally as sources were added. Adding a major API source (Ticketmaster) that has authoritative event identifiers but uses different naming conventions breaks the normalized-string dedup key. The mismatch is not caught in testing because test data is fabricated to match the normalization logic.
+
+**How to avoid:**
+- Add a `ticketmaster_event_id` column to the events table. When a Ticketmaster event is ingested, store its ID. On subsequent syncs, use the Ticketmaster ID as the primary dedup key for Ticketmaster-sourced events — do not rely on name normalization.
+- When a scraped venue event and a Ticketmaster event are suspected duplicates (same venue, same date, overlapping artist names within edit distance 3), prefer the Ticketmaster record for official metadata (title, description, ticket URL) while retaining the scraped record's local context (venue-specific notes, door time vs. show time).
+- Add a `source_event_id` column (nullable) to events that can hold any external API's stable identifier. This generalizes the pattern to Songkick and future API integrations without requiring per-source columns.
+- Test deduplication with real Ticketmaster data against existing scraped events before enabling in production. Run the dedup query across the staging database and manually verify matches and non-matches.
+
+**Warning signs:**
+- Same show appearing twice in the event list after Ticketmaster integration is added
+- `ticketmaster_event_id` is not in the events schema
+- Dedup logic using only normalized string comparison with no external ID fallback
+
+**Phase to address:**
+Phase 1 of v1.4 (Ticketmaster integration). Extend the events schema and dedup logic before writing the first Ticketmaster fetch. This is a schema decision that affects all downstream phases.
+
+---
+
 ## Technical Debt Patterns
 
 | Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
@@ -555,6 +784,13 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Run discovery and scraping in one cron job | Single invocation | Combined timeout risk; can't tune independently | Never — separate endpoints |
 | Skip category backfill for existing events | Faster to ship | Old events invisible to category filters | Never — backfill is mandatory before launch |
 | Daily discovery search queries | More frequent updates | Exhausts free API quota in days | Never — weekly discovery is sufficient |
+| Global rate limiting instead of per-domain | Simpler implementation | Unnecessary serialization slows scrape; per-domain pages still hit rate limits | Never — implement per-domain from the start |
+| Pagination with no page cap | Gets all events | Multiplies Gemini calls; can exhaust daily budgets | Never — cap at 3 pages per source |
+| Skip Ticketmaster ToS review | Faster to ship | Key revocation without notice; undefined caching violation | Never — read ToS before writing first line of integration |
+| Store Ticketmaster events without source_event_id | Simpler schema | Dedup breaks; can't identify and update existing records on re-sync | Never — add source_event_id to schema before first insert |
+| LLM confidence score as sole auto-approve gate | Simple threshold logic | Uncalibrated scores cause high false positive rate | Never — require multiple independent signals |
+| Quality metrics as counts only (events extracted) | Easy to implement | Measures volume not accuracy; masks bad extractions | MVP-acceptable if confidence scoring is planned for v1.5 |
+| Treat Songkick as a required milestone deliverable | Cleaner planning | Creates hard dependency on uncontrollable external approval | Never — mark as optional with fallback plan |
 
 ---
 
@@ -578,6 +814,14 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Gemini for categorization | Separate categorization API call after extraction | Add `category` field to extraction schema — one call does both |
 | Vercel maxDuration | Leave at 60s for discovery job | Update to 300s and confirm Fluid Compute is enabled; separate discovery endpoint |
 | Discovery → scrape_sources | Write all discovered URLs directly to scrape_sources | Stage in `discovery_candidates`, quality-gate before promotion |
+| Ticketmaster Discovery API | Paginate broadly without geographic filters | Use countryCode + stateCode + date window; cache responses; monitor daily quota |
+| Ticketmaster ToS | Treat event data as first-class DB records with unlimited retention | Mark source, set TTL, display attribution, link back to Ticketmaster |
+| Songkick API | Treat as guaranteed integration | Apply immediately; treat as optional with fallback to Bandsintown |
+| Google Events JSON-LD | Assume widespread adoption in Atlantic Canada venue sites | Audit target sites first; expect 20% coverage; build as tiered fallback before Gemini |
+| Multi-page scraping | Follow all pages without a cap | Limit to 3 pages per source; stop early if events are beyond 30-day window |
+| Rate limiting | Apply global per-request delay | Implement per-domain throttle with last-request-time tracking per domain |
+| Auto-approve threshold | Single LLM confidence score | Require multiple independent signals: LLM YES + successful test extraction + future date |
+| Cross-source deduplication | Rely on normalized string matching for API sources | Use external API's stable event ID as primary dedup key; string match as fallback |
 
 ---
 
@@ -598,6 +842,9 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Two LLM calls per source (extract + categorize) | Scrape cron 2× longer; API cost doubles | Combine categorization into extraction schema | Immediately — doubles cost from day one |
 | Discovery + scraping in one cron invocation | Combined time exceeds maxDuration | Separate `/api/cron/discover` and `/api/cron/scrape` | At 10+ discovery candidates + 26 scrape sources |
 | Evaluating all discovered candidates in one batch | Discovery cron times out | Cap candidates evaluated per run (e.g., 10/run) | At ~15+ candidates with 4s LLM throttle |
+| Global rate limiting instead of per-domain | Scrape job takes 2× longer than necessary | Per-domain `Map<domain, lastRequestTime>` with concurrent cross-domain requests | Immediately — all sources serialized unnecessarily |
+| No pagination page cap | Multi-page sources consume unbounded Gemini calls | Hard cap at 3 pages per source; stop if events are outside date window | At first source with 5+ pages of events |
+| Ticketmaster requests without geographic filters | Daily quota exhausted in one run | Always pass countryCode + stateCode + startDateTime/endDateTime | On first production run without filters |
 
 ---
 
@@ -610,6 +857,9 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | No rate limiting on outbound scraper requests | IP ban risk; could be construed as DoS | Enforce minimum 2-second delay per domain; honor `Crawl-delay` |
 | No validation of LLM output before DB insert | Malformed strings breaking queries or display | Validate all extracted fields against schema; reject null dates |
 | Discovery scraping sites that block AI crawlers | Cloudflare AI crawler block; potential legal risk | Check `robots.txt` `User-agent: *` and `User-agent: GPTBot` disallow rules before fetching |
+| Ticketmaster API key committed to git | Key revocation; ToS violation; potential billing abuse by third parties | Store in Vercel env vars only; audit git history for accidental commits |
+| Caching Ticketmaster data beyond "reasonable" periods | ToS violation; potential key revocation without notice | Implement TTL on Ticketmaster-sourced events; re-fetch on next cron cycle |
+| Auto-approving sources without admin override capability | Bad actors could submit URLs for approval (if discovery pipeline is ever exposed); approved junk inflates event counts | Auto-approve is never final without admin visibility; always expose approved sources in admin UI with revocation |
 
 ---
 
@@ -631,6 +881,9 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Category filter shows "Other" as dominant category | Users can't find specific event types | Review taxonomy; common event types should be first-class categories, not "other" |
 | Category filter shows too many options (10+) | Filter UI becomes overwhelming | Keep taxonomy to 6–8 categories; "other" is a catch-all |
 | Events with null category invisible to category filter | Users miss real events | Show uncategorized events under "All" but exclude from specific category filters, or default to "other" |
+| Ticketmaster events displayed without ticket link | Users can't act on the discovery | Always include the Ticketmaster `url` field; link "Get Tickets" to the Ticketmaster event page |
+| Quality score shown to users | Confuses users; implies uncertainty about all data | Quality/confidence metrics are admin-only; public view shows only verified events |
+| Auto-approved source with 0 events shown on live site | Broken-looking empty venue in the list | Auto-approved sources do a test scrape before going live; suppress in public view if no events extracted |
 
 ---
 
@@ -668,6 +921,24 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 - [ ] **Search API budget:** Discovery job does not exhaust daily search API quota — test a full weekly discovery batch manually and count queries used
 - [ ] **Separate cron endpoints:** `/api/cron/discover` and `/api/cron/scrape` are independent routes with independent `maxDuration` settings
 
+**v1.4 API Integrations, Multi-Page, Rate Limiting, Quality Metrics, Auto-Approve:**
+- [ ] **Ticketmaster schema:** Events table has `source`, `source_event_id`, and TTL field before first Ticketmaster event is inserted
+- [ ] **Ticketmaster dedup:** Re-syncing Ticketmaster updates an existing record rather than inserting a duplicate — verify with a known event fetched twice
+- [ ] **Ticketmaster attribution:** Every event sourced from Ticketmaster displays "via Ticketmaster" with a link to the source event page
+- [ ] **Ticketmaster quota:** Daily API call count logged; alert fires before 4,000/5,000 quota is reached
+- [ ] **Songkick contingency:** If no API key by integration phase start, Songkick is skipped and milestone ships without it — fallback plan documented
+- [ ] **JSON-LD audit:** At least 20 of 26 existing scrape sources have been manually checked for `<script type="application/ld+json">` Event schema — coverage count documented
+- [ ] **JSON-LD fallback:** Scraper falls through to Gemini extraction when JSON-LD is absent — test with a source known to have no structured data
+- [ ] **Pagination cap:** No scrape source follows more than 3 pages — verify in scrape logs that page count never exceeds 3
+- [ ] **Scrape duration:** Full scrape cron with pagination and API integrations completes in under 240 seconds — measure in staging before deploying
+- [ ] **Per-domain rate limiting:** Two pages from the same domain are not fetched less than 2 seconds apart — verify with scrape timing logs
+- [ ] **robots.txt compliance:** Crawl-delay directive read and respected for each scrape source — add to scraper initialization
+- [ ] **Quality confidence field:** `confidence_score` column exists on events table and is populated by Gemini extraction
+- [ ] **Admin quality view:** Low-confidence events (score < 0.7) are surfaced in admin dashboard for review — not silently accepted
+- [ ] **Auto-approve multi-signal:** Auto-approved sources satisfy all 4 conditions (LLM YES + test extraction succeeded + future event date + no known junk URL pattern)
+- [ ] **Auto-approve override:** Admin can see and revoke any auto-approved source from the dashboard — test revocation flow
+- [ ] **False positive rate:** First 20 auto-approved sources reviewed manually after 2 weeks; false positive rate documented before adjusting threshold
+
 ---
 
 ## Recovery Strategies
@@ -693,6 +964,13 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Discovery cron timeout | LOW | Reduce batch size per run; update `maxDuration`; split into separate endpoint |
 | Uncategorized events after schema migration | MEDIUM | Run backfill script in batches with delay; verify zero null categories before announcing feature |
 | Search API quota exhausted | LOW | Switch to weekly schedule; reduce query count per run; evaluate Tavily as alternative |
+| Ticketmaster daily quota exhausted | LOW | Add geographic filters and date window; reduce pagination depth; cache responses; wait until next calendar day |
+| Ticketmaster ToS violation discovered post-launch | HIGH | Immediately add TTL on stored events; add attribution; contact Ticketmaster developer support proactively |
+| Songkick API not approved | LOW | Skip Songkick; ship milestone with Ticketmaster + Google Events; revisit in v1.5 |
+| JSON-LD extraction yielding near-zero events | LOW | Confirm via audit; adjust implementation to treat as optional complement; ensure Gemini fallback is working |
+| Scrape job timing out after pagination added | MEDIUM | Reduce page cap to 2; implement per-domain parallelism; split API and scrape crons |
+| Auto-approve false positives accumulating | MEDIUM | Raise confidence threshold; add test-extraction requirement; manually disable bad sources; review and recalibrate thresholds |
+| Duplicate Ticketmaster events in DB | MEDIUM | Add `source_event_id` column; write migration to deduplicate by Ticketmaster ID; update ingestion to upsert on ID |
 
 ---
 
@@ -723,6 +1001,16 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 | Discovery cron timeout | v1.2 Phase: Discovery pipeline | Discovery cron completes under 300s; separate endpoint with correct maxDuration |
 | Category backfill not completed | v1.2 Phase: Categorization | Zero null categories in production before feature launch |
 | Search API quota exhaustion | v1.2 Phase: Discovery pipeline | Manual test of full query set counts total queries; weekly schedule verified |
+| Ticketmaster schema missing source_event_id | v1.4 Phase 1: Ticketmaster integration | Events table has `source_event_id`; dedup uses ID not name normalization |
+| Ticketmaster daily quota exhaustion | v1.4 Phase 1: Ticketmaster integration | Staging run with full geographic filters measures actual call count per run |
+| Ticketmaster ToS non-compliance | v1.4 Phase 1: Ticketmaster integration | Attribution visible on every Ticketmaster event; TTL enforced in DB |
+| Songkick API access stall | v1.4 Phase 0: Apply immediately | Application submitted day 1; fallback plan documented |
+| JSON-LD low coverage in Atlantic Canada | v1.4 Phase 1: JSON-LD extraction | Manual audit of 26 sources complete; coverage percentage documented before code is written |
+| Multi-page scrape timeout | v1.4 Phase 2: Pagination | Full scrape cron with pagination measures under 240s in staging |
+| Per-request global rate limiting | v1.4 Phase 2: Rate limiting | Per-domain throttle implemented; same-domain requests spaced ≥2s; cross-domain concurrent |
+| Scrape quality metrics as vanity counts | v1.4 Phase 3: Quality metrics | Confidence score stored per event; low-confidence events visible in admin dashboard |
+| Auto-approve false positives | v1.4 Phase 4: Auto-approve | Multi-signal gate implemented; first 20 auto-approvals reviewed manually after 2 weeks |
+| Cross-source dedup failure with API events | v1.4 Phase 1: Schema design | Re-sync of same Ticketmaster event produces update not insert; verified in staging |
 
 ---
 
@@ -763,6 +1051,23 @@ Discovery pipeline phase. Confirm search API choice, limits, and query budget be
 - [How to Solve Next.js Timeouts — Inngest Blog](https://www.inngest.com/blog/how-to-solve-nextjs-timeouts) — splitting cron jobs into smaller invocations
 - [Event Data Scraping Architecture Guide — GroupBWT](https://groupbwt.com/blog/events-data-scraping/) — source quality filtering and deduplication patterns
 
+**v1.4 API Integrations, Multi-Page, Rate Limiting, Quality Metrics, Auto-Approve:**
+- [Ticketmaster Discovery API — Developer Portal](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — rate limits (5 req/sec, 5,000/day), pagination constraints, geographic filter parameters
+- [Ticketmaster Terms of Use — Developer Portal](https://developer.ticketmaster.com/support/terms-of-use/) — caching restrictions ("reasonable periods"), attribution requirements, commercial use prohibition
+- [Ticketmaster FAQs — Developer Portal](https://developer.ticketmaster.com/support/faq/) — quota structure; Discovery Feed alternative for high-volume use
+- [Songkick Developer Portal — Getting Started](https://www.songkick.com/developer/getting-started) — application process; API key required; access gated by approval
+- [Songkick API — Access Support Article](https://support.songkick.com/hc/en-us/articles/360012423194-Access-the-Songkick-API) — "currently making changes and improvements; unable to process new applications"
+- [Songkick API Google Groups](https://groups.google.com/g/songkick-api) — community discussion of key application stalls and status
+- [Google Event Structured Data — Search Central](https://developers.google.com/search/docs/appearance/structured-data/event) — required/recommended fields; JSON-LD format; validation via Rich Results Test
+- [Common Structured Data Pitfalls — Lumar](https://www.lumar.io/blog/best-practice/common-structured-data-pitfalls-and-how-to-avoid-them/) — midnight default time errors, syntax parsing failures, content mismatch issues
+- [Web Scraping Rate Limiting — Scrape.do](https://scrape.do/blog/web-scraping-rate-limit/) — per-domain throttling; randomized delay patterns; backoff strategies
+- [Avoiding IP Bans — affinco.com](https://affinco.com/avoid-ip-bans-scraping/) — user-agent rotation; session management; request pacing
+- [Vercel Functions Timeout — Knowledge Base](https://vercel.com/kb/guide/what-can-i-do-about-vercel-serverless-functions-timing-out) — Hobby plan limits; Fluid Compute extension
+- [Confidence Threshold Calibration — Conifers AI](https://www.conifers.ai/glossary/confidence-threshold-calibration) — LLM score calibration; precision-recall tradeoffs for auto-approve thresholds
+- [Zero False Positives in Deep Learning — Scylla](https://www.scylla.ai/zero-false-positives-in-deep-learning-an-achievable-goal%E2%80%94but-one-that-could-easily-backfire/) — risks of over-optimization on false positive elimination
+- [LLM Evaluation Metrics — Confident AI](https://www.confident-ai.com/blog/llm-evaluation-metrics-everything-you-need-for-llm-evaluation) — field-level confidence scoring; hallucination detection patterns
+- [Neon Postgres Connection Pooling](https://neon.com/docs/connect/connection-pooling) — PgBouncer transaction mode; connection limits per project; serverless function connection patterns
+
 ---
-*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition + v1.2 discovery/categorization addition*
-*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1) · 2026-03-14 (v1.2)*
+*Pitfalls research for: East Coast Local — v1.0 scraping/map + v1.1 heatmap timelapse addition + v1.2 discovery/categorization addition + v1.4 API integrations/multi-page/rate limiting/quality metrics/auto-approve addition*
+*Researched: 2026-03-13 (v1.0) · 2026-03-14 (v1.1) · 2026-03-14 (v1.2) · 2026-03-15 (v1.4)*

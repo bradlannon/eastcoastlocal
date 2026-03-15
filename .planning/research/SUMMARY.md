@@ -1,19 +1,20 @@
 # Project Research Summary
 
-**Project:** East Coast Local — Atlantic Canada Event Discovery App
-**Domain:** Regional event discovery platform with AI-powered scraping, interactive map, heatmap timelapse, automated source discovery, and event categorization
-**Researched:** 2026-03-13 (v1.0 baseline) / 2026-03-14 (v1.1 heatmap timelapse, v1.2 discovery + categorization)
-**Confidence:** HIGH (stack, architecture, pitfalls), MEDIUM (automated venue discovery approach)
+**Project:** East Coast Local — Atlantic Canada Events Discovery Platform
+**Domain:** AI-powered event aggregation with web scraping, API integrations, and interactive map
+**Researched:** 2026-03-13 (v1.0 baseline) / 2026-03-14 (v1.1 heatmap, v1.2 discovery + categorization) / 2026-03-15 (v1.4 API integrations + scraping improvements)
+**Milestone:** v1.4 — Platform Integrations and Scraping Improvements (current build target)
+**Confidence:** HIGH (stack, architecture, pitfalls), MEDIUM (automated venue discovery yield), MEDIUM (auto-approve heuristic calibration)
 
 ---
 
 ## Executive Summary
 
-East Coast Local is a serverless Next.js app that aggregates local event listings across Atlantic Canada (NB, NS, PEI, NL) via AI-powered web scraping, displays them on an interactive Leaflet map with pin-cluster and heatmap timelapse modes, and — in the v1.2 milestone — automatically discovers new venue sources and categorizes events by type. The project is already at v1.1 with 26 scraped venue sources, a working pin-cluster map, heatmap timelapse mode, and date/province filters in place. This research synthesizes all three milestone layers (v1.0 core, v1.1 heatmap, v1.2 discovery + categorization) with emphasis on v1.2, which is the current build target.
+East Coast Local is a deployed Next.js application aggregating local event listings across Atlantic Canada via AI-powered web scraping, displaying them on an interactive Leaflet map with pin-cluster and heatmap timelapse modes. As of v1.3, the platform scrapes 26 venues, integrates Eventbrite and Bandsintown APIs, runs automated source discovery, and categorizes events across 8 types. The v1.4 milestone extends this foundation with higher-coverage data (Ticketmaster for major ticketed venues), improved scraping reliability (multi-page support, rate limiting), lower extraction cost (Google Events JSON-LD fast-path), operational visibility (scrape quality metrics), and reduced admin burden (auto-approve for high-confidence discovered sources).
 
-The recommended v1.2 approach is additive and non-breaking. It extends the existing Gemini extraction schema with a `category` enum field (adding classification to the same Gemini call, not a second pass), introduces a `discovered_sources` staging table as a quality gate before new venues enter the active scrape queue, and adds a second daily discovery cron that runs independently from the existing scrape cron. The category filter UI follows the established nuqs URL-state pattern applied client-side. No new npm packages are required — all v1.2 features extend existing infrastructure.
+The recommended v1.4 approach is a dependency-ordered build sequence: schema migration first (all new columns on existing tables, one Drizzle migration), then fetch pipeline improvements (rate limiting, multi-page, JSON-LD — these improve the 26 existing sources immediately), then quality metrics instrumentation, and finally Ticketmaster integration and auto-approve discovery. All schema changes are additive. The existing `source_type` dispatch pattern in `orchestrator.ts` is the well-established extension point — every new API integration follows it without touching existing handlers. Songkick is explicitly excluded: it requires a paid commercial partnership at $500+/month, confirmed at the developer portal on 2026-03-15. Ticketmaster's free Discovery API covers the same Atlantic Canada concert inventory.
 
-The primary risks are discovery quality (search results returning irrelevant pages that swamp the scrape queue) and LLM category drift (model returning labels outside the defined taxonomy). Both are solved architecturally: a `discovered_sources` staging table with a pre-screening quality gate prevents junk sources from reaching the scrape queue, and a closed `z.enum()` Zod constraint passed to `generateObject()` forces Gemini to produce only valid category values. The most critical implementation constraint is that the DB migration adding `event_category` and `discovered_sources` must ship first — everything else in v1.2 depends on it.
+The binding architectural constraint throughout v1.4 is the Vercel 60-second function timeout (extendable to 300s with Fluid Compute). Multi-page scraping is the highest-risk addition: each additional page requires a fetch plus Gemini call plus throttle delay, and adding pagination to half of the 26 sources can push job duration from ~110s to ~220s. The mitigation is a hard 3-page cap enforced in code (not configuration), per-domain rate limiting (not global delays), and monitoring `consecutive_failures` to detect sources timing out silently. A secondary risk is Ticketmaster ToS compliance: events must carry `source=ticketmaster` attribution, link back to the TM event page, and be treated as ephemeral (refreshed daily) rather than accumulated indefinitely.
 
 ---
 
@@ -21,197 +22,166 @@ The primary risks are discovery quality (search results returning irrelevant pag
 
 ### Recommended Stack
 
-The core stack (Next.js 16 + Neon Postgres + Drizzle ORM + Vercel AI SDK + Gemini + react-leaflet) is already in production. V1.2 requires no new npm packages. Venue discovery uses the Gemini API's native Google Search grounding feature (`useSearchGrounding: true` in `@ai-sdk/google`) — no additional search API or key required. Category filtering extends the existing `nuqs` URL-state pattern. Google Places API (New) and Ticketmaster Discovery API are available as REST endpoints via raw `fetch()` for supplemental venue discovery if Gemini grounding proves insufficient.
+The core stack is already in production and requires no changes for v1.4. No new npm packages are needed. Ticketmaster uses raw `fetch()`. Google JSON-LD parsing uses the existing `cheerio` dependency.
 
-**Core technologies:**
-- **Next.js 16 + Vercel:** Full-stack framework — cron jobs, API routes, ISR, zero-config CI/CD; Fluid Compute now default on all plans (Hobby max duration 300s, not 60s)
-- **Neon Postgres + Drizzle ORM 0.39.x:** Serverless Postgres with sub-500ms cold starts; TypeScript-first schema inference; pgEnum must be exported to appear in migrations (confirmed bug #5174)
-- **Vercel AI SDK 5.x + Gemini 2.5 Flash:** `generateObject()` with Zod schemas; `useSearchGrounding` enables web-search-backed venue discovery with no extra credentials
-- **react-leaflet 5.x + react-leaflet-cluster + leaflet.heat:** Pin cluster map and canvas heatmap; custom `useMap()` hook components (no wrapper libraries)
-- **nuqs 2:** URL-persistent filter state for date, province, and category — `parseAsArrayOf(parseAsStringLiteral(...))` for multi-select category filter
-- **cheerio 1.x + date-fns 4.x:** HTML preprocessing (10–25x token reduction) and timezone-aware date normalization (AST/ADT)
-- **Tailwind CSS 4.x + shadcn/ui:** Styling and UI components — filter chip badges, event cards, detail pages
+**Core technologies (existing, all correct for v1.4):**
+- **Next.js 16.x**: Full-stack framework — Vercel-native cron, App Router Server Components, Fluid Compute (Hobby max duration 300s with Fluid Compute enabled)
+- **Neon Postgres + Drizzle ORM 0.39.x**: Serverless Postgres; 7.4KB bundle vs Prisma's 40KB; critical for Vercel cold start performance
+- **Vercel AI SDK 5.x + Gemini**: Provider-agnostic `generateObject()` with Zod schemas; fallback path when JSON-LD is absent
+- **cheerio 1.x**: HTML parsing — used for JSON-LD `<script>` block extraction and static HTML preprocessing
+- **leaflet.heat 0.2.0**: Canvas heatmap for timelapse mode (v1.1 feature, already deployed)
+- **nuqs 2**: URL-persistent filter state for date, province, and category filters
 
-**Critical version constraints:**
-- `react-leaflet@5.x` is incompatible with `leaflet@2.x` — pin to `leaflet@1.9.x`
+**New dependency for v1.4:** None.
+
+**Critical version constraints carried forward:**
+- `react-leaflet@5.x` incompatible with `leaflet@2.x` — pin to `leaflet@1.9.x`
 - `ai@5.x` has breaking changes from v4 — do not mix versions
-- Export all Drizzle `pgEnum` definitions; silently omitted from generated migrations otherwise (confirmed open bug #5174)
-- `leaflet.heat` must only be imported inside a `useEffect` (never at module top level) or within a second `dynamic(..., { ssr: false })` boundary — it patches `window.L` at evaluation time
+- Export all Drizzle `pgEnum` definitions — confirmed open bug #5174, silently omitted from migration SQL otherwise
+- `leaflet.heat` must only be imported inside `useEffect` or within a second `dynamic(..., { ssr: false })` boundary
 
-**Discovery APIs available (no new npm packages):**
-- Gemini + Google Search grounding: existing `@ai-sdk/google` key, structured venue URL lists from web search
-- Google Places API (New): raw `fetch()`, `GOOGLE_PLACES_API_KEY`; 5,000 free Pro SKU calls/month post-March 2025
-- Ticketmaster Discovery API: raw `fetch()`, free, 5,000 calls/day; returns structured event data for Ticketmaster-listed events
+See `.planning/research/STACK.md` for full alternatives matrix and version compatibility notes.
 
 ### Expected Features
 
-The v1.2 milestone is additive on an existing, deployed app. The scope is bounded.
+**Must have for v1.4 launch (P1):**
+- **Ticketmaster Discovery API** — Major Atlantic Canada venues (Scotiabank Centre Halifax, Avenir Centre Moncton) list events exclusively through TM; users notice these gaps. Free API, 5000 calls/day, 4 province queries/day is trivial against quota.
+- **Multi-page scraping** — Current scraper silently drops events on pages 2+. Hard cap at 3 pages in code (not config) to stay within Vercel timeout.
+- **Rate limiting** — Operational reliability: per-domain delay (2–5s jitter), Retry-After header handling, exponential backoff (2 retries). Pairs with multi-page support — build together.
+- **Google Events JSON-LD extraction** — Pre-pass before Gemini: deterministic extraction for venues that embed `schema.org/Event` markup. Reduces Gemini calls. Tiered fallback (JSON-LD → Gemini) is the correct architecture.
 
-**Must have (table stakes for v1.2 — missing these makes the milestone incomplete):**
-- Category filter chips — horizontal chip row with "All" default and 8 category options; users expect this the moment events span music, comedy, theatre, and community
-- Stable 8-category taxonomy (`live_music`, `comedy`, `theatre`, `festival`, `community`, `arts`, `sports`, `other`) — hard-coded enum, LLM-constrained, not free-form tags
-- Category badge on event cards and detail pages — categories are meaningless if not surfaced on events
-- New sources discovered and appearing without code changes — this is the milestone promise; requiring manual seeding defeats the feature
-- "All" / clear filter option — no filter-chip UI ships without it
+**Should have for v1.4 (P2, add when P1 is stable):**
+- **Scrape quality metrics** — Per-source tracking of `last_event_count`, `avg_confidence`, `consecutive_failures`, `total_scrapes`, `total_events_extracted` on `scrape_sources`. Admin dashboard surfaces health signals. High complexity (pipeline instrumentation + schema + UI).
+- **Auto-approve high-confidence sources** — Score discovered candidates; auto-promote those scoring >= 0.8 (configurable env var). Reduces admin review queue. Medium complexity; reuses existing `promoteSource()` unchanged.
 
-**Should have (differentiators):**
-- AI-assigned categories at extraction time via extended `ExtractedEventSchema` — same Gemini call, zero extra cost
-- Automatic venue discovery via Gemini Google Search Grounding — scoped to Atlantic Canada cities, candidates staged in `discovered_sources` for review
-- Human review gate before new sources go live — `pending_review` status prevents junk from hitting the scrape queue and burning Gemini quota
+**Defer to v1.4.x / v2+:**
+- TM venue deduplication cleanup (after first run identifies merge candidates)
+- Quality metric alerting (email/log on consecutive failure threshold)
+- JavaScript-rendered site scraping (requires self-hosted Playwright — blocked on Vercel Hobby 50MB function limit)
+- SeatGeek API (viable Songkick alternative if concert coverage gaps emerge post-TM)
 
-**Defer to v1.2.x / v2+:**
-- Multi-select category filter (single-select sufficient for v1.2 launch)
-- Category-aware heatmap mode
-- Full auto-approval for high-confidence discovered sources
-- Category subcategories (Jazz, Celtic under Live Music) — only valuable at higher event volume
-- User-submitted venues — requires moderation infrastructure explicitly out of scope
-- Discovery coverage reporting
+**Anti-features (do not build):**
+- Songkick API — commercial license required, confirmed hobbyist access rejected
+- Unlimited pagination — will cause Vercel timeout; hard cap at 3 pages
+- Real-time Ticketmaster sync — 5000 call/day quota exhausted by per-request user traffic
+- Headless browser on Vercel — 50MB function limit blocks Playwright/Puppeteer
+
+See `.planning/research/FEATURES.md` for full API behavior details, dependency graph, and scrape quality metrics design.
 
 ### Architecture Approach
 
-V1.2 adds two concerns to the existing pipeline at well-defined seams. The existing scrape cron, `/api/events` route, `EventList`, and map components require minimal modification. The `event_category` column flows through automatically via `db.select()` (returns all columns) and Drizzle's `InferSelectModel`.
+V1.4 extends the existing `source_type` dispatch pattern without structural changes. `orchestrator.ts` dispatches on `scrape_sources.source_type`; every new integration adds a handler module plus an `else if` branch. The most significant interface change in v1.4 is `fetcher.ts` returning `{ text: string; rawHtml: string }` instead of `string`, enabling the JSON-LD pre-pass. All schema changes are additive — new columns with defaults on existing tables, one migration file.
 
-**Major components (v1.2 additions and modifications):**
+**Major components (v1.4 target state):**
+1. **`orchestrator.ts`** — Source dispatch, HTTP throttle between venue_website sources, quality metric writes on success/failure paths
+2. **`fetcher.ts`** — Rate-limited HTTP fetch with `fetchWithRetry()`, multi-page loop (3-page hard cap), returns `{ text, rawHtml }`
+3. **`json-ld.ts`** (new) — Parse `<script type="application/ld+json">` for `@type: "Event"`; confidence = 1.0 (deterministic); falls through to Gemini when absent
+4. **`ticketmaster.ts`** (new) — TM Discovery API handler: 4 province-scoped requests per cron run, venue find-or-create (ILIKE match on name + city), map TM `classifications` to 8-category enum, `upsertEvent()`
+5. **`discovery-orchestrator.ts`** (modified) — Existing discovery pipeline + scoring pass + auto-promote for candidates scoring >= 0.8
+6. **`schema.ts`** (modified) — 5 new columns on `scrape_sources`, 1 new column on `discovered_sources`; one Drizzle migration covers all
 
-1. **`discovered_sources` table (NEW)** — staging area for candidate venues found by discovery; `status: pending | approved | rejected | duplicate`; deduplication gate before promotion to `scrape_sources`
-2. **Discovery pipeline (NEW)** — `/api/cron/discover` at 04:00 UTC; `discovery-orchestrator.ts` iterates Atlantic Canada cities; `discoverer.ts` calls Gemini with Google Search grounding; deduplicates against existing sources by domain; inserts to `discovered_sources`
-3. **Promotion mechanism (NEW)** — script or minimal admin endpoint; moves approved `discovered_sources` rows to `venues` + `scrape_sources`; explicit gate for quality control
-4. **Extended `ExtractedEventSchema` (MODIFIED)** — adds `event_category: z.enum([...]).nullable()` to the existing Zod schema; extractor prompt updated to remove "live music only" constraint and add category classification instruction
-5. **`normalizer.ts` (MODIFIED)** — writes `event_category` in INSERT values and ON CONFLICT SET (enables backfill on re-scrape)
-6. **Category filter (MODIFIED)** — new `?category=` nuqs param in `EventFilters.tsx`; `filterByCategory()` utility applied in `HomeContent` filter chain to both sidebar and map layer (both must receive the same filtered set)
+**Key patterns:**
+- **Source type dispatch** — new API source = new `source_type` value + handler module + `else if` in orchestrator
+- **Fast path before AI fallback** — JSON-LD first (zero LLM cost), Gemini only when absent; short-circuit if JSON-LD events found (never merge both)
+- **Synthetic URL as config carrier** — `ticketmaster:province:NB` decoded by handler (precedent: `eventbrite:org:12345`, `bandsintown:artist:name`)
+- **Additive schema only** — no destructive migrations on production data; all new columns have safe defaults
 
-**Build order (strict dependency sequence):**
-1. DB migration — `event_category` column on `events`, `discovered_sources` table (prerequisite for everything)
-2. `ExtractedEventSchema` extension + `extractor.ts` prompt update (parallelizable with step 6)
-3. `normalizer.ts` write of `event_category` (depends on steps 1 + 2)
-4. `filterByCategory()` utility (pure function, no deps — can be done anytime)
-5. `EventFilters.tsx` + `HomeContent` category filter wiring (depends on step 4)
-6. `discoverer.ts` + `discovery-orchestrator.ts` (depends on step 1 for `discovered_sources` table; independent of steps 2–5)
-7. `/api/cron/discover` route + `vercel.json` cron entry (depends on step 6)
-8. Promotion mechanism (depends on step 7 having produced real `discovered_sources` data)
+**Build order (dependency-aware, from ARCHITECTURE.md):**
+1. Schema migration (prerequisite for all metric/score writes)
+2. Rate limiting (no schema deps, validates independently)
+3. Multi-page support (depends on schema for `max_pages` column; changes `fetcher.ts` return type)
+4. JSON-LD extraction (depends on Step 3 for `rawHtml` return)
+5. Scrape quality metrics (depends on schema; can run in parallel with Steps 2–4)
+6. Ticketmaster integration (benefits from stable, instrumented pipeline; should be last)
+7. Auto-approve discovery (depends on schema for `discovery_score`; independent of Steps 2–6)
+
+See `.planning/research/ARCHITECTURE.md` for full data flow diagrams, exact code-level interfaces, and anti-patterns to avoid.
 
 ### Critical Pitfalls
 
-**v1.2 — Discovery and categorization (top priority for this milestone):**
+**v1.4 — highest priority for this milestone:**
 
-1. **Discovery pulls irrelevant pages that swamp the scrape queue** — Use `discovered_sources` staging table; pre-screen candidates with keyword check before any Gemini call; run a single Gemini Flash-Lite YES/NO call ("does this page list upcoming events with specific dates?") before promoting; cap discovery batch at 10 candidates per cron run regardless of search result count.
+1. **Multi-page scraping breaches Vercel timeout** — Each page = additional fetch + Gemini call + throttle delay. With 26 sources, half with pagination averaging 3 pages, job duration roughly doubles to 220s. Prevention: hard cap at 3 pages in code (`Math.min(options?.maxPages ?? 1, 3)`), measure scrape duration in staging before deploying, consider splitting API integrations and web scraping into separate cron endpoints.
 
-2. **AI category labels drift across scrape runs** — Enforce the taxonomy via `z.enum([...])` in the Zod schema passed to `generateObject()`; validate returned category against allowlist post-extraction; map any invalid value to `'other'`; store slugs in DB, resolve to display labels in the frontend only.
+2. **Ticketmaster ToS requires attribution and TTL** — Events stored without `source=ticketmaster` flag or without link back to TM event page violates Terms of Use; key revocation is without notice. Prevention: mark all TM events with source column, display "via Ticketmaster" attribution, implement refresh TTL (re-fetch daily) rather than indefinite accumulation.
 
-3. **Categorization added as a separate Gemini call** — Add `event_category` to `ExtractedEventSchema`; extract and classify in the same call. A separate categorization pass doubles Gemini call count, doubles scrape duration, and risks Vercel function timeout.
+3. **Ticketmaster daily quota exhausted by naive pagination** — Fetching broadly by country and filtering client-side can exhaust 5000 calls/day in one run. Prevention: always filter by `countryCode=CA` + province `stateCode`, limit date window to 30 days, log running call count and alert at 80% quota (4000/5000).
 
-4. **Drizzle `pgEnum` not exported from schema file** — Confirmed open bug (#5174): `pgEnum` not exported from `schema.ts` is silently omitted from migration SQL, causing deploy-time "type does not exist" failure. Always `export const` every enum.
+4. **Rate limiting applied globally instead of per-domain** — Global delays serialize requests to different domains unnecessarily while still allowing rapid-fire hits to the same domain across paginated pages. Prevention: `Map<domain, lastRequestTime>` per-domain throttle; allow concurrent requests across different domains; add ±500ms jitter.
 
-5. **Discovery cron hitting function timeout** — Use a separate `/api/cron/discover` route with `export const maxDuration = 300`. Confirm Fluid Compute is enabled in Vercel project settings. Do not reuse the existing scrape cron. The existing `maxDuration = 60` in the scrape cron was set before Fluid Compute and is artificially conservative — update it, but keep the routes separate.
+5. **Songkick access is gated behind a paid commercial partnership** — Confirmed as of 2026-03-15: $500+/month license required, hobbyist/indie access rejected. Do not build. Ticketmaster + Bandsintown (already integrated) cover the same Atlantic Canada concert use cases.
 
-6. **Existing events have null category after migration** — Plan a one-time backfill script as part of the Phase 2 deliverable. Run it immediately after migration deploys, before the feature is announced. Without it, category filter returns zero results until the next scrape cycle.
+6. **JSON-LD extraction covers fewer than 20% of Atlantic Canada venues** — Small venues using basic WordPress or hand-coded HTML rarely implement schema.org markup. Prevention: audit the existing 26 venues for JSON-LD presence before scoping (expected: 3–6 out of 26), design as tiered fallback not primary strategy, never merge JSON-LD and Gemini results for the same source (causes duplicate events with conflicting confidence scores).
 
-7. **Duplicate venues discovered from multiple search queries** — Dedup at candidate insertion: extract and normalize the domain from each discovered URL; check if a venue with that domain already exists in `venues` table; if yes, link to existing venue instead of creating a duplicate. Add unique constraint on `venues.website` domain.
+7. **Auto-approve threshold too low floods the scrape pipeline** — Setting threshold to 0.5 promotes aggregator pages, social profiles, and irrelevant sites that fail scraping, waste Gemini quota, and increment `consecutive_failures`. Prevention: keep threshold at 0.8; apply URL penalties in scoring heuristic (penalize `/events/`, `/tickets/` paths; heavily penalize `facebook.com`, `instagram.com`, `eventbrite.com` hostnames).
 
-8. **Map and sidebar showing different filtered sets after category filter** — Apply `filterByCategory()` to both `sidebarEvents` and the events passed to `MapClientWrapper`. Derive `mapEvents = filterByCategory(allEvents, category)` separately. Map and sidebar must always show the same filtered set.
+**v1.0–v1.2 pitfalls — still relevant, not resolved by v1.4 work:**
 
-**v1.0/v1.1 — still relevant (not resolved by v1.2 work):**
+8. **LLM hallucinates dates and times** — Preserve "return null, do not infer or guess" discipline through any prompt updates. Adding new event types in v1.2 expanded prompt scope; validate updated prompts against real venue HTML before deploying.
 
-9. **LLM hallucinates dates and times** — The v1.2 extractor prompt update must preserve the "return null, do not infer or guess" discipline. Removing the "live music only" constraint expands scope — re-validate that the updated prompt still produces null for ambiguous dates, not guesses.
+9. **Leaflet.heat SSR build failure** — `import 'leaflet.heat'` at module top level causes `next build` failure even within `dynamic(..., { ssr: false })`. Always import inside `useEffect` or within a nested `dynamic()` boundary. Test with `next build && next start` after any HeatLayer change.
 
-10. **Leaflet.heat SSR build failure** — `import 'leaflet.heat'` at module top level causes `next build` failure even within `dynamic(..., { ssr: false })` wrapper. Import inside `useEffect` or keep `HeatmapLayer` in a second `dynamic()` boundary. Test with `next build && next start` immediately on any HeatLayer change.
+10. **Discovery pulls irrelevant pages swamping the scrape queue** — `discovered_sources` staging table + pre-screening quality gate is the mitigation (already built for v1.2). The v1.4 auto-approve threshold (0.8) reinforces this gate.
+
+See `.planning/research/PITFALLS.md` for the complete 28-pitfall catalog organized by milestone.
 
 ---
 
 ## Implications for Roadmap
 
-### Phase 1: Foundation and Database Schema (v1.0)
-**Rationale:** Schema decisions are expensive to change once data is written. Dedup key, geocoding placement, and `event_date` index must be resolved before any scraping starts.
-**Delivers:** Scaffolded Next.js + Vercel + Neon + Drizzle; `events`, `venues`, `scrape_sources` tables; migrations running; `event_date` index; geocoder selected.
-**Avoids:** Duplicate events (upsert key defined upfront), stale events (date index + cleanup job), geocoding failures (paid geocoder with confidence threshold)
-**Research flag:** Standard patterns — well-documented Drizzle + Neon setup. No additional research needed.
+### v1.4 Phase Structure
 
-### Phase 2: Scraping Pipeline and Data Ingestion (v1.0)
-**Rationale:** No display without data. Build fetch → extract → normalize → geocode → upsert as isolated library functions before wiring to cron. LLM quality and token cost pitfalls must be addressed here — retrofitting is expensive.
-**Delivers:** Working scraper on 5+ real Atlantic Canada venue URLs; GPT-4o mini / Gemini extraction; upsert; token logging.
-**Avoids:** LLM date hallucination (nullable fields, null-rejection), token cost explosion (cheerio preprocessing), geocoding failures (paid geocoder).
-**Research flag:** Needs deeper research during planning — LLM extraction prompt design for heterogeneous Atlantic Canada venue HTML is non-trivial.
+Based on the build order verified against the codebase (ARCHITECTURE.md Steps 1–7), the v1.4 work groups into 4 phases:
 
-### Phase 3: Cron Wiring and Automated Rescan (v1.0)
-**Rationale:** Thin integration step after scraper library works end-to-end. Validates full pipeline against Vercel timeout constraints.
-**Delivers:** `/api/cron/scrape` route, `vercel.json` cron config, per-source error isolation, source health logging.
-**Research flag:** Standard patterns — Vercel cron docs are HIGH confidence.
+#### Phase A: Schema Migration and Fetch Pipeline
+**Rationale:** All metric writes, quality columns, and per-source pagination config depend on the new schema. Rate limiting and fetch improvements are pure code changes that validate independently and immediately benefit all 26 existing sources. These should be in production before any new API integrations are added.
+**Delivers:** Drizzle migration adding 5 columns to `scrape_sources` and 1 column to `discovered_sources`; `fetchWithRetry()` with exponential backoff; per-domain rate limiting (`Map<domain, lastRequestTime>`); multi-page loop with 3-page hard cap; `fetcher.ts` returns `{ text, rawHtml }`; `json-ld.ts` new module; orchestrator updated to use all of the above.
+**Addresses:** Multi-page scraping (P1), rate limiting (P1), Google JSON-LD extraction (P1)
+**Avoids:** Timeout from pagination (3-page hard cap), bot blocking (per-domain rate limit + jitter), JSON-LD/Gemini result merging (short-circuit pattern)
+**Research flag:** Standard patterns — well-documented. Codebase was directly inspected. No additional research needed.
 
-### Phase 4: Events API (v1.0)
-**Rationale:** Frontend cannot be built without read-only endpoints. Default filter enforces `event_date >= NOW()` at query layer.
-**Delivers:** `GET /api/events`, `GET /api/events/[id]`, `GET /api/venues`; future events only.
-**Research flag:** Standard patterns. No additional research needed.
+#### Phase B: Scrape Quality Metrics and Admin Visibility
+**Rationale:** Metric columns are created in Phase A schema. Instrumentation of the orchestrator and admin UI extension can proceed independently of new API integrations. Having metrics live before Ticketmaster adds new event volume means TM source health is tracked from day one.
+**Delivers:** Success/failure metric writes in `orchestrator.ts` for all source types; `/admin` source list extended with `last_event_count`, `avg_confidence`, `consecutive_failures` columns; `consecutive_failures >= 3` highlighted as a health signal.
+**Addresses:** Scrape quality metrics (P2)
+**Avoids:** Measuring volume instead of accuracy — use confidence score distribution and field completeness, not just event count
+**Research flag:** Standard patterns. Orchestrator instrumentation and admin table extension follow established code patterns.
 
-### Phase 5: Map Frontend and Event Display (v1.0)
-**Rationale:** With real geocoded events and a working API, the map and list can be built and validated with actual data.
-**Delivers:** Interactive map with clustered pins, event list with date/province filter and viewport sync, event detail panel, mobile-responsive.
-**Research flag:** Standard patterns. react-leaflet CSS import requirement for cluster is documented in STACK.md.
+#### Phase C: Ticketmaster Discovery API Integration
+**Rationale:** Ticketmaster should go in after the pipeline is stable and instrumented. The handler follows the established `source_type` dispatch pattern. Venue find-or-create logic is the highest-complexity piece in v1.4; having quality metrics live means TM source health is visible immediately.
+**Delivers:** `ticketmaster.ts` handler module; `else if (source_type === 'ticketmaster')` in `orchestrator.ts`; `TICKETMASTER_API_KEY` env var; 4 seed rows in `scrape_sources` (one per province); major Atlantic Canada ticketed events appearing in the map daily.
+**Avoids:** Quota exhaustion (province-filtered queries + 30-day window + quota monitoring), ToS violations (source attribution + TTL strategy), venue duplicate sprawl (ILIKE find-or-create)
+**Research flag:** Needs tactical validation — venue ILIKE matching for Atlantic Canada name variants (e.g., "Rebecca Cohn" vs. "Rebecca Cohn Auditorium") should be tested on TM response data before finalizing the normalization logic.
 
-### Phase 6: Heatmap Timelapse Core (v1.1)
-**Rationale:** Builds on existing map foundation. SSR guard verification must happen before any animation logic is written.
-**Delivers:** Mode toggle, heatmap renders for current 24-hour time window, 30-day timeline scrubber, play/pause animation, time label, sidebar synced to time window.
-**Avoids:** SSR build failure (HeatLayer in dynamic import boundary), animation memory leak (useRef + useLayoutEffect cleanup), timePosition in URL (useState only), sidebar desync.
-**Research flag:** Research complete and HIGH confidence. ARCHITECTURE.md provides exact implementation patterns.
-
-### Phase 7: Heatmap Validation and Interaction (v1.1)
-**Rationale:** After core timelapse works, add click-through and validate against the PITFALLS.md checklist. Mobile scrubber behavior and heap stability are highest-risk items.
-**Delivers:** Click-through from hotspot (spatial lookup, not HeatLayer click handler), animation speed control, full pitfalls checklist verified, mobile-validated.
-**Research flag:** PITFALLS.md provides the complete verification checklist.
-
-### Phase 8: DB Migration and Category Schema (v1.2 Gate)
-**Rationale:** Hard gate for all v1.2 work. No other v1.2 phase can produce useful output without the schema in place. Ship independently.
-**Delivers:** `event_category TEXT` on `events` table; `discovered_sources` table; Drizzle migration files; verified in production Neon; backfill script ready to run immediately post-deploy.
-**Avoids:** pgEnum export bug (use `text` column for flexibility, or correctly export enum), null category on existing events at feature launch.
-**Research flag:** Standard patterns — additive migration is low-risk. Backfill cost estimate: ~5,000 events × 200 tokens ≈ 1M tokens at Gemini Flash pricing, well under $1.
-
-### Phase 9: AI Extraction Extension + Categorization (v1.2)
-**Rationale:** Extends the working scraper without new infrastructure. Highest value-to-effort ratio of all v1.2 phases.
-**Delivers:** `event_category` written on all newly scraped events; extractor prompt updated to include all event types (not just live music); `normalizer.ts` stores category via ON CONFLICT DO UPDATE (backfills on re-scrape).
-**Avoids:** Two-Gemini-call anti-pattern (one call extracts and classifies), category drift (`z.enum()` constraint), LLM date hallucination regression (preserve null-over-guess discipline through prompt rewrite).
-**Research flag:** No additional research needed — STACK.md and ARCHITECTURE.md provide exact Zod schema extension and prompt update patterns.
-
-### Phase 10: Category Filter UI (v1.2)
-**Rationale:** Can be built with mock/null category data while Phase 9 populates real categories. Clean nuqs extension.
-**Delivers:** Horizontal chip row in `EventFilters`, `?category=` nuqs param, `filterByCategory()` utility applied to both sidebar and `MapClientWrapper`, category badge on event cards and detail pages.
-**Avoids:** Map/sidebar desync (both receive the same `filterByCategory(allEvents, category)` result).
-**Research flag:** Standard patterns — identical to existing nuqs date/province filter implementation.
-
-### Phase 11: Venue Discovery Pipeline (v1.2)
-**Rationale:** Independent of Phases 9–10 (only requires `discovered_sources` table from Phase 8). Highest complexity deliverable in v1.2.
-**Delivers:** `/api/cron/discover` route with `maxDuration = 300`; `discoverer.ts` with Gemini + Google Search grounding; domain-based deduplication; insertion to `discovered_sources` with `pending` status; `vercel.json` discovery cron entry at 04:00 UTC.
-**Avoids:** Discovery timeout (separate route, maxDuration 300), irrelevant page accumulation (pre-screening quality gate), duplicate venue creation (domain-based dedup at candidate insertion).
-**Research flag:** Needs validation — Gemini grounding output structure for venue URL discovery should be tested on a single city (Halifax) before building the full orchestrator. Verify that `@ai-sdk/google` exposes `useSearchGrounding` in the current installed version.
-
-### Phase 12: Source Promotion and First Discovery Validation (v1.2)
-**Rationale:** Requires Phase 11 to have run and populated `discovered_sources` with real data before promotion mechanics can be validated against actual candidates.
-**Delivers:** Promotion script or minimal admin endpoint; first real discovered venues promoted to `scrape_sources`; discovery query tuning based on first-run false positive rate.
-**Research flag:** No canonical pattern at this scale — prototype and iterate based on actual discovery output quality.
+#### Phase D: Auto-Approve Discovery Pipeline
+**Rationale:** Auto-approve touches `discovery-orchestrator.ts` and the `discovered_sources` schema (column added in Phase A). Can proceed after Phase A in parallel with Phase C. Benefits from Phase B quality metrics insights (actual confidence score distributions) to calibrate the 0.8 threshold before locking it in.
+**Delivers:** `scoreCandidate()` scoring function in `discovery-orchestrator.ts`; `discovery_score` written to all inserted candidates; candidates >= 0.8 promoted automatically via existing `promoteSource()` (unchanged); `/admin/discovery` UI extended with `discovery_score` column.
+**Avoids:** Over-aggressive auto-approve (URL and hostname penalties in scoring heuristic), promoting social/aggregator domains (explicit negative scoring for facebook.com, instagram.com, eventbrite.com)
+**Research flag:** Threshold (0.8) is a starting recommendation with no canonical precedent for this exact use case. Plan a calibration review after first discovery run post-deployment.
 
 ### Phase Ordering Rationale
 
-- **Phase 8 is a hard gate for all v1.2 work:** Schema first, always. Ship independently.
-- **Phases 9 and 10 are parallelizable after Phase 8:** Extractor changes improve the existing scraper immediately (high value, low risk). The UI can be built with mock data while waiting for real categories.
-- **Phase 11 is independent of Phases 9–10:** Discovery does not depend on categorization. Both tracks can run in parallel after Phase 8.
-- **Phase 12 gates on real discovery data:** Promotion logic can be designed in Phase 11, but must be validated against actual `discovered_sources` rows from a real discovery run.
-- **Backfill (Phase 8 deliverable) must run before feature is announced:** Not a deferred task — include in Phase 8 definition of done.
+- Phase A schema migration is a hard prerequisite for all metric/score column writes — must be first and deployed before Phase B, C, or D work goes to production
+- Rate limiting and multi-page are pure code changes that can be tested independently against existing sources without affecting any new integrations
+- JSON-LD extraction depends on the `{ text, rawHtml }` return type change in Phase A `fetcher.ts`
+- Phase B (quality metrics) and Phase D (auto-approve) are both independent of Phase C (Ticketmaster) after Phase A is complete — Phases B, C, D can proceed in parallel if capacity allows
+- Ticketmaster integration is last among new integrations because it introduces venue find-or-create logic (novel for TM sources) and benefits from all pipeline improvements being stable
+- Phase D auto-approve reuses `promoteSource()` unchanged — it is truly additive work with no risk to the existing promotion flow
+
+### v1.0–v1.2 Phase Reference
+
+The v1.0–v1.2 phase structure (Foundation, Scraping Pipeline, Cron Wiring, Events API, Map Frontend, Heatmap Core, Heatmap Validation, DB Migration, Extraction Extension, Category Filter, Discovery Pipeline, Source Promotion) is documented in the v1.2 version of this file and remains valid as historical context. Those phases are complete. V1.4 builds on their outputs.
 
 ### Research Flags
 
-Phases needing deeper research during planning:
-- **Phase 2 (Scraping Pipeline):** LLM extraction prompt engineering for heterogeneous Atlantic Canada venue HTML; geocoder selection and pricing for ~50–200 venues.
-- **Phase 11 (Discovery Pipeline):** Gemini grounding output structure for venue URL discovery needs empirical validation on a single city before building the full orchestrator. Also confirm `useSearchGrounding` availability in current `@ai-sdk/google` version.
+Phases with standard, well-documented patterns (no additional research needed):
+- **Phase A (Schema + Pipeline):** Drizzle additive migrations, exponential backoff, and cheerio JSON-LD parsing are well-documented. Codebase extension points verified by direct inspection.
+- **Phase B (Quality Metrics):** Column-level metric writes and admin UI table extension follow the existing `orchestrator.ts` and `/admin` patterns precisely.
+- **Phase D (Auto-Approve):** Heuristic scoring and threshold-based promotion use `promoteSource()` unchanged. The pattern is clear from the existing discovery pipeline.
 
-Phases with complete research (reference existing files, no additional research needed):
-- **Phase 1 (Foundation):** Drizzle + Neon setup well-documented.
-- **Phase 3 (Cron Wiring):** Vercel cron docs are HIGH confidence.
-- **Phase 4 (Events API):** Standard Next.js Route Handler + Drizzle read queries.
-- **Phase 5 (Map Frontend):** react-leaflet + react-leaflet-cluster patterns well-documented.
-- **Phase 6 (Heatmap Core):** ARCHITECTURE.md provides exact implementation patterns.
-- **Phase 7 (Heatmap Validation):** PITFALLS.md provides the complete verification checklist.
-- **Phase 8 (DB Migration):** Additive migration, low-risk, established pattern.
-- **Phase 9 (Extraction Extension):** STACK.md and ARCHITECTURE.md provide exact Zod schema extension pattern.
-- **Phase 10 (Category Filter UI):** Identical to existing nuqs date/province filter.
-- **Phase 12 (Source Promotion):** Prototype-and-iterate based on real discovery output.
+Phases needing tactical research or validation during planning:
+- **Phase C (Ticketmaster):** Venue find-or-create with ILIKE matching needs validation against real TM response data for Atlantic Canada venue name variants. Run a single manual TM API call for one province and inspect the `_embedded.venues[]` response format before finalizing normalization logic.
+- **Phase D calibration:** The 0.8 auto-approve threshold has no canonical precedent for this use case. Plan a post-deployment review after the first discovery run to evaluate auto-approve rate (target: 10–30% of candidates auto-promoted).
 
 ---
 
@@ -219,66 +189,53 @@ Phases with complete research (reference existing files, no additional research 
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Core stack in production; v1.2 additions verified via official docs and npm registry. AI SDK 5 `generateObject` pattern is well-documented. No new packages needed. |
-| Features | HIGH (categorization + filter), MEDIUM (discovery) | Category taxonomy and filter UX are established patterns. Automated venue discovery via Gemini grounding has no canonical precedent — the approach is architecturally sound but real-world yield in Atlantic Canada is unverified. |
-| Architecture | HIGH | Based on direct codebase inspection; integration points are verified, not inferred. Build order respects strict dependency chain. |
-| Pitfalls | HIGH | v1.0–v1.1 pitfalls empirically grounded; v1.2 pitfalls verified via Vercel docs, confirmed open issues, Gemini API pricing docs, and LLM drift empirical research. |
+| Stack | HIGH | Existing production codebase; no new dependencies for v1.4; all v1.4 integrations use existing fetch/cheerio/Drizzle patterns |
+| Features | MEDIUM-HIGH | Ticketmaster and Google JSON-LD are HIGH (verified official docs); Songkick confirmed commercial-only (HIGH); auto-approve heuristic threshold is MEDIUM (no canonical benchmark for this use case) |
+| Architecture | HIGH | Based on direct codebase inspection 2026-03-15 + verified API documentation; build order is dependency-validated; code-level interfaces provided in ARCHITECTURE.md |
+| Pitfalls | HIGH | Scraping/LLM pitfalls empirically grounded; Ticketmaster ToS and Songkick access status verified at source; Vercel timeout constraints verified via official docs; v1.0–v1.2 pitfalls remain HIGH from prior research |
 
-**Overall confidence:** HIGH for execution plan; MEDIUM for discovery pipeline real-world yield in Atlantic Canada specifically.
+**Overall confidence:** HIGH for execution plan; MEDIUM for auto-approve threshold calibration and JSON-LD adoption rate among the 26 target venues.
 
 ### Gaps to Address
 
-- **Gemini grounding output quality for venue discovery:** The model may return inconsistent structure, non-Atlantic results, or duplicate domains across city queries. Test on a single city (Halifax) and inspect raw output before building the orchestrator. Budget for 1–2 prompt iteration cycles.
+- **JSON-LD coverage audit:** Before scoping Phase A JSON-LD work, manually fetch the 26 existing scrape source URLs and count those with `<script type="application/ld+json">` containing `@type: "Event"`. Expected count: 3–6. This calibrates expected Gemini call reduction and confirms the feature is worth the implementation cost. If the count is 0–2, deprioritize JSON-LD below Phase A and build it later.
 
-- **Google Places API field mask billing:** Research notes requesting only Basic fields may qualify for lower billing. Validate the actual field mask + billing tier before using at scale. This API is a fallback if Gemini grounding underperforms — may not be needed at all.
+- **TM venue name normalization edge cases:** First Ticketmaster scrape run will reveal how well ILIKE matching handles real Atlantic Canada venue name variants. Plan a cleanup pass after the first run to merge any duplicate venue rows created for the same physical location.
 
-- **Category backfill scope and cost:** Estimate ~5,000 events × 200 tokens ≈ 1M tokens at Gemini Flash pricing ≈ well under $1. Validate before running. Run immediately post-migration, before feature announcement.
+- **Vercel Fluid Compute status:** The discovery endpoint's `maxDuration` should be confirmed at 300s, but this requires verifying Fluid Compute is enabled in the Vercel project settings. Confirm before any discovery pipeline changes go to production.
 
-- **Discovery cron cadence:** Research recommends daily (04:00 UTC), but Atlantic Canada's venue landscape doesn't change daily. Weekly cadence may be more appropriate initially. Confirm with team before locking in `vercel.json` schedule.
+- **Auto-approve threshold calibration:** The 0.8 threshold is a starting recommendation. After Phase D is live, review the percentage of candidates auto-approved vs. sent to manual review. If auto-approve rate is > 40% (potential noise), raise threshold. If < 5% (admin burden not reduced), lower slightly and add more granular URL signals.
 
-- **LLM extraction prompt regression:** The v1.2 prompt update removes the "live music only" constraint. Re-validate that the updated prompt still produces null for ambiguous dates and correctly handles all-event-type HTML (breweries running markets, theatres running both plays and concerts, etc.). Run against 5–10 real venue URLs before deploying.
-
-- **Animation performance at higher event volume:** The pre-bucketing optimization (O(1) lookup instead of O(n) `Array.filter` per animation frame) is documented as the escape hatch. At current Atlantic Canada scale (hundreds of events), `Array.filter` is fine. Revisit if event count grows past ~500 events in the 30-day window.
+- **Ticketmaster event volume for Atlantic Canada:** Unknown without running the API. After first run, check whether 4 province queries return < 200 events each (fits in one page) or require pagination (needs the API's `page` param, max `size × page < 1000`).
 
 ---
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- Direct codebase inspection (`src/lib/scraper/`, `src/lib/db/schema.ts`, `src/app/api/cron/`, `src/components/`, `vercel.json`) — existing architecture, verified integration points
-- `npm info react-leaflet`, `npm info leaflet.heat`, `npm info @types/leaflet.heat`, `npm info react-leaflet-cluster` — version and compatibility verification
-- [react-leaflet Core Architecture docs](https://react-leaflet.js.org/docs/core-architecture/) — `useMap` hook, `useLayerLifecycle`, official patterns
-- [Leaflet.heat GitHub (Leaflet org)](https://github.com/Leaflet/Leaflet.heat) — `setLatLngs()` API, canvas rendering, Issue #61 (no click events)
-- [Vercel Fluid Compute docs](https://vercel.com/docs/fluid-compute) — Hobby 300s max duration confirmed
-- [Vercel Cron Jobs docs](https://vercel.com/docs/cron-jobs/usage-and-pricing) — Hobby plan: 100 cron jobs, once per day
-- [Drizzle ORM pgEnum export bug #5174](https://github.com/drizzle-team/drizzle-orm/issues/5174) — confirmed open issue, enum silently omitted from migration SQL
-- [Google Places API (New): Nearby Search](https://developers.google.com/maps/documentation/places/web-service/nearby-search) — place types, field masks, pricing
-- [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — Atlantic Canada stateCode filter, 5,000 calls/day free
-- [Gemini API Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search) — grounding as first-class Gemini API feature
-- [Gemini Structured Output](https://ai.google.dev/gemini-api/docs/structured-output) — enum constraints in schema for classification tasks
-- [nuqs parseAsArrayOf docs](https://nuqs.dev/) — multi-select URL state pattern
-- [Vercel AI SDK: generateObject](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) — Zod enum output constraint
+- East Coast Local codebase direct inspection — `/src/lib/scraper/*`, `/src/lib/db/schema.ts`, `/src/app/api/cron/*`, `/src/app/admin/*` (2026-03-15)
+- Ticketmaster Discovery API v2 official docs (developer.ticketmaster.com 2026-03-15) — endpoints, rate limits, geographic filtering, response format, stateCode values for Atlantic Canada
+- Ticketmaster Terms of Use (ticketmaster.com 2026-03-15) — caching restrictions, commercial use prohibitions, attribution requirements
+- Google Event Structured Data — Search Central docs (developers.google.com 2026-03-15) — required/recommended JSON-LD properties, extraction approach
+- schema.org/Event — full schema definition for JSON-LD field mapping
+- Songkick Developer Portal (songkick.com/developer 2026-03-15) — confirmed commercial partnership requirement, hobbyist access rejection, $500+/month license
+- Vercel Fluid Compute official docs — maxDuration limits per plan, Hobby ceiling of 300s with Fluid Compute enabled
+- Drizzle ORM pgEnum export bug #5174 — confirmed open issue, enum silently omitted from migration SQL
 
 ### Secondary (MEDIUM confidence)
-- [Drizzle vs Prisma 2026 comparison (Bytebase)](https://www.bytebase.com/blog/drizzle-vs-prisma/) — cold start benchmarks, bundle sizes
-- [AI SDK Core: generateObject](https://ai-sdk.dev/docs/reference/ai-sdk-core/generate-object) — structured output API (docs in transition for AI SDK 5)
-- [kepler.gl Time Playback docs](https://docs.kepler.gl/docs/user-guides/h-playback) — speed control patterns
-- [nuqs GitHub (47ng/nuqs)](https://github.com/47ng/nuqs) — browser rate-limit on URL updates
-- [Frontend Memory Leaks empirical study (stackinsight.dev)](https://stackinsight.dev/blog/memory-leak-empirical-study/) — 86% missing cleanup; ~8 KB/cycle rAF leak quantification
-- [Eventbrite location search removal](https://groups.google.com/g/eventbrite-api/c/ZD9rP1dQGag) — confirmed via community report and absence from current API docs
-- [Bandsintown API documentation](https://help.artists.bandsintown.com/) — region search unavailable, new key applications suspended
-- [Filter UI Design Best Practices](https://www.insaim.design/blog/filter-ui-design-best-ux-practices-and-examples) — chip-based filter patterns, "Clear All" convention
-- [react-leaflet GitHub Issue #941](https://github.com/PaulLeCam/react-leaflet/issues/941) — layer leak on unmount without explicit `removeLayer`
-- [WCAG 2.2 SC 2.5.7 — Dragging Movements](https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html) — native range input requirement
+- Web scraping pagination patterns (ScrapingAnt blog) — next-page link detection strategies, `rel="next"` and `aria-label` selectors
+- Exponential backoff for scraping (TheWebScraping.club Substack) — retry strategy, jitter timing, Retry-After header handling
+- Data quality in web scraping (Litport blog) — proxy metrics (field completeness, confidence score, duplicate rate) without ground truth
+- Confidence threshold in AI systems (LlamaIndex glossary) — threshold-based auto-approval pattern and common calibration approaches
+- Scraping quality metrics framework (witanworld.com 2026-02-02) — pipeline evaluation metrics for web scraping systems
 
-### Tertiary (informational / needs runtime validation)
-- [PredictHQ Event Categories](https://www.predicthq.com/intelligence/data-enrichment/event-categories) — informed decision to use small flat taxonomy vs. 19+ categories
-- [DEV: Tech Event Discovery Platform](https://dev.to/danishaft/how-i-built-a-tech-event-discovery-platform-with-real-time-scraping-3o4f) — confirmed no existing platform does automated venue discovery; all rely on curated or self-submitted sources
-- [OpenAI pricing](https://openai.com/api/pricing/) — GPT-4o mini token costs (subject to change; Gemini now primary)
-- [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) — 1 req/sec public limit; confirms must use paid geocoder for production
+### Tertiary (LOW confidence / needs runtime validation)
+- **Auto-approve threshold at 0.8** — Inferred from standard binary classification threshold practices; no canonical threshold exists for venue discovery scoring at this scale. Treat as starting point; calibrate after first deployment.
+- **JSON-LD adoption rate < 20% for Atlantic Canada venues** — Based on general structured data adoption research, not an audit of the actual 26 target sources. Audit before finalizing Phase A scope.
+- **Ticketmaster Atlantic Canada event volume** — Unknown without running the API. Four province queries at `size=200` should cover the inventory, but pagination may be needed for larger provinces. Verify on first manual run.
 
 ---
 
-*Research completed: 2026-03-14*
-*Covers: v1.0 core scraping + map, v1.1 heatmap timelapse, v1.2 discovery + categorization*
+*Research completed: 2026-03-15*
+*Covers: v1.0 core scraping + map, v1.1 heatmap timelapse, v1.2 discovery + categorization, v1.4 API integrations + scraping improvements*
 *Ready for roadmap: yes*

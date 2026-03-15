@@ -470,6 +470,279 @@ No new packages, so no new compatibility constraints. Existing compatibility not
 
 ---
 
+## v1.4 Additions: Platform Integrations, Rate Limiting, Multi-Page Scraping, Quality Metrics
+
+*Added: 2026-03-15. Stack additions for Ticketmaster API, Songkick, Google Events JSON-LD, multi-page pagination, outbound rate limiting, and scrape quality metrics with auto-approve.*
+
+### Summary: What Changes vs. What Doesn't
+
+**Only one new npm package needed:** `bottleneck` for outbound request rate limiting.
+
+Everything else — Ticketmaster, Songkick, Google Events JSON-LD, pagination, quality scoring, auto-approve — uses existing dependencies (`fetch`, `cheerio`, `zod`, `drizzle-orm`). This milestone is primarily new code patterns and schema columns, not new libraries.
+
+### New Libraries for v1.4
+
+| Library | Version | Purpose | Why |
+|---------|---------|---------|-----|
+| `bottleneck` | `^2.19.5` | Rate limit outbound scrape and API requests | Zero-dependency CJS library. Handles both time-spacing (`minTime`) and concurrent request limits (`maxConcurrent`) and per-period quotas (`reservoir`). Replaces the manual `delay()` loop in the existing orchestrator. Includes bundled TypeScript types via `@types/bottleneck`. |
+| `@types/bottleneck` | `^2.19.5` | TypeScript types for bottleneck | Install as devDependency. The `bottleneck` package itself does not bundle types — they live in the `@types/` package. |
+
+### Ticketmaster Discovery API Integration
+
+**No new npm package.** Use raw `fetch()` + existing `zod` for response validation. The official `ticketmaster` npm SDK (github.com/ticketmaster-api/sdk-javascript) has not received meaningful updates since ~2019 and wraps a simple REST API that needs nothing beyond `fetch()`.
+
+**Endpoint and parameters for Atlantic Canada:**
+
+```
+GET https://app.ticketmaster.com/discovery/v2/events.json
+  ?countryCode=CA
+  &stateCode=NB        # NB | NS | PE | NL
+  &size=200            # max per page
+  &page=0
+  &classificationName=music   # optional: narrow to concerts
+  &apikey={TICKETMASTER_API_KEY}
+```
+
+Canadian province codes: `NB` (New Brunswick), `NS` (Nova Scotia), `PE` (Prince Edward Island), `NL` (Newfoundland and Labrador).
+
+**Rate limits:** 5 requests/second, 5,000 calls/day (free tier). Four provinces × 1 call each = 4 calls per daily cron run — well within limits. Pagination is depth-limited: `size * page < 1000` (API enforces this). For Atlantic Canada volumes, a single page of 200 results per province is sufficient.
+
+**Response mapping to existing `events` schema:**
+
+| Ticketmaster field | Maps to |
+|-------------------|---------|
+| `name` | `performer` |
+| `dates.start.dateTime` | `event_date` |
+| `url` | `ticket_link` |
+| `_embedded.venues[0]` | venue lookup / creation |
+| `classifications[0].segment.name` | used to map `event_category` |
+| `images[0].url` | `cover_image_url` |
+
+**Registration:** Free at developer.ticketmaster.com. API key issued immediately on registration.
+
+**New `source_type` value:** Add `'ticketmaster'` to the `source_type` text column in `scrape_sources`. No migration needed — it's a plain text column.
+
+### Songkick API — BLOCKED (Low Confidence)
+
+**Status:** New API key registrations are suspended. As of March 2026, Songkick's developer portal states they are making improvements and cannot process new applications for API keys. The Songkick support article confirms this.
+
+**Decision:** Do not build Songkick integration for v1.4. Either:
+- Skip Songkick entirely — Atlantic Canada is small enough that Ticketmaster covers all major ticketed events
+- Contact the Songkick partnerships team if a business relationship is possible (no timeline guarantee)
+
+**If a key is obtained later:** Raw `fetch()` to `https://api.songkick.com/api/3.0/events.json?location=geo:{lat},{lng}&apikey={KEY}`. No npm package is needed — the `songkick-api-node` package is a thin wrapper that adds no value over direct fetch and is not actively maintained.
+
+### Google Events JSON-LD Extraction
+
+**No new library.** The existing `cheerio@^1.2.0` handles this natively.
+
+**Strategy:** Before sending page HTML to Gemini, check for JSON-LD `Event` structured data. If found, use it directly — structured data is always higher fidelity than AI extraction. Fall through to Gemini only when JSON-LD is absent or malformed.
+
+**Integration point:** Modify `fetcher.ts` to return structured events when JSON-LD is present, or raw text for AI extraction when not:
+
+```typescript
+// In fetchAndPreprocess — add after loading cheerio
+const jsonLdScripts = $('script[type="application/ld+json"]').toArray();
+for (const node of jsonLdScripts) {
+  try {
+    const data = JSON.parse($(node).html() ?? '');
+    const items = Array.isArray(data) ? data : [data];
+    const eventItems = items.filter(item => item['@type'] === 'Event');
+    if (eventItems.length > 0) {
+      return { type: 'structured', events: eventItems };
+    }
+  } catch {
+    // Malformed JSON-LD — fall through to AI extraction
+  }
+}
+return { type: 'text', content: pageText };
+```
+
+**Zod validation for JSON-LD events:** The existing `ExtractedEventSchema` in `src/lib/schemas/extracted-event` already covers the fields that map from JSON-LD (`name` → `performer`, `startDate` → `event_date`, `offers.url` → `ticket_link`, `image` → `cover_image_url`). Validate JSON-LD output through the same schema.
+
+**Google Event schema fields of interest:** `@type: "Event"`, `name`, `startDate`, `endDate`, `location` (with `address`), `offers` (with `url` and `price`), `image`, `description`, `organizer`.
+
+### Multi-Page Pagination
+
+**No new library.** Pure logic in the fetch pipeline, bounded by Vercel's 60s function timeout.
+
+**Two patterns to support:**
+
+1. **`<a rel="next">` link following** — Most calendar/event plugins emit a `rel="next"` link. Detect with `$('a[rel="next"]').attr('href')`.
+
+2. **Common pagination selector** — Fallback: `$('a.next, .pagination a.next, [aria-label="Next page"]').attr('href')`.
+
+**Bounds to prevent timeout:** Max 5 pages per source per cron run. Each page has a 15s `AbortSignal.timeout` (existing). At 5 pages × 15s max = 75s theoretical ceiling — at the Vercel limit. Practical average is much lower. Configurable via `SCRAPE_MAX_PAGES` env var.
+
+**What cheerio cannot paginate:** JavaScript-driven "Load More" buttons and infinite scroll. These require a headless browser (blocked by Vercel's 50MB limit). Flag sources with `pagination_type: 'js_required'` in `scrape_sources` and skip multi-page for them.
+
+**New column on `scrape_sources`:** Add `pagination_type: text` (values: `none`, `link`, `js_required`) to track which pagination strategy applies per source. Defaults to `none` for existing sources.
+
+### Rate Limiting with Bottleneck
+
+**Replace the manual `delay()` loop** in `orchestrator.ts` with `bottleneck` to get proper time-based throttling with concurrency control.
+
+**Two limiter instances — one per concern:**
+
+```typescript
+import Bottleneck from 'bottleneck';
+
+// Venue website scraping — polite to venue servers
+// One request at a time, 3 seconds minimum between fetches
+const websiteLimiter = new Bottleneck({
+  maxConcurrent: 1,
+  minTime: 3000,
+});
+
+// Ticketmaster API — respect 5 req/sec rate limit with headroom
+// 4 requests/sec to stay safely under the 5/sec limit
+const ticketmasterLimiter = new Bottleneck({
+  reservoir: 4,
+  reservoirRefreshAmount: 4,
+  reservoirRefreshInterval: 1000,
+  maxConcurrent: 2,
+});
+```
+
+**Why bottleneck over p-limit:**
+- `p-limit@^7.x` is pure ESM — causes `ERR_REQUIRE_ESM` in Next.js server code without adding `transpilePackages: ['p-limit']` to `next.config.ts`. Extra friction.
+- `p-limit` is concurrency-only — it cannot enforce `minTime` (minimum spacing between requests). The existing orchestrator needs time-based spacing to be polite to venue websites.
+- `bottleneck` handles both concerns in one package: time-spacing (`minTime`) and concurrent limits (`maxConcurrent`), plus reservoir mode for API quota windows.
+- `bottleneck` is CJS-compatible — no ESM friction in Next.js.
+
+**SCRAPE_THROTTLE_MS env var:** The existing variable becomes the `minTime` value for the website limiter rather than a manual `setTimeout`. Remove the manual `delay()` function.
+
+### Scrape Quality Metrics
+
+**No external service.** Compute and store in Postgres via Drizzle. Compute at extraction time using existing data.
+
+**Schema additions — new columns on `scrape_sources`:**
+
+```typescript
+// Add to scrape_sources table in schema.ts
+scrape_success_count: integer('scrape_success_count').default(0).notNull(),
+scrape_failure_count: integer('scrape_failure_count').default(0).notNull(),
+last_scrape_event_count: integer('last_scrape_event_count').default(0),
+avg_events_per_scrape: doublePrecision('avg_events_per_scrape'),
+// pagination_type already described above
+```
+
+**Schema additions — new column on `events`:**
+
+```typescript
+// Add to events table in schema.ts
+extraction_confidence: doublePrecision('extraction_confidence'),
+// The 'confidence' field from Gemini is already computed but currently
+// only used for filtering. Store it so quality metrics can reference it.
+```
+
+The existing `ExtractedEvent` schema already has `confidence: number` from Gemini output. Currently it's used only as a filter threshold (`confidence < 0.5` → discard). Store it in the `events` table to enable per-source confidence trending.
+
+**Quality score computation (in-code, no library):**
+
+```typescript
+// Computed at scrape time, stored to scrape_sources
+function computeSourceQualityScore(source: ScrapeSource): number {
+  const total = source.scrape_success_count + source.scrape_failure_count;
+  if (total === 0) return 0.5; // no history yet
+  const successRate = source.scrape_success_count / total;
+  const eventRate = Math.min((source.avg_events_per_scrape ?? 0) / 5, 1.0); // normalize: 5+ events/scrape = full score
+  return (successRate * 0.6) + (eventRate * 0.4);
+}
+```
+
+**Auto-approve logic for `discovered_sources`:** When a discovered source scores above threshold, auto-promote without admin review:
+
+```typescript
+const AUTO_APPROVE_THRESHOLD = parseFloat(process.env.AUTO_APPROVE_THRESHOLD ?? '0.8');
+
+// After discovery pipeline runs and initial scrape attempt succeeds:
+if (discoveryConfidence >= AUTO_APPROVE_THRESHOLD && initialEventCount > 0) {
+  await promoteSource(discoveredSource); // existing function
+}
+```
+
+The `promoteSource()` function already exists in `src/lib/scraper/promote-source.ts` from v1.3. Auto-approve calls it directly — no new promotion logic.
+
+**Discovery confidence** is the Gemini confidence score already emitted during the weekly discovery cron. It's currently stored in `discovered_sources.raw_context` as unstructured text. Extract it to a dedicated column:
+
+```typescript
+// New column on discovered_sources
+discovery_confidence: doublePrecision('discovery_confidence'),
+```
+
+### Installation: v1.4 Additions Only
+
+```bash
+# New production dependency — the only new package for v1.4
+npm install bottleneck
+
+# TypeScript types for bottleneck
+npm install -D @types/bottleneck
+```
+
+### New Environment Variables for v1.4
+
+```bash
+TICKETMASTER_API_KEY=        # From developer.ticketmaster.com — free registration
+SONGKICK_API_KEY=            # Skip for now — registrations suspended
+SCRAPE_MAX_PAGES=5           # Pagination depth cap per source (default: 5)
+AUTO_APPROVE_THRESHOLD=0.8   # Confidence floor for auto-approving discovered sources
+# SCRAPE_THROTTLE_MS already exists — becomes bottleneck minTime value
+```
+
+### Schema Migration Summary for v1.4
+
+New columns requiring a Drizzle migration (`drizzle-kit generate` + `drizzle-kit migrate`):
+
+| Table | New Column | Type | Default |
+|-------|-----------|------|---------|
+| `scrape_sources` | `scrape_success_count` | `integer` | `0` |
+| `scrape_sources` | `scrape_failure_count` | `integer` | `0` |
+| `scrape_sources` | `last_scrape_event_count` | `integer` | `null` |
+| `scrape_sources` | `avg_events_per_scrape` | `doublePrecision` | `null` |
+| `scrape_sources` | `pagination_type` | `text` | `'none'` |
+| `events` | `extraction_confidence` | `doublePrecision` | `null` |
+| `discovered_sources` | `discovery_confidence` | `doublePrecision` | `null` |
+
+No existing columns change. All new columns are nullable or have defaults — no backfill required for existing rows.
+
+### Alternatives Considered for v1.4
+
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| Raw `fetch()` for Ticketmaster | `ticketmaster` npm SDK | SDK last updated ~2019, wraps a 2-line REST call unnecessarily |
+| `bottleneck` | `p-limit` | p-limit is pure ESM (friction in Next.js), concurrency-only (no time spacing), wrong tool for HTTP rate limiting |
+| `bottleneck` | `@geoapify/request-rate-limiter` | Obscure, minimal ecosystem, `bottleneck` is the established choice |
+| In-code JSON-LD extraction | `jsonld` npm package | 180KB package for a `JSON.parse()` + cheerio selector — extreme overkill |
+| In-code quality scoring | External data quality service | No data volume justifying an external service; Atlantic Canada scale is <200 sources |
+| Skip Songkick | Build Songkick integration anyway | API keys unavailable; can't test; wasted scope |
+| `doublePrecision` columns for metrics | Separate `scrape_metrics` table | Column additions are simpler for this data volume; a separate table adds join complexity with no query benefit |
+
+### What NOT to Add for v1.4
+
+| Avoid | Why | Use Instead |
+|-------|-----|-------------|
+| `ticketmaster` npm package | Unmaintained (~2019), wraps a simple REST API | Raw `fetch()` with zod |
+| `songkick-api-node` | Thin wrapper, API keys blocked, not maintained | Raw `fetch()` if key obtained later |
+| `p-limit` | Pure ESM causes friction in Next.js; concurrency-only, not time-based | `bottleneck` |
+| `express-rate-limit` | Protects your API from inbound traffic — not for throttling outbound requests | `bottleneck` |
+| `jsonld` npm package | 180KB for a one-line JSON.parse | `cheerio` selector + `JSON.parse()` |
+| Playwright / Puppeteer for JS-rendered pagination | Exceeds Vercel Hobby 50MB function limit | `cheerio` + link following for static pagination; flag JS-required sources |
+| External quality scoring API | No volume justifying it; adds latency to the cron path | In-code scoring stored to Postgres columns |
+| Redis / queue for rate limiting | Overkill; scraping is a single-process cron job | `bottleneck` in-process |
+
+### Version Compatibility: v1.4 Additions
+
+| Package | Compatible With | Notes |
+|---------|-----------------|-------|
+| `bottleneck@^2.19.5` | Next.js 16, Node 20, TypeScript 5 | CJS module — no ESM import issues. Works in Vercel serverless functions. |
+| `@types/bottleneck@^2.19.5` | TypeScript 5.x | devDependency. The `bottleneck` package itself does not include `.d.ts` files — install `@types/bottleneck` separately. |
+| Ticketmaster REST API | `fetch` (native Node 20) | No npm dep. `countryCode=CA` + `stateCode` params. Pagination: `size * page < 1000` ceiling enforced by API. |
+| `cheerio@^1.2.0` (existing) | JSON-LD `script[type="application/ld+json"]` selector | No upgrade needed. Already installed. |
+
+---
+
 ## Sources
 
 - [Next.js 16 blog post](https://nextjs.org/blog/next-16) — Version confirmed, Turbopack stable
@@ -495,14 +768,22 @@ No new packages, so no new compatibility constraints. Existing compatibility not
 - [Google Places API (New): Place Types](https://developers.google.com/maps/documentation/places/web-service/place-types) — live_music_venue, bar, pub, concert_hall, nightclub types confirmed (HIGH confidence — official docs)
 - [Google Maps Platform pricing (March 2025 restructure)](https://developers.google.com/maps/billing-and-pricing/march-2025) — $200 credit replaced by 5,000 free Pro SKU calls/month (HIGH confidence — official billing docs)
 - [Google Maps Platform pricing list](https://developers.google.com/maps/billing-and-pricing/pricing) — Nearby Search Pro: $32/1,000; Place Details Pro: $17/1,000 (HIGH confidence — official pricing page)
-- [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — stateCode, countryCode parameters; 5,000 calls/day free (HIGH confidence — official docs)
+- [Ticketmaster Discovery API v2](https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/) — stateCode, countryCode parameters; 5 req/sec, 5,000 calls/day; pagination limit `size * page < 1000` (HIGH confidence — official docs + verified via WebFetch)
+- [Ticketmaster Getting Started](https://developer.ticketmaster.com/products-and-docs/tutorials/events-search/search_events_with_discovery_api.html) — fetch usage pattern, CA country code (HIGH confidence — official docs)
 - [Eventbrite API location search status](https://groups.google.com/g/eventbrite-api/c/ZD9rP1dQGag) — Location-based search removed ~2020 (MEDIUM confidence — community report, corroborated by absence from current API docs)
 - [Bandsintown API documentation](https://help.artists.bandsintown.com/en/articles/9186477-api-documentation) — Artist-centric API, no region search; new applications suspended (MEDIUM confidence — official help article)
-- [Songkick API key status](https://support.songkick.com/hc/en-us/articles/360012423194-Access-the-Songkick-API) — New applications suspended as of 2025 (MEDIUM confidence — official support article)
+- [Songkick API key status](https://support.songkick.com/hc/en-us/articles/360012423194-Access-the-Songkick-API) — New applications suspended (MEDIUM confidence — official support article, verified via WebFetch of developer page)
+- [Songkick Developer Getting Started](https://www.songkick.com/developer/getting-started) — Registration process described but new keys not being issued (MEDIUM confidence)
+- [bottleneck npm](https://www.npmjs.com/package/bottleneck) — v2.19.5, zero-dependency, CJS, minTime + reservoir options (HIGH confidence)
+- [p-limit GitHub](https://github.com/sindresorhus/p-limit) — v7.x, pure ESM only, concurrency-only (no time spacing) (HIGH confidence)
+- [Next.js ESM externals docs](https://nextjs.org/docs/messages/import-esm-externals) — ESM package friction requiring transpilePackages workaround (HIGH confidence — official docs)
+- [Google Structured Data — Event](https://developers.google.com/search/docs/appearance/structured-data/event) — Event schema fields: name, startDate, location, offers, image (HIGH confidence — official docs)
+- [WebScraping.AI — JSON-LD with Cheerio](https://webscraping.ai/faq/cheerio/how-do-you-extract-structured-data-like-json-ld-or-microdata-using-cheerio) — `script[type="application/ld+json"]` selector pattern (MEDIUM confidence)
 - [Drizzle ORM pgEnum export bug #5174](https://github.com/drizzle-team/drizzle-orm/issues/5174) — enum not exported = silently missing from migration SQL (HIGH confidence — confirmed open GitHub issue)
 - [nuqs parseAsArrayOf docs](https://nuqs.dev/) — Multi-select enum filter pattern (HIGH confidence — official nuqs docs)
 - [Vercel AI SDK: generateObject with z.enum](https://ai-sdk.dev/docs/ai-sdk-core/generating-structured-data) — enum output constrained via Zod schema (HIGH confidence — official AI SDK docs)
+- Existing codebase — `src/lib/scraper/`, `src/lib/db/schema.ts`, `package.json` — direct inspection (HIGH confidence)
 
 ---
 *Stack research for: East Coast Local — local live music discovery app*
-*Researched: 2026-03-13 (baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse, v1.2 event discovery and categorization)*
+*Researched: 2026-03-13 (baseline) | Updated: 2026-03-14 (v1.1 heatmap timelapse, v1.2 event discovery and categorization) | Updated: 2026-03-15 (v1.4 platform integrations, rate limiting, quality metrics)*

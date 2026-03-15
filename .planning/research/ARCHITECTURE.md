@@ -1,14 +1,17 @@
 # Architecture Research
 
-**Domain:** Automatic venue/source discovery + AI event categorization — integration with existing scraping pipeline
-**Researched:** 2026-03-14
-**Confidence:** HIGH (based on direct codebase inspection + verified Vercel docs)
+**Domain:** Event scraping / API integration platform (Atlantic Canada)
+**Researched:** 2026-03-15
+**Confidence:** HIGH — based on direct codebase review + verified API documentation
 
-> This document supersedes the v1.1 heatmap timelapse architecture file. The existing scraping/data-layer and frontend sections are retained where still accurate; this file adds a focused integration design for the v1.2 Event Discovery milestone.
+> This document supersedes the v1.2 discovery architecture file for purposes of v1.4 planning.
+> The existing pipeline sections are retained as baseline; this file adds a focused integration
+> design for Ticketmaster, Google Events JSON-LD, multi-page scraping, rate limiting, scrape
+> quality metrics, and auto-approve discovery.
 
 ---
 
-## Existing Architecture (Verified from Codebase — Still Current)
+## Existing Architecture (v1.3 Verified Baseline)
 
 ### Scraping Pipeline
 
@@ -19,7 +22,7 @@ runScrapeJob()  [orchestrator.ts]
     ↓ iterates scrape_sources WHERE enabled = true
     ├── source_type = 'venue_website'
     │       ↓
-    │   fetchAndPreprocess(url)      [fetcher.ts]    → raw page text
+    │   fetchAndPreprocess(url)      [fetcher.ts]    → cleaned page text (15k char limit)
     │       ↓
     │   extractEvents(text, url)     [extractor.ts]  → Gemini call → ExtractedEvent[]
     │       ↓
@@ -27,14 +30,14 @@ runScrapeJob()  [orchestrator.ts]
     │
     ├── source_type = 'eventbrite'
     │       ↓
-    │   scrapeEventbrite(source)     [eventbrite.ts]
+    │   scrapeEventbrite(source)     [eventbrite.ts] → Eventbrite REST API → upsertEvent()
     │
     └── source_type = 'bandsintown'
             ↓
-        scrapeBandsintown(source)    [bandsintown.ts]
+        scrapeBandsintown(source)    [bandsintown.ts] → Bandsintown REST API → upsertEvent()
 ```
 
-### Database Schema (Current)
+### Database Schema (v1.3 Current)
 
 ```
 venues
@@ -43,558 +46,765 @@ venues
 events
   id, venue_id (FK), performer, normalized_performer, event_date, event_time,
   source_url, scrape_timestamp, raw_extracted_text, price, ticket_link,
-  description, cover_image_url, created_at, updated_at
+  description, cover_image_url, event_category, created_at, updated_at
   UNIQUE INDEX: (venue_id, event_date, normalized_performer)
 
 scrape_sources
   id, url, venue_id (FK), scrape_frequency, last_scraped_at, last_scrape_status,
   source_type, enabled, created_at
+
+discovered_sources
+  id, url, domain, source_name, province, city, status, discovery_method,
+  raw_context, discovered_at, reviewed_at, added_to_sources_at
 ```
 
-### Frontend Data Flow (Current)
+### Key Extension Point
 
-```
-mount
-  ↓
-fetch('/api/events')               — loads ALL future events once
-  ↓
-allEvents (EventWithVenue[])       — held in HomeContent state
-  ↓
-filterByDateRange + filterByProvince + filterByBounds  — client-side
-  ↓
-sidebarEvents → EventList
-allEvents     → MapClientWrapper (ClusterLayer shows all)
-```
+The orchestrator dispatches on `scrape_sources.source_type`. Every new API integration adds:
+1. A new `source_type` string value (stored in the plain-text column — no migration needed for the value itself)
+2. A corresponding handler module in `src/lib/scraper/`
+3. An `else if` branch in `orchestrator.ts`
 
-### Key Constraint: Vercel Function Duration
-
-**Updated finding (HIGH confidence — verified against Vercel docs March 2026):**
-
-With Fluid Compute enabled (the default for all new projects as of April 23, 2025), the Hobby plan receives:
-- Default max duration: **300 seconds (5 minutes)**
-- Maximum configurable: **300 seconds (5 minutes)**
-
-The old 60-second limit applies only if Fluid Compute is disabled. The existing codebase sets `export const maxDuration = 60` in the scrape cron, which works but is unnecessarily conservative. This constraint is significantly less restrictive than previously assumed, giving the discovery job sufficient headroom.
+This is the established, low-friction pattern for new integrations.
 
 ---
 
-## v1.2 Integration Design
+## v1.4 Integration Design
 
-### What Is Being Added
+### Overview of Changes
 
-1. **event_category column on events** — Gemini assigns a category during extraction
-2. **discovered_sources table** — queue for candidate sources found by discovery
-3. **Discovery pipeline** — separate cron job that finds new venue URLs via search and queues them
-4. **Category filter** — new chip filter in `EventFilters` component; category passed via nuqs URL param
-
-### Schema Changes
-
-```sql
--- Add to events table
-ALTER TABLE events ADD COLUMN event_category TEXT;
-
--- New table for discovery pipeline
-CREATE TABLE discovered_sources (
-  id          SERIAL PRIMARY KEY,
-  url         TEXT NOT NULL UNIQUE,
-  source_name TEXT,                          -- candidate venue/org name
-  province    TEXT,                          -- NB, NS, PEI, NL
-  city        TEXT,
-  status      TEXT NOT NULL DEFAULT 'pending', -- pending | approved | rejected | duplicate
-  discovery_method TEXT,                     -- 'search_api', 'gemini_grounding', 'manual'
-  raw_context TEXT,                          -- snippet/description from discovery source
-  discovered_at TIMESTAMP NOT NULL DEFAULT NOW(),
-  reviewed_at TIMESTAMP,
-  added_to_sources_at TIMESTAMP
-);
-```
-
-**Why a separate `discovered_sources` table rather than writing directly to `scrape_sources`:**
-
-Discovery is speculative. A search query for "event venues in Halifax" may return irrelevant, duplicate, or low-quality URLs. Writing directly to `scrape_sources` means junk URLs get scraped the same night they are found. The queue table allows:
-- Manual or automated review before promotion
-- Deduplication against existing `scrape_sources.url`
-- Tracking of which discovery method found what
-
-**Why `event_category` is nullable:**
-
-Existing events in the database have no category. New events get categories during extraction. Null = uncategorized (pre-v1.2 data or extraction that returned no category). The filter UI treats null events as showing in "All" but not in a specific category chip.
+| Feature | Type | Files Changed |
+|---------|------|---------------|
+| Ticketmaster API | New source_type + handler | NEW: ticketmaster.ts; MODIFIED: orchestrator.ts |
+| Songkick | Blocked — commercial license required | None |
+| Google Events JSON-LD | New fast path before AI | NEW: json-ld.ts; MODIFIED: fetcher.ts, orchestrator.ts |
+| Multi-page scraping | Extended fetcher + schema column | MODIFIED: fetcher.ts, schema.ts, orchestrator.ts |
+| Rate limiting | Extended fetcher + orchestrator | MODIFIED: fetcher.ts, orchestrator.ts |
+| Scrape quality metrics | New schema columns + metric writes | MODIFIED: schema.ts, orchestrator.ts, /admin UI |
+| Auto-approve discovery | Scoring pass in discovery orchestrator | MODIFIED: discovery-orchestrator.ts, schema.ts |
 
 ---
 
-## Discovery Pipeline
-
-### Approach: Gemini with Google Search Grounding
-
-The Gemini API supports grounding with Google Search, which allows the model to search the web as part of answering a prompt. This is a first-class Gemini API feature (available via `@ai-sdk/google` with `useSearchGrounding` option). It is the lowest-friction approach for a Vercel-hosted app that already uses Gemini.
-
-**Alternative considered — SerpAPI/SearchAPI:** Third-party Google Search APIs (SerpAPI, HasData, SearchAPI.io) return structured JSON of search results. These would require an additional API key and monthly cost. The Gemini grounding approach uses the existing Gemini API key. SerpAPI is better for scraping the Google Events page specifically (structured event data), but the primary need here is venue URL discovery, not event data extraction.
-
-**Recommendation:** Use Gemini grounding for initial URL discovery. The model can be prompted to return a structured list of `{ name, url, city, province }` objects from search results. This requires no additional API keys.
-
-### Discovery Pipeline Flow
+## System Overview (v1.4 Target State)
 
 ```
-/api/cron/discover (GET, daily — separate schedule from scrape)
-    ↓
-runDiscoveryJob()  [scraper/discovery-orchestrator.ts]
-    ↓
-For each Atlantic Canada city/province combination:
-    ↓
-discoverVenueUrls(city, province)  [scraper/discoverer.ts]
-    ↓
-Gemini call with Google Search grounding:
-  prompt: "Find websites for event venues (music, theatre, comedy,
-           festivals, community events) in {city}, {province}, Canada.
-           Return: { name, url, city, province }[]"
-    ↓
-Gemini returns list of candidate venues with URLs
-    ↓
-deduplicateAgainstExisting(candidates)
-  → filter out URLs already in scrape_sources.url
-  → filter out URLs already in discovered_sources.url
-    ↓
-insertDiscoveredSources(newCandidates)
-  → INSERT INTO discovered_sources ... ON CONFLICT (url) DO NOTHING
+┌─────────────────────────────────────────────────────────────────┐
+│                        Vercel Cron                               │
+├────────────────────────────┬────────────────────────────────────┤
+│  GET /api/cron/scrape      │  GET /api/cron/discover            │
+│  maxDuration = 60          │  maxDuration = 60                  │
+├────────────────────────────┴────────────────────────────────────┤
+│                      orchestrator.ts                             │
+│   Dispatches on scrape_sources.source_type                      │
+│                                                                  │
+│  venue_website  ──→  fetcher.ts                                 │
+│                       Rate-limited HTTP fetch (retry/backoff)   │
+│                       Multi-page loop (max_pages column)        │
+│                       Returns { text, rawHtml }                 │
+│                       ↓                                         │
+│                       json-ld.ts  (NEW)                         │
+│                       Try JSON-LD Event schema parse            │
+│                       ↓ if found: skip AI                       │
+│                       ↓ if not found:                           │
+│                       extractor.ts → Gemini → ExtractedEvent[]  │
+│                       ↓                                         │
+│                       normalizer.ts → upsertEvent()             │
+│                       ↓                                         │
+│                       write quality metrics to scrape_sources   │
+│                                                                  │
+│  eventbrite     ──→  eventbrite.ts  → upsertEvent()            │
+│  bandsintown    ──→  bandsintown.ts → upsertEvent()             │
+│  ticketmaster   ──→  ticketmaster.ts (NEW)                      │
+│                       TM Discovery API → venue find-or-create   │
+│                       → upsertEvent()                           │
+│                                                                  │
+├─────────────────────────────────────────────────────────────────┤
+│               discovery-orchestrator.ts                          │
+│   Gemini + Google Search → candidates                           │
+│   scoreCandidate() → write discovery_score                      │
+│   score >= 0.8 → promoteSource() (auto-approve)                 │
+│   score <  0.8 → discovered_sources pending (human review)      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+                       Neon Postgres
+┌───────────┬──────────┬──────────────────────────┬──────────────────────┐
+│ venues    │ events   │ scrape_sources            │ discovered_sources   │
+│           │          │ + max_pages               │ + discovery_score    │
+│           │          │ + last_event_count        │                      │
+│           │          │ + avg_confidence          │                      │
+│           │          │ + consecutive_failures    │                      │
+│           │          │ + total_scrapes           │                      │
+│           │          │ + total_events_extracted  │                      │
+└───────────┴──────────┴──────────────────────────┴──────────────────────┘
 ```
 
-**Why this runs as a separate cron rather than inside runScrapeJob:**
+---
 
-- The scrape job and discovery job have different time budgets. Scraping 26 sources takes ~2 minutes with throttling. Discovery requires multiple search calls and may take 1-3 minutes for all city/province combinations. Combining them risks one failing and taking down the other.
-- Discovery is fundamentally different in character — it produces candidates, not events. Having it in a separate function keeps responsibilities clean.
-- On Vercel Hobby, both cron jobs can run daily. The `vercel.json` supports up to 100 cron entries per project, with no per-project limit on Hobby (confirmed via Vercel docs).
-- Discovery does not need to run at the same time as scraping. Running it at a different hour distributes load.
+## Feature Integration Details
 
-### Discovery Cron Schedule
+### 1. Ticketmaster Discovery API
 
-```json
-// vercel.json addition
-{
-  "crons": [
-    { "path": "/api/cron/scrape", "schedule": "0 6 * * *" },
-    { "path": "/api/cron/discover", "schedule": "0 4 * * *" }
-  ]
+**Integration point:** New `source_type = 'ticketmaster'` in `scrape_sources`.
+
+**Handler:** New `src/lib/scraper/ticketmaster.ts` — mirrors the `eventbrite.ts` pattern.
+
+**URL scheme (synthetic, matching existing pattern):**
+The `url` field in `scrape_sources` is overloaded as a config carrier for non-website sources (precedent: `eventbrite:org:12345`, `bandsintown:artist:name`). Ticketmaster uses: `ticketmaster:province:NB`.
+
+The handler decodes this to build the API request.
+
+**API details (HIGH confidence — verified at developer.ticketmaster.com 2026-03-15):**
+- Endpoint: `GET https://app.ticketmaster.com/discovery/v2/events`
+- Auth: `?apikey={TICKETMASTER_API_KEY}` query parameter
+- Location params: `countryCode=CA`, `stateCode=NB|NS|PE|NL`
+- Date range: `startDateTime` / `endDateTime` in ISO-8601
+- Pagination: `size` + `page`, deep paging capped at `size × page < 1000`
+- Rate limit: 5 req/sec, 5000 req/day — 4 province requests/day is trivial
+
+**Venue matching (TM-specific challenge):**
+TM events include a venue name and address. Unlike Eventbrite/Bandsintown sources (which already have a `venue_id`), TM sources must find or create a venue row:
+
+```
+For each TM event:
+  1. Normalize venue name + city from TM response
+  2. venues.findFirst({ where: ilike(name, normalized) AND city = tmCity })
+  3. If found → use existing venue_id
+  4. If not found → INSERT venue (name, city, province, address)
+                 → lat/lng omitted; geocoded on first scrape per orchestrator pattern
+  5. upsertEvent(venue_id, extracted, sourceUrl)
+```
+
+**Category mapping:** TM events have `classifications[].segment.name` (e.g., "Music", "Arts & Theatre"). Map these to the existing 8-category enum.
+
+**What is new vs modified:**
+- NEW: `src/lib/scraper/ticketmaster.ts`
+- MODIFIED: `orchestrator.ts` — add `else if (source.source_type === 'ticketmaster')` branch
+- NEW: `TICKETMASTER_API_KEY` env var
+- NEW: 4 seed rows in `scrape_sources` (one per province: NB, NS, PE, NL)
+
+---
+
+### 2. Songkick
+
+**Status: Blocked — do not implement in v1.4.**
+
+Songkick requires a paid commercial partnership agreement and license fee. They explicitly exclude hobbyist and indie developers (HIGH confidence — verified at songkick.com/developer 2026-03-15).
+
+The Ticketmaster Discovery API covers the same Atlantic Canada concert data with a free tier. Bandsintown already handles artist-based concert lookups. There is no gap that justifies pursuing Songkick.
+
+---
+
+### 3. Google Events Structured Data (JSON-LD)
+
+**What this is:** Venue websites increasingly embed `<script type="application/ld+json">` blocks with `@type: "Event"` markup per the schema.org Event spec. Cheerio can parse these directly — no AI needed.
+
+**Integration point:** A new pre-pass in the `venue_website` scrape path, BEFORE calling Gemini.
+
+**Interface change to fetcher.ts:** Currently returns `string` (cleaned text). Must also return raw HTML for JSON-LD parsing. New return type: `{ text: string; rawHtml: string }`.
+
+**Data flow (modified venue_website path):**
+```
+fetcher.ts returns { text, rawHtml }
+    ↓
+json-ld.ts → extractJsonLdEvents(rawHtml)
+    ↓
+If events.length > 0:
+    → skip extractor.ts (no AI call)
+    → each event → upsertEvent()
+    → confidence = 1.0 (structured data is authoritative)
+Else:
+    → extractor.ts → extractEvents(text, url)  [existing AI path]
+    → each event → upsertEvent()
+```
+
+**JSON-LD parse logic:**
+```typescript
+// src/lib/scraper/json-ld.ts
+export function extractJsonLdEvents(html: string, venueId: number): ExtractedEvent[] {
+  const $ = cheerio.load(html);
+  const events: ExtractedEvent[] = [];
+
+  $('script[type="application/ld+json"]').each((_, el) => {
+    try {
+      const data = JSON.parse($(el).text());
+      const items = Array.isArray(data) ? data : [data];
+      for (const item of items) {
+        if (item['@type'] === 'Event') {
+          events.push(mapSchemaOrgEvent(item));
+        }
+      }
+    } catch { /* ignore malformed JSON-LD */ }
+  });
+
+  return events;
+}
+
+function mapSchemaOrgEvent(item: Record<string, unknown>): ExtractedEvent {
+  return {
+    performer: extractName(item.performer ?? item.name),
+    event_date: normalizeDate(item.startDate),
+    event_time: extractTime(item.startDate),
+    price: extractPrice(item.offers),
+    ticket_link: extractUrl(item.offers ?? item.url),
+    description: String(item.description ?? '').slice(0, 500) || null,
+    cover_image_url: extractImageUrl(item.image),
+    confidence: 1.0,  // structured data is authoritative
+    event_category: 'other',  // schema.org eventType rarely maps cleanly; default to 'other'
+  };
 }
 ```
 
-Discovery runs at 04:00 UTC (before scrape at 06:00). Any new sources approved between 04:00 and 06:00 would be picked up that same morning. In practice, automated approval (if implemented) would be immediate; manual approval would defer to the next day.
+**Required schema.org fields (HIGH confidence — verified at developers.google.com):**
+- `name` — event title
+- `startDate` — ISO-8601 datetime
+- `location` — Place with address
 
-### Promotion Flow: discovered_sources → scrape_sources
-
-A discovered source is not scraped until it is promoted. Promotion means:
-
-1. A record exists in `discovered_sources` with `status = 'pending'`
-2. An admin or automated step sets `status = 'approved'`
-3. The promotion step creates corresponding `venues` and `scrape_sources` records
-4. `discovered_sources.added_to_sources_at` is set and `status` updated to `'approved'` with timestamp
-
-For v1.2, promotion can be manual (direct DB update or a simple admin endpoint). An automated approval heuristic (e.g., "if discovery confidence > 0.8, auto-approve") is a future optimization.
+**What is new vs modified:**
+- NEW: `src/lib/scraper/json-ld.ts`
+- MODIFIED: `src/lib/scraper/fetcher.ts` — return `{ text, rawHtml }` instead of `string`
+- MODIFIED: `orchestrator.ts` — call json-ld.ts, only call extractor.ts if no JSON-LD events found
+- All callers of `fetchAndPreprocess` must be updated to destructure `{ text }` instead of receiving string directly
 
 ---
 
-## AI Categorization Integration
+### 4. Multi-Page / Pagination Support
 
-### Where Categorization Happens: Inside extractEvents()
+**Problem:** `fetcher.ts` fetches a single URL. Venues with paginated event listings miss events on pages 2+.
 
-Categorization is added to the existing Gemini extraction call in `extractor.ts`. It is **not** a second LLM call — the category is returned as part of the same structured output schema.
+**Constraint:** 60s Vercel function timeout. Each page fetch = up to 15s. Cap at 3 pages maximum (enforced in code, not just config).
 
+**Pattern — follow `rel="next"` links:**
 ```typescript
-// Extend ExtractedEventSchema in extracted-event.ts
-const EVENT_CATEGORIES = [
-  'live_music',
-  'comedy',
-  'theatre',
-  'festival',
-  'community',
-  'sports',
-  'arts',
-  'film',
-  'other',
-] as const;
+// src/lib/scraper/fetcher.ts (updated)
+export async function fetchAndPreprocess(
+  url: string,
+  options?: { maxPages?: number }
+): Promise<{ text: string; rawHtml: string }> {
+  const maxPages = Math.min(options?.maxPages ?? 1, 3); // hard cap at 3
+  let allText = '';
+  let firstHtml = '';
+  let currentUrl: string | null = url;
+  let pageCount = 0;
 
-// Add to z.object inside ExtractedEventSchema:
-event_category: z.enum(EVENT_CATEGORIES).nullable(),
-```
+  while (currentUrl && pageCount < maxPages) {
+    if (pageCount > 0) await delay(PAGE_DELAY_MS); // 500ms between pages
+    const { html, text } = await fetchPage(currentUrl);
+    if (pageCount === 0) firstHtml = html; // JSON-LD parsed from first page only
+    allText += text;
+    currentUrl = detectNextPageUrl(html, currentUrl);
+    pageCount++;
+  }
 
-The extractor prompt is updated to include:
-- An explicit instruction to classify each event's `event_category` from the defined enum
-- Removal of the "live music only" filter constraint (since v1.2 expands to all event types)
-- Updated confidence rules that apply to all event types, not just music
-
-**Why not a separate categorization pass:** Each Gemini call costs time and money. The model already reads the full event description to determine performer, date, etc. Category is trivially determinable from the same context window. Adding it to the existing call costs essentially nothing.
-
-### Category Stored on events Table
-
-The `event_category` column is written by `upsertEvent()` in `normalizer.ts`:
-
-```typescript
-// normalizer.ts — add to INSERT values and ON CONFLICT SET
-event_category: extracted.event_category ?? null,
-```
-
-The `ON CONFLICT DO UPDATE` set should include `event_category` so that if a source previously scraped as null gets re-scraped after the v1.2 deploy, the category is backfilled.
-
-### Extractor Prompt: "Live Music Only" Constraint Removed
-
-The current extractor prompt contains:
-
-> "Only include LIVE music events (not DJ sets that aren't music events, trivia nights, etc.)"
-
-This is replaced with:
-
-> "Include all events: live music, comedy, theatre, sports, festivals, community events, etc. Exclude non-events (trivia nights, recurring bar specials, happy hours, open mic sign-ups that aren't events)."
-
-The confidence threshold logic remains: `confidence < 0.5` → filtered out. The model should assign low confidence to things that are clearly not events.
-
----
-
-## Category Filtering: Frontend Integration
-
-### Filter Flow
-
-```
-EventFilters (existing component)
-  ↓ add: category nuqs param (?category=live_music)
-  ↓
-HomeContent useMemo filter chain
-  ↓ add: filterByCategory(events, category)
-  ↓
-sidebarEvents → EventList
-allEvents filtered by category → MapClientWrapper (cluster layer)
-```
-
-### Changes to EventFilters
-
-A new row of category chips is added below the existing date chips. The category filter is only visible in cluster mode (same as the date filter — both are hidden during timelapse).
-
-```typescript
-// New nuqs param
-const [category, setCategory] = useQueryState('category');
-
-const CATEGORY_CHIPS = [
-  { value: null, label: 'All' },
-  { value: 'live_music', label: 'Live Music' },
-  { value: 'comedy', label: 'Comedy' },
-  { value: 'theatre', label: 'Theatre' },
-  { value: 'festival', label: 'Festival' },
-  { value: 'community', label: 'Community' },
-] as const;
-```
-
-The category filter integrates cleanly with the existing nuqs pattern. It is URL-persistent and shareable (e.g., `?category=comedy&province=NS` works naturally).
-
-### Changes to /api/events Route
-
-The category filter is applied **client-side**, consistent with existing date and province filtering. No server-side query parameter is needed.
-
-However, `event_category` must be returned from the `/api/events` endpoint. Because the query uses `db.select().from(events)` which selects all columns, adding the column to the schema is sufficient — no route changes required.
-
-### filterByCategory Utility
-
-```typescript
-// lib/filter-utils.ts — new function
-export function filterByCategory(
-  events: EventWithVenue[],
-  category: string | null
-): EventWithVenue[] {
-  if (!category) return events;
-  return events.filter((e) => e.events.event_category === category);
+  return {
+    text: allText.slice(0, 15_000), // keep existing char limit
+    rawHtml: firstHtml,
+  };
 }
 ```
 
-Added to the existing filter chain in `HomeContent`:
+**Next-page URL detection:**
+```typescript
+function detectNextPageUrl(html: string, baseUrl: string): string | null {
+  const $ = cheerio.load(html);
+  const nextLink = $(
+    'a[rel="next"], ' +
+    'a[aria-label*="next" i], ' +
+    'a.pagination-next, ' +
+    'li.next > a'
+  ).first();
+  const href = nextLink.attr('href');
+  if (!href) return null;
+  try { return new URL(href, baseUrl).toString(); } catch { return null; }
+}
+```
+
+**Schema change:**
+```typescript
+// scrape_sources gets a new column
+max_pages: integer('max_pages').notNull().default(1),
+```
+
+Default `max_pages = 1` preserves existing single-page behavior for all current sources. Admin can set `max_pages = 2` or `3` on specific sources that need it.
+
+**Orchestrator change:**
+```typescript
+const pageText = await fetchAndPreprocess(source.url, { maxPages: source.max_pages });
+```
+
+**What is new vs modified:**
+- MODIFIED: `src/lib/scraper/fetcher.ts` — multi-page loop, next-URL detection, new return type
+- MODIFIED: `src/lib/db/schema.ts` — `max_pages` column on `scrape_sources`
+- MODIFIED: `orchestrator.ts` — pass `source.max_pages`, destructure `{ text, rawHtml }`
+- NEW: Drizzle migration for `max_pages` column
+
+---
+
+### 5. Rate Limiting
+
+**Problem:** No delay between HTTP fetches of venue websites. Risk of 429 responses from venue sites with rate limiting.
+
+**Existing pattern:** `AI_THROTTLE_MS` delays between Gemini calls. Need a parallel pattern for HTTP fetches.
+
+**Two throttle points:**
+
+**a) Inter-source HTTP delay (orchestrator.ts):**
+```typescript
+const HTTP_THROTTLE_MS = parseInt(process.env.HTTP_THROTTLE_MS ?? '1000', 10);
+
+// After each venue_website source completes (success or failure):
+if (source.source_type === 'venue_website' && HTTP_THROTTLE_MS > 0) {
+  await delay(HTTP_THROTTLE_MS);
+}
+```
+
+**b) Intra-page delay (fetcher.ts):**
+500ms between pages within a multi-page fetch (hardcoded, not configurable — always appropriate).
+
+**c) Retry with exponential backoff (fetcher.ts):**
+```typescript
+async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await delay(1000 * Math.pow(2, attempt - 1)); // 1s, 2s
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EastCoastLocal/1.0)' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (resp.status === 429 || resp.status === 503) {
+        if (attempt < retries) continue; // retry
+      }
+      return resp;
+    } catch (err) {
+      lastErr = err as Error;
+    }
+  }
+  throw lastErr ?? new Error(`Failed to fetch ${url}`);
+}
+```
+
+**What is new vs modified:**
+- MODIFIED: `src/lib/scraper/fetcher.ts` — `fetchWithRetry` wrapper, intra-page delay
+- MODIFIED: `orchestrator.ts` — `HTTP_THROTTLE_MS` delay between venue_website sources
+- NEW: `HTTP_THROTTLE_MS` env var (default `1000`)
+
+---
+
+### 6. Scrape Quality Metrics
+
+**What to track:** Quantitative per-source metrics on the existing `scrape_sources` table.
+
+**Current state:** `last_scraped_at` and `last_scrape_status` (success/failure) only. No event counts, no confidence tracking.
+
+**New columns:**
+```typescript
+// scrape_sources additions in schema.ts
+last_event_count: integer('last_event_count'),
+avg_confidence: doublePrecision('avg_confidence'),
+consecutive_failures: integer('consecutive_failures').notNull().default(0),
+total_scrapes: integer('total_scrapes').notNull().default(0),
+total_events_extracted: integer('total_events_extracted').notNull().default(0),
+```
+
+**Metric writes in orchestrator.ts (on success):**
+```typescript
+const eventCount = extracted.length;
+const avgConf = eventCount > 0
+  ? extracted.reduce((s, e) => s + e.confidence, 0) / eventCount
+  : null;
+
+await db.update(scrape_sources).set({
+  last_scraped_at: new Date(),
+  last_scrape_status: 'success',
+  last_event_count: eventCount,
+  avg_confidence: avgConf,
+  consecutive_failures: 0,
+  total_scrapes: sql`total_scrapes + 1`,
+  total_events_extracted: sql`total_events_extracted + ${eventCount}`,
+}).where(eq(scrape_sources.id, source.id));
+```
+
+**On failure:**
+```typescript
+await db.update(scrape_sources).set({
+  last_scraped_at: new Date(),
+  last_scrape_status: 'failure',
+  consecutive_failures: sql`consecutive_failures + 1`,
+  total_scrapes: sql`total_scrapes + 1`,
+}).where(eq(scrape_sources.id, source.id));
+```
+
+**Admin UI:** Extend the existing `/admin` source list table to show `last_event_count`, `avg_confidence`, and `consecutive_failures`. No new routes needed — extend the existing page component.
+
+`consecutive_failures >= 3` is a useful alerting signal (source may be blocked or site has changed).
+
+**What is new vs modified:**
+- MODIFIED: `src/lib/db/schema.ts` — 5 new metric columns on `scrape_sources`
+- MODIFIED: `orchestrator.ts` — metric writes on success and failure paths
+- MODIFIED: `/admin` source list UI — display metric columns
+- NEW: Drizzle migration for new columns
+
+---
+
+### 7. Auto-Approve High-Confidence Discovered Sources
+
+**What:** After the discovery job inserts candidates, score each one and auto-promote candidates that clearly look like real venue websites.
+
+**Integration point:** `discovery-orchestrator.ts` — add a scoring + promotion pass after the existing insert loop.
+
+**Why `promoteSource()` needs no changes:** The existing function already handles the full promotion flow (create venue, insert scrape_source, update discovered_sources.status). It can be called from the discovery orchestrator without modification.
+
+**Scoring heuristic:**
+```typescript
+function scoreCandidate(candidate: {
+  url: string;
+  city: string | null;
+  province: string | null;
+  source_name: string | null;
+}): number {
+  let score = 0.5; // base
+
+  if (candidate.city)         score += 0.15;
+  if (candidate.province)     score += 0.15;
+  if (candidate.source_name)  score += 0.10;
+
+  // URL quality
+  if (candidate.url.startsWith('https://')) score += 0.05;
+
+  // Penalize: event/ticket page paths are likely not venue home pages
+  if (/\/events\/|\/tickets\/|\/shows\//i.test(candidate.url)) score -= 0.20;
+
+  // Penalize: social/aggregator hostnames that slipped through
+  if (/facebook\.com|instagram\.com|eventbrite\.com/i.test(candidate.url)) score -= 0.50;
+
+  return Math.max(0, Math.min(score, 1.0));
+}
+```
+
+**Auto-approve threshold:** `0.8`. Candidates scoring >= 0.8 are promoted immediately. Candidates below 0.8 remain `pending` for human review in `/admin/discovery`.
+
+**Flow in discovery-orchestrator.ts:**
+```typescript
+const AUTO_APPROVE_THRESHOLD = 0.8;
+
+for (const candidate of insertedCandidates) {
+  const score = scoreCandidate(candidate);
+
+  // Write score regardless of threshold
+  await db.update(discovered_sources)
+    .set({ discovery_score: score })
+    .where(eq(discovered_sources.url, candidate.url));
+
+  if (score >= AUTO_APPROVE_THRESHOLD) {
+    const staged = await db.query.discovered_sources.findFirst({
+      where: eq(discovered_sources.url, candidate.url),
+    });
+    if (staged?.status === 'pending') {
+      await promoteSource(staged.id); // reuse existing, unchanged
+      console.log(`Auto-approved: ${candidate.url} (score: ${score.toFixed(2)})`);
+    }
+  }
+}
+```
+
+**Schema change:**
+```typescript
+// discovered_sources additions in schema.ts
+discovery_score: doublePrecision('discovery_score'),
+```
+
+**Admin UI:** Show `discovery_score` on the pending review list so admins can see why a candidate was or wasn't auto-approved.
+
+**What is new vs modified:**
+- MODIFIED: `src/lib/scraper/discovery-orchestrator.ts` — scoring + auto-promote pass
+- MODIFIED: `src/lib/db/schema.ts` — `discovery_score` column on `discovered_sources`
+- NO change to `promote-source.ts` — reused as-is
+- MODIFIED: `/admin/discovery` UI — show `discovery_score`
+- NEW: Drizzle migration for `discovery_score` column
+
+---
+
+## Component Responsibilities (v1.4)
+
+| Component | Responsibility | Status |
+|-----------|---------------|--------|
+| `orchestrator.ts` | Source dispatch, metric writes, HTTP throttle between sources | Modified |
+| `fetcher.ts` | HTML fetch, multi-page loop, retry/backoff, intra-page delay | Modified |
+| `json-ld.ts` | Parse schema.org Event JSON-LD from raw HTML | New |
+| `extractor.ts` | AI extraction via Gemini (unchanged interface) | Unchanged |
+| `normalizer.ts` | Event upsert (unchanged) | Unchanged |
+| `ticketmaster.ts` | TM Discovery API fetch + venue find-or-create | New |
+| `eventbrite.ts` | Eventbrite API handler (unchanged) | Unchanged |
+| `bandsintown.ts` | Bandsintown API handler (unchanged) | Unchanged |
+| `discovery-orchestrator.ts` | Discovery + scoring + auto-promote | Modified |
+| `promote-source.ts` | Source promotion (reused unchanged) | Unchanged |
+| `schema.ts` | DB schema — new columns on existing tables | Modified |
+| `/admin` source list | Quality metrics display | Modified |
+| `/admin/discovery` | Show discovery_score | Modified |
+
+---
+
+## Data Flows
+
+### Ticketmaster Data Flow
+
+```
+orchestrator.ts (source_type = 'ticketmaster')
+    ↓
+ticketmaster.ts
+    ↓
+GET https://app.ticketmaster.com/discovery/v2/events
+    ?countryCode=CA
+    &stateCode={NB|NS|PE|NL}          (decoded from synthetic url)
+    &startDateTime={today}T00:00:00Z
+    &endDateTime={+30days}T23:59:59Z
+    &apikey={TICKETMASTER_API_KEY}
+    &size=200
+    ↓
+For each TM event:
+    venues.findFirst(name ILIKE tmVenueName AND city = tmCity)
+    → venue found: use venue_id
+    → venue not found: INSERT venue → geocoded on first scrape
+    ↓
+    upsertEvent(venue_id, {
+      performer: event.name || attraction.name,
+      event_date: dates.start.localDate,
+      event_time: dates.start.localTime,
+      ticket_link: event.url,
+      event_category: mapTmClassification(event.classifications),
+      confidence: 1.0,
+    }, sourceUrl)
+```
+
+### JSON-LD Fast Path Data Flow
+
+```
+orchestrator.ts (source_type = 'venue_website')
+    ↓
+fetcher.ts → fetchAndPreprocess(url, { maxPages: source.max_pages })
+    → returns { text: string, rawHtml: string }
+    ↓
+json-ld.ts → extractJsonLdEvents(rawHtml)
+    ↓ events.length > 0 (structured data found)
+        → each event → upsertEvent()          [no Gemini call]
+        → avg_confidence = 1.0
+    ↓ events.length === 0 (no structured data)
+        → extractor.ts → extractEvents(text, url)   [Gemini call]
+        → each event → upsertEvent()
+        → avg_confidence = mean(extracted[].confidence)
+    ↓
+orchestrator.ts → write metrics to scrape_sources
+```
+
+### Discovery Auto-Approve Flow
+
+```
+discovery-orchestrator.ts
+    ↓
+Gemini + Google Search → candidates[]
+    ↓
+INSERT INTO discovered_sources (ON CONFLICT DO NOTHING)
+    ↓
+For each inserted candidate:
+    scoreCandidate() → 0.0–1.0
+    UPDATE discovered_sources SET discovery_score = score
+    ↓
+    score >= 0.8?
+        YES → promoteSource(id)    [venue + scrape_source created, status = 'approved']
+        NO  → leave status = 'pending' (human review in /admin/discovery)
+```
+
+---
+
+## Schema Changes Summary (v1.4)
+
+All changes are additive — no column removals, no renames, no breaking changes to existing queries.
 
 ```typescript
-const dateFiltered = filterByDateRange(allEvents, when);
-const categoryFiltered = filterByCategory(dateFiltered, category);
-const provinceFiltered = filterByProvince(categoryFiltered, province);
-const sidebarEvents = filterByBounds(provinceFiltered, bounds);
+// scrape_sources — 5 new columns
+max_pages:               integer('max_pages').notNull().default(1),
+last_event_count:        integer('last_event_count'),
+avg_confidence:          doublePrecision('avg_confidence'),
+consecutive_failures:    integer('consecutive_failures').notNull().default(0),
+total_scrapes:           integer('total_scrapes').notNull().default(0),
+total_events_extracted:  integer('total_events_extracted').notNull().default(0),
+
+// discovered_sources — 1 new column
+discovery_score:         doublePrecision('discovery_score'),
 ```
 
-The map cluster layer should also respect the category filter so that pins on the map match what's in the sidebar:
-
-```typescript
-// In HomeContent, derive filtered events for map layer
-const mapEvents = useMemo(() => filterByCategory(allEvents, category), [allEvents, category]);
-// Pass mapEvents to MapClientWrapper instead of allEvents
-```
+One Drizzle migration covering all of the above.
 
 ---
 
-## Revised System Overview
+## Build Order (Dependency-Aware)
+
+Build in this order. Items at the same level are independent and can be built in parallel.
 
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                         VERCEL CRON JOBS                              │
-│                                                                        │
-│  04:00 UTC: /api/cron/discover          06:00 UTC: /api/cron/scrape  │
-│      ↓                                       ↓                        │
-│  runDiscoveryJob()                      runScrapeJob()                │
-│  [discovery-orchestrator.ts]            [orchestrator.ts]             │
-│      ↓                                       ↓                        │
-│  discoverVenueUrls()                    for each scrape_source:       │
-│  [discoverer.ts]                         fetchAndPreprocess()         │
-│  Gemini + Google Search Grounding        extractEvents()  ← MODIFIED  │
-│      ↓                                   (now extracts category)      │
-│  INSERT discovered_sources               upsertEvent()   ← MODIFIED  │
-│  (pending status)                        (stores category)            │
-│      ↓                                                                 │
-│  [promotion step — manual or auto]                                    │
-│      ↓                                                                 │
-│  INSERT venues + scrape_sources                                        │
-└──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ↓
-┌──────────────────────────────────────────────────────────────────────┐
-│                         NEON POSTGRES                                  │
-│                                                                        │
-│  venues              events              scrape_sources               │
-│  (unchanged)         (+ event_category)  (unchanged)                  │
-│                                                                        │
-│  discovered_sources  (NEW)                                             │
-│  status: pending → approved → added                                   │
-└──────────────────────────────────────────────────────────────────────┘
-                              │
-                              ↓
-┌──────────────────────────────────────────────────────────────────────┐
-│                         FRONTEND                                       │
-│                                                                        │
-│  /api/events (unchanged route, now includes event_category column)    │
-│      ↓                                                                 │
-│  HomeContent                                                           │
-│  allEvents → filterByCategory → filterByDateRange → filterByProvince  │
-│            → filterByBounds → sidebarEvents → EventList               │
-│      ↓                                                                 │
-│  EventFilters (+ category chip row)                                   │
-│  URL params: ?when, ?province, ?category (all nuqs)                   │
-└──────────────────────────────────────────────────────────────────────┘
+Step 1: Schema migration  [prerequisite for all metric/score writes]
+  - Add all new columns to scrape_sources and discovered_sources
+  - Run migration, verify columns exist
+  - Required before Steps 2-7
+
+Step 2: Rate limiting (independent — no new schema deps)
+  - fetchWithRetry() in fetcher.ts
+  - HTTP_THROTTLE_MS in orchestrator.ts
+  - Validate: run scrape job, confirm no 429 errors, confirm delay between sources
+
+Step 3: Multi-page support (depends on Step 1 for max_pages column)
+  - Extend fetcher.ts: multi-page loop, next-URL detection
+  - Change return type: string → { text, rawHtml }
+  - Update orchestrator.ts to destructure { text, rawHtml }, pass max_pages
+  - Validate: set max_pages = 2 on one venue with known pagination, confirm 2 pages fetched
+
+Step 4: JSON-LD extraction (depends on Step 3 for rawHtml return)
+  - Build json-ld.ts: parse + map schema.org Event markup
+  - Modify orchestrator.ts: try JSON-LD first, fall back to AI
+  - Validate: find a venue site with JSON-LD, confirm events extracted without AI call
+
+Step 5: Scrape quality metrics (depends on Step 1 for new columns)
+  - Extend orchestrator.ts metric writes (success + failure)
+  - Extend /admin source list UI to display metrics
+  - Validate: run scrape job, confirm metric columns populated in DB
+
+Step 6: Ticketmaster integration (depends on Steps 1-5 being stable)
+  - Build ticketmaster.ts handler
+  - Add else-if branch in orchestrator.ts
+  - Add 4 seed rows in scrape_sources (one per province)
+  - Add TICKETMASTER_API_KEY to Vercel env vars
+  - Validate: trigger scrape manually, confirm TM events appear in events table
+
+Step 7: Auto-approve discovery (depends on Step 1 for discovery_score column)
+  - Add scoreCandidate() and auto-promote pass to discovery-orchestrator.ts
+  - Extend /admin/discovery UI to show discovery_score
+  - Validate: run discovery job, confirm high-score candidates are promoted automatically
 ```
 
----
-
-## Component Breakdown: New vs Modified
-
-### New Files
-
-| File | Type | Responsibility |
-|------|------|---------------|
-| `src/lib/scraper/discovery-orchestrator.ts` | Server | Discovery cron entry point; iterates city/province combos; calls discoverer; deduplicates; inserts to discovered_sources |
-| `src/lib/scraper/discoverer.ts` | Server | Single city/province discovery call; Gemini + Google Search grounding; returns `{ name, url, city, province }[]` |
-| `src/app/api/cron/discover/route.ts` | API Route | Auth + calls runDiscoveryJob(); `export const maxDuration = 300` |
-| `drizzle migration` | SQL | Add `event_category` to events; create `discovered_sources` table |
-
-### Modified Files
-
-| File | Change |
-|------|--------|
-| `src/lib/schemas/extracted-event.ts` | Add `event_category: z.enum([...]).nullable()` to ExtractedEventSchema |
-| `src/lib/scraper/extractor.ts` | Update prompt: remove "live music only" constraint; add category classification instruction |
-| `src/lib/scraper/normalizer.ts` | Write `event_category` in INSERT values and ON CONFLICT SET |
-| `src/lib/db/schema.ts` | Add `event_category: text('event_category')` to events table definition |
-| `src/lib/filter-utils.ts` | Add `filterByCategory()` function |
-| `src/components/events/EventFilters.tsx` | Add category chip row; add `category` nuqs param |
-| `src/app/page.tsx` (HomeContent) | Add `category` to filter chain; pass filtered events to map layer |
-| `src/types/index.ts` | EventWithVenue type picks up new column automatically (Drizzle InferSelectModel) |
-| `vercel.json` | Add discovery cron entry |
-
-### Unchanged Files
-
-| File | Why Unchanged |
-|------|--------------|
-| `src/app/api/events/route.ts` | `db.select()` returns all columns; new column flows through automatically |
-| `src/lib/scraper/fetcher.ts` | Discovery uses Gemini grounding, not fetcher |
-| `src/lib/scraper/geocoder.ts` | Geocoding happens at venue creation time — unchanged |
-| `src/components/map/` (all) | Map layers receive filtered events; no awareness of categories needed |
-| `src/components/events/EventList.tsx` | Receives already-filtered events; no changes needed |
-
----
-
-## Build Order
-
-Dependencies flow strictly downward. Each item can start only after the items above it are complete.
-
-```
-1. DB schema migration
-   Add event_category to events.
-   Create discovered_sources table.
-   Run migration. Verify columns exist.
-   (Prerequisite for everything else — schema changes must be live first)
-
-2. ExtractedEventSchema update + extractor.ts prompt update
-   Add event_category to schema.
-   Update prompt: remove live-music filter, add all-event-types + category instruction.
-   Test with a real venue URL to verify category extraction works.
-   (No DB dependency beyond events table having the column from step 1)
-
-3. normalizer.ts: write event_category to DB
-   Add event_category to INSERT values and ON CONFLICT SET.
-   Integration test: run a scrape, verify events.event_category is populated.
-   (Depends on steps 1 + 2)
-
-4. filter-utils.ts: add filterByCategory()
-   Pure function, no dependencies. Can be done in parallel with steps 2-3.
-   Unit test: verify null category returns all, specific category filters correctly.
-
-5. EventFilters.tsx + HomeContent: category filter UI
-   Add category nuqs param.
-   Add category chips to EventFilters.
-   Wire filterByCategory into HomeContent filter chain.
-   Wire category-filtered events to MapClientWrapper.
-   (Depends on step 4; can begin before step 3 with mock data)
-
-6. discoverer.ts + discovery-orchestrator.ts
-   Implement Gemini-grounded discovery.
-   Implement deduplication against scrape_sources.url.
-   Implement insert to discovered_sources.
-   Test with a single city (e.g., Halifax) before all provinces.
-   (Independent of steps 2-5; depends only on step 1 for discovered_sources table)
-
-7. /api/cron/discover route + vercel.json cron entry
-   Wire route to runDiscoveryJob().
-   Add cron schedule to vercel.json.
-   Deploy and verify cron fires correctly.
-   (Depends on step 6)
-
-8. Promotion mechanism
-   Script or endpoint to approve discovered_sources and create venues/scrape_sources.
-   Can be a simple DB query or minimal admin endpoint.
-   (Depends on step 7 having run and populated discovered_sources with real data)
-```
-
-**Parallelizable:** Steps 2-3 (extractor changes) and step 6 (discoverer) are independent. Step 4 (filterByCategory) can be written at any point. Steps 2-3 directly improve the existing scrape pipeline and can be deployed independently before the discovery pipeline is complete.
+Steps 2 and 5 are independent of each other and can be built in parallel after Step 1.
+Steps 3 and 7 are independent of each other and can be built in parallel after Step 1.
+Step 4 depends on Step 3 (rawHtml interface).
+Step 6 should be last — it benefits from all pipeline improvements being stable first.
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Extend Existing Extraction, Don't Add a Second LLM Call
+### Pattern 1: Source Type Dispatch
 
-**What:** Add `event_category` to the existing Gemini extraction schema rather than running a separate classification pass after extraction.
+The orchestrator's `source_type` switch is the established extension point. Every new data source gets a new `source_type` string value and a corresponding handler module. Handlers share one contract: accept a `ScrapeSource`, call `upsertEvent()` for each event, throw on unrecoverable errors.
 
-**When to use:** Any new attribute that can be inferred from the same page content the extractor already reads.
+**When to use:** Any new event data source — API-based or structured format.
+**Trade-offs:** No abstraction layer means each handler is slightly different. Acceptable given the small number of types.
 
-**Trade-offs:** Fewer API calls (cost + speed). Risk: adding fields to the schema prompt may slightly reduce extraction accuracy for existing fields — test with a few URLs before deploying. In practice, Gemini handles additional output fields well, especially when they have a constrained enum.
+### Pattern 2: Fast Path Before AI Fallback
 
-### Pattern 2: Discovery Queue with Manual Promotion Gate
+For venue_website sources: try cheap structured extraction first (JSON-LD), fall back to expensive AI only when structured data is absent. This pattern reduces Gemini API calls for well-structured sites.
 
-**What:** Discovery writes to `discovered_sources` with `status = 'pending'`. Scraped content only comes from `scrape_sources`. Promotion is an explicit step.
+**When to use:** Any extraction step where a deterministic fast path is sometimes available.
+**Trade-offs:** Two code paths to maintain. Worth it when the fast path is zero-cost (no API call).
 
-**When to use:** Any automated pipeline that generates candidate data of uncertain quality.
+### Pattern 3: Synthetic URL as Config Carrier
 
-**Trade-offs:** Adds latency to new source onboarding (can't scrape a newly discovered venue until it's approved). This is intentional — quality control. The tradeoff is worth it to avoid scraping junk URLs. Future automation can reduce latency (auto-approve if confidence > threshold).
+Non-website sources encode their API parameters into the `url` field using a custom scheme: `eventbrite:org:12345`, `bandsintown:artist:name`, `ticketmaster:province:NB`. The handler decodes the URL to build the real API request.
 
-### Pattern 3: Client-Side Category Filtering via nuqs
+**When to use:** Any new API source where the "address" is a config parameter, not a URL.
+**Trade-offs:** The `url` column is overloaded. Acceptable given the established precedent and small source count.
 
-**What:** Category is a URL param (`?category=live_music`) filtered client-side, consistent with existing `?when` and `?province` params.
+### Pattern 4: Additive Schema Only
 
-**When to use:** For data volumes where the full event set fits in browser memory. Current Atlantic Canada scope is well within this range.
+All v1.4 schema changes are new columns with default values. No existing columns are renamed or removed. Existing queries continue to work without changes.
 
-**Trade-offs:** If categories become high-cardinality or the event set grows beyond ~10k records, adding a server-side `?category=` query param to `/api/events` becomes worthwhile to reduce payload size. Not needed for v1.2.
-
-### Pattern 4: Separate Cron Routes for Separate Concerns
-
-**What:** `/api/cron/scrape` and `/api/cron/discover` are separate routes with separate schedules.
-
-**When to use:** When two background jobs have different cadences, different failure modes, or different time budgets.
-
-**Trade-offs:** Slightly more infrastructure (two routes, two cron entries in vercel.json). The benefit is clean isolation — a discovery job failure does not affect scraping, and vice versa.
+**When to use:** Always. Destructive schema changes on a live production app require downtime coordination.
 
 ---
 
 ## Anti-Patterns
 
-### Anti-Pattern 1: Writing Discovered Sources Directly to scrape_sources
+### Anti-Pattern 1: Unlimited Page Crawling
 
-**What people do:** Skip the `discovered_sources` queue; immediately add discovered URLs to `scrape_sources` with `enabled = true`.
+**What people do:** Follow pagination links until `nextUrl === null` with no page cap.
 
-**Why it's wrong:** Discovery returns speculative results. Gemini may return duplicate URLs, irrelevant websites, or URLs for venues outside the target geography. Auto-activating these means junk URLs get scraped nightly, wasting AI quota and polluting the events table.
+**Why it's wrong:** A venue website with 10+ pages × 15s fetch timeout each = function timeout. Events beyond 30 days are filtered out anyway — most venues don't have enough events to need more than 2-3 pages.
 
-**Do this instead:** Queue to `discovered_sources` with `status = 'pending'`. Promote after review (manual or automated confidence threshold).
+**Do this instead:** Hard cap at 3 pages in code (`Math.min(options?.maxPages ?? 1, 3)`), configurable per source with `max_pages` column (default 1).
 
-### Anti-Pattern 2: Running Discovery Inside runScrapeJob()
+### Anti-Pattern 2: Bypassing the Metrics Write
 
-**What people do:** Add discovery as a step at the start or end of the existing scrape orchestrator.
+**What people do:** Return early from a new source handler (e.g., Ticketmaster) before the metrics update in `orchestrator.ts` runs.
 
-**Why it's wrong:** Couples two independent concerns. A discovery failure can abort the scrape. The combined job may exceed the function timeout. Scrape frequency (daily, by source) and discovery cadence (by city) are fundamentally different loops.
+**Why it's wrong:** The metrics write and the success/failure status update are in the `try/catch` wrapper in `orchestrator.ts`, outside the handler. New handlers must be called inside the existing loop's `try` block — the metrics path runs for all source types automatically.
 
-**Do this instead:** Separate cron routes. Both can be daily on Hobby plan. Stagger by 2 hours.
+**Do this instead:** Add the new `else if` branch inside the existing `for (const source of sources)` loop, before the metrics write at the bottom of the `try` block.
 
-### Anti-Pattern 3: Running a Second LLM Call for Categorization
+### Anti-Pattern 3: Auto-Approving Everything
 
-**What people do:** After extracting events, pass each event's description back to Gemini to classify it.
+**What people do:** Set the auto-approve threshold to 0.5 to maximize discovery throughput.
 
-**Why it's wrong:** Doubles the number of Gemini API calls. With 26+ sources and throttling, the scrape job already runs for ~2 minutes. Adding a classification pass per event would multiply this by the number of events per source.
+**Why it's wrong:** Low-confidence candidates are often aggregator pages, social profiles, or irrelevant sites. They fail scraping, increment `consecutive_failures`, and waste AI quota.
 
-**Do this instead:** Add `event_category` to the existing extraction schema. The model classifies in the same pass.
+**Do this instead:** Keep threshold at 0.8. A smaller set of high-confidence auto-approvals is more valuable than flooding the scrape pipeline with noise.
 
-### Anti-Pattern 4: Overloading event_category with UI Logic
+### Anti-Pattern 4: JSON-LD Fallthrough That Still Runs AI
 
-**What people do:** Store verbose labels in `event_category` ("Live Music & Concerts", "Comedy Shows") to display directly in the UI.
+**What people do:** Call `extractJsonLdEvents(rawHtml)` but always also call `extractEvents(text, url)` and merge results.
 
-**Why it's wrong:** UI labels are a presentation concern; DB values should be stable identifiers. If a label changes, all stored values must be migrated.
+**Why it's wrong:** Duplicates events from the same source. JSON-LD events will conflict-upsert against AI-extracted events with different confidence scores, causing unnecessary writes.
 
-**Do this instead:** Store short enum keys (`live_music`, `comedy`). Map to display labels in the frontend constants file. Labels can change without a migration.
-
-### Anti-Pattern 5: Filtering the Map Layer by Category but Not the Sidebar (or Vice Versa)
-
-**What people do:** Apply `filterByCategory` to `sidebarEvents` but pass `allEvents` to the map, creating a mismatch between pins and list entries.
-
-**Why it's wrong:** Users see pins on the map for events not in the sidebar, or vice versa. This breaks the visual contract of the interface.
-
-**Do this instead:** Derive a `mapEvents` array from `filterByCategory(allEvents, category)` and pass it to `MapClientWrapper`. The sidebar and map must always show the same filtered set.
+**Do this instead:** Short-circuit: `if (jsonLdEvents.length > 0) { /* use them; return */ }`. Only call Gemini when JSON-LD yields nothing.
 
 ---
 
 ## Integration Points
 
-### New External Service
+### External Services
 
-| Service | Integration Pattern | Notes |
-|---------|---------------------|-------|
-| Gemini Google Search Grounding | `@ai-sdk/google` with `useSearchGrounding: true` option in `generateText()` call | Uses existing Gemini API key; no additional credentials. Verify grounding option availability in current `@ai-sdk/google` version before building. |
+| Service | Integration Pattern | Auth | Rate Limit | Notes |
+|---------|---------------------|------|------------|-------|
+| Ticketmaster Discovery API | REST GET, apikey query param | `TICKETMASTER_API_KEY` env | 5 req/sec, 5000/day | countryCode=CA, one request per province |
+| Songkick | Not integrating | Commercial license required | N/A | Blocked — deferred indefinitely |
+| schema.org Event (JSON-LD) | Parse HTML `<script>` blocks | None | N/A | Cheerio parse; no external call |
+| Gemini API (existing) | Vercel AI SDK generateText | `GEMINI_API_KEY` env | Paid tier | Fallback when JSON-LD absent |
+| Google Geocoding (existing) | REST GET | `GOOGLE_MAPS_API_KEY` env | Sufficient | TM venues need geocoding too |
 
-### New Internal Boundaries
+### Internal Boundaries
 
-| Boundary | Communication | Notes |
-|----------|---------------|-------|
-| `discovery-orchestrator.ts` ↔ `discovered_sources` table | Drizzle INSERT with ON CONFLICT DO NOTHING | Idempotent — running discovery twice for the same city won't duplicate rows |
-| `discovered_sources` ↔ `scrape_sources` | Promotion step writes new rows | Promotion is the only coupling between the two tables; keep it in a dedicated promotion function |
-| `EventFilters` ↔ `HomeContent` | New `category` nuqs param read in both | Consistent with existing `when` / `province` pattern |
-| `filterByCategory` ↔ filter chain | Pure function inserted into existing chain | Position matters: apply category before province (reduces set earlier) |
-
-### Unchanged Integration Points
-
-| Boundary | Status |
-|----------|--------|
-| `/api/events` route → `HomeContent` | Unchanged; new column flows through automatically |
-| `nuqs` URL state pattern | Unchanged; `category` follows same pattern as `when` / `province` |
-| Gemini extraction (extractor.ts) | Modified prompt and schema, but same API call pattern |
-| `upsertEvent` dedup key | Unchanged: (venue_id, event_date, normalized_performer) |
+| Boundary | Communication | Change in v1.4 |
+|----------|---------------|----------------|
+| orchestrator → fetcher | Direct function call | Interface change: returns `{ text, rawHtml }` |
+| orchestrator → json-ld | Direct function call | New boundary |
+| orchestrator → ticketmaster | Direct function call | New boundary |
+| orchestrator → schema (metric columns) | Drizzle update | Extended: 5 new metric columns |
+| discovery-orchestrator → promoteSource | Direct function call | Existing, reused unchanged |
+| discovery-orchestrator → discovered_sources (score) | Drizzle update | New: writes `discovery_score` |
 
 ---
 
 ## Scaling Considerations
 
-| Scale | Architecture Adjustments |
-|-------|--------------------------|
-| Current (26 sources, ~5k events) | Client-side category filter in useMemo; single Gemini call per source; no changes needed |
-| 100+ sources | Gemini rate limits become a constraint; increase `SCRAPE_THROTTLE_MS` or batch by day-of-week |
-| 500+ sources | Neon HTTP driver connection pool saturation risk; switch to pooled Neon connection string |
-| Event volume > 10k | Add server-side `?category=` filter to `/api/events` route to reduce payload; still client-side filter for date/province |
+| Concern | v1.3 | v1.4 Impact |
+|---------|------|-------------|
+| Vercel 60s timeout | 26 sources × ~4s AI delay is near the limit | JSON-LD reduces AI calls; TM adds 4 fast REST calls. Net: slightly better if JSON-LD hits on common venues |
+| Gemini API calls | 26/day | Reduced by JSON-LD fast path hits. Each JSON-LD hit saves one Gemini call |
+| Neon Postgres | Light load | Metric writes add 6 extra column updates per source run — negligible |
+| TM API quota | N/A | 4 requests/day vs 5000/day limit — trivial |
+| Admin UI data volume | 26 rows | 5 new metric columns, still lightweight |
+
+The 60-second timeout remains the binding constraint. Multi-page scraping is the highest-risk addition — enforce the 3-page hard cap and monitor `consecutive_failures` for sources where timeout-induced failures start appearing.
 
 ---
 
 ## Sources
 
-- Direct codebase inspection: `src/lib/scraper/`, `src/lib/db/schema.ts`, `src/app/api/cron/`, `vercel.json` — HIGH confidence
-- [Vercel Cron Jobs Usage and Pricing](https://vercel.com/docs/cron-jobs/usage-and-pricing) — Hobby plan: 100 cron jobs, once per day — HIGH confidence
-- [Vercel Fluid Compute](https://vercel.com/docs/fluid-compute) — Default as of April 23, 2025; Hobby max duration 300s — HIGH confidence
-- [Vercel Function Max Duration](https://vercel.com/docs/functions/configuring-functions/duration) — Hobby 300s max with Fluid Compute — HIGH confidence
-- [Gemini API Grounding with Google Search](https://ai.google.dev/gemini-api/docs/google-search) — Grounding as a first-class Gemini API feature — HIGH confidence
-- [Gemini Structured Output](https://ai.google.dev/gemini-api/docs/structured-output) — Enum constraints in schema for classification tasks — HIGH confidence
-- [Vercel Changelog: Cron jobs now support 100 per project on every plan](https://vercel.com/changelog/cron-jobs-now-support-100-per-project-on-every-plan) — HIGH confidence
+- Ticketmaster Discovery API: https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/ (verified 2026-03-15)
+- Google Event structured data schema: https://developers.google.com/search/docs/appearance/structured-data/event (verified 2026-03-15)
+- Songkick API terms: https://www.songkick.com/developer (verified 2026-03-15 — commercial license, not viable)
+- Scraping quality metrics framework: https://witanworld.com/article/2026/02/02/how-to-evaluate-web-scraping-pipelines-using-the-right-metrics/
+- Exponential backoff for scraping: https://substack.thewebscraping.club/p/rate-limit-scraping-exponential-backoff
+- Cheerio pagination patterns: https://webscraping.ai/faq/cheerio/how-do-you-handle-pagination-when-scraping-with-cheerio
+- Codebase: /Users/brad/Apps/eastcoastlocal/src/lib/scraper/* (direct inspection)
 
 ---
 
-*Architecture research for: Automatic venue/source discovery + AI event categorization — East Coast Local v1.2*
-*Researched: 2026-03-14*
+*Architecture research for: East Coast Local v1.4 — API integrations + scraping improvements*
+*Researched: 2026-03-15*
