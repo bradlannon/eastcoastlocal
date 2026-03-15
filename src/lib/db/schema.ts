@@ -86,6 +86,34 @@ export const scrape_sources = pgTable('scrape_sources', {
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
 
+export const venueMergeLog = pgTable('venue_merge_log', {
+  id: serial('id').primaryKey(),
+  canonical_venue_id: integer('canonical_venue_id')
+    .references(() => venues.id)
+    .notNull(),
+  merged_venue_name: text('merged_venue_name').notNull(),
+  merged_venue_city: text('merged_venue_city').notNull(),
+  name_score: doublePrecision('name_score').notNull(),
+  distance_meters: doublePrecision('distance_meters'),
+  merged_at: timestamp('merged_at').defaultNow().notNull(),
+});
+
+export const venueMergeCandidates = pgTable('venue_merge_candidates', {
+  id: serial('id').primaryKey(),
+  venue_a_id: integer('venue_a_id')
+    .references(() => venues.id)
+    .notNull(),
+  venue_b_id: integer('venue_b_id')
+    .references(() => venues.id)
+    .notNull(),
+  name_score: doublePrecision('name_score').notNull(),
+  distance_meters: doublePrecision('distance_meters'),
+  reason: text('reason').notNull(), // name_match_geo_distant, geo_close_name_differs, name_match_no_geo, name_match_geo_uncertain
+  status: text('status').notNull().default('pending'), // pending, merged, kept_separate
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  reviewed_at: timestamp('reviewed_at'),
+});
+
 export const discovered_sources = pgTable('discovered_sources', {
   id: serial('id').primaryKey(),
   url: text('url').notNull().unique(),
