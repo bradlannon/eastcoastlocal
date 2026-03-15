@@ -2,6 +2,48 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v1.3 — Admin Tools
+
+**Shipped:** 2026-03-15
+**Phases:** 4 | **Plans:** 6
+
+### What Was Built
+- JWT auth with Edge-compatible middleware protecting all /admin routes
+- Admin dashboard with live stat cards (venues, sources, discoveries, last scrape) and per-source health table
+- Full venue CRUD with auto-geocoding and scrape source management (add/toggle)
+- Discovery review UI with tab filtering, inline expansion, one-click approve, and reject with reason
+
+### What Worked
+- discuss-phase locked all UI decisions (layout, nav, interactions) upfront — zero rework across 4 phases
+- Phase 11 dashboard linked to future pages (/admin/venues, /admin/discovery) before they existed — seamless integration when Phases 12-13 built them
+- Reusing existing `promoteSource()` function for the approve action avoided code duplication
+- Single-wave plans (1-2 tasks each) kept executor context tight — all 6 plans completed successfully on first attempt
+- Active nav highlighting added in Phase 12 carried forward naturally to Phase 13
+
+### What Was Inefficient
+- SUMMARY.md `requirements_completed` frontmatter still inconsistently populated — VENUE-01 and VENUE-03 missing from 12-01-SUMMARY despite being verified
+- Env var setup for admin auth required manual Vercel dashboard configuration + empty commit to trigger redeploy — could document this in CLAUDE.md
+- Research disabled for all phases (config setting) — worked fine for a straightforward admin CRUD milestone but may miss edge cases in more complex work
+
+### Patterns Established
+- `useActionState` + server actions for all admin forms — consistent pattern across login, venue edit, venue create, source add, reject
+- Server component pages + small client component islands (RefreshButton, VenueEditForm, SourceManagement, DiscoveryList) — clean separation
+- `revalidatePath` + `redirect` for mutation feedback — consistent across all admin actions
+- SQL CASE expression for custom sort order (failures first in health table)
+- Auto-detect source type from URL domain — simple heuristic, no user input needed
+
+### Key Lessons
+1. Admin CRUD is well-suited to minimal planning — clear requirements, established patterns, no ambiguous UX decisions
+2. Linking to future pages early (dashboard → venues/discovery) creates natural integration points
+3. Single admin credential with SHA-256 + jose JWT is sufficient and Edge-compatible — avoid overengineering auth for single-operator tools
+
+### Cost Observations
+- Model mix: orchestrator on opus, executor/verifier/checker/planner on sonnet
+- ~2 hours from Phase 10 start to all 4 phases shipped
+- Notable: discuss-phase took longest per phase (~5 min interactive), execution averaged ~4 min per plan
+
+---
+
 ## Milestone: v1.2 — Event Discovery
 
 **Shipped:** 2026-03-15
@@ -96,6 +138,7 @@
 |-----------|--------|-------|------------|
 | v1.0 | 3 | 8 | First milestone — established discuss→plan→execute→verify loop |
 | v1.2 | 4 | 6 | Schema-first gating; parallel plan execution; integration checker at milestone level |
+| v1.3 | 4 | 6 | Research disabled; single-wave plans; admin CRUD patterns established |
 
 ### Cumulative Quality
 
@@ -103,6 +146,7 @@
 |-----------|-------|-----|-------|
 | v1.0 | 77 | 3,521 | 105 |
 | v1.2 | 95+ | 6,172 | 132 |
+| v1.3 | 95+ | 7,983 | 153 |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -111,3 +155,4 @@
 3. Leaflet requires defensive React patterns (refs, listener cleanup, dynamic imports)
 4. SUMMARY.md frontmatter population is unreliable across milestones — 3-source cross-reference compensates
 5. Schema-first gating prevents downstream churn in multi-phase milestones
+6. Admin CRUD phases benefit from skipping research — patterns are well-established, discussion captures all needed decisions
