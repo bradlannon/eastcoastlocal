@@ -34,7 +34,7 @@ jest.mock('drizzle-orm', () => ({
 
 import { db } from '@/lib/db/client';
 
-const mockDb = db as {
+const mockDb = db as unknown as {
   select: jest.Mock;
   update: jest.Mock;
   delete: jest.Mock;

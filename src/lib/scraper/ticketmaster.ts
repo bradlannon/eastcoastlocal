@@ -1,6 +1,6 @@
 import { db } from '@/lib/db/client';
 import { venues, venueMergeLog, venueMergeCandidates } from '@/lib/db/schema';
-import { ilike, eq, and } from 'drizzle-orm';
+import { ilike, eq, and, or } from 'drizzle-orm';
 import { upsertEvent } from './normalizer';
 import { scoreVenueCandidate, venueNameRatio } from './venue-dedup';
 import type { ScrapeSource } from '@/types';
@@ -181,16 +181,36 @@ export async function findOrCreateVenue(
     .values({ name, address, city, province })
     .returning({ id: venues.id });
 
-  // Log review candidate if borderline case was found
+  // Log review candidate if borderline case was found — but only if no candidate
+  // already exists for this pair (any status, either direction).
   if (bestDecision?.action === 'review' && bestCandidateId !== null) {
-    await db.insert(venueMergeCandidates).values({
-      venue_a_id: inserted.id,
-      venue_b_id: bestCandidateId,
-      name_score: bestNameScore,
-      distance_meters: bestDistanceM,
-      reason: bestDecision.reason,
-      status: 'pending',
-    });
+    const existing = await db
+      .select({ id: venueMergeCandidates.id })
+      .from(venueMergeCandidates)
+      .where(
+        or(
+          and(
+            eq(venueMergeCandidates.venue_a_id, inserted.id),
+            eq(venueMergeCandidates.venue_b_id, bestCandidateId)
+          ),
+          and(
+            eq(venueMergeCandidates.venue_a_id, bestCandidateId),
+            eq(venueMergeCandidates.venue_b_id, inserted.id)
+          )
+        )
+      )
+      .limit(1);
+
+    if (existing.length === 0) {
+      await db.insert(venueMergeCandidates).values({
+        venue_a_id: inserted.id,
+        venue_b_id: bestCandidateId,
+        name_score: bestNameScore,
+        distance_meters: bestDistanceM,
+        reason: bestDecision.reason,
+        status: 'pending',
+      });
+    }
   }
 
   return inserted.id;
