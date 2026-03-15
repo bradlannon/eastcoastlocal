@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: "Checkpoint: human-verify task in 20-02-PLAN.md"
-last_updated: "2026-03-15T21:00:10.069Z"
-last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
+stopped_at: "Completed 20-02-PLAN.md — Phase 20 admin merge review UI complete"
+last_updated: "2026-03-15T21:06:09.260Z"
+last_activity: "2026-03-15 — Plan 20-02 executed: admin merge review UI with human-verify approval"
 progress:
   total_phases: 7
   completed_phases: 6
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Phase 18 — Venue Deduplication
+**Current focus:** Phase 20 — Admin Merge Review (complete)
 
 ## Current Position
 
-Phase: 18 — Venue Deduplication (in progress)
-Plan: 01 complete — scoring module built
-Status: Plan 18-01 complete; ready for Plan 18-02 (TM pipeline integration)
-Last activity: 2026-03-15 — Plan 18-01 executed: venue dedup scoring module
+Phase: 20 — Admin Merge Review (complete)
+Plan: 02 complete — admin merge review UI built and human-verified
+Status: Phase 20 complete; all v1.5 plans complete
+Last activity: 2026-03-15 — Plan 20-02 executed: admin merge review UI with human-verify approval
 
-Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
+Progress: [██████████] 100% (11 of 11 v1.5 plans)
 
 ## Performance Metrics
 
@@ -95,6 +95,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T21:00:10.062Z
-Stopped at: Checkpoint: human-verify task in 20-02-PLAN.md
+Last session: 2026-03-15T21:06:09.260Z
+Stopped at: Completed 20-02-PLAN.md — Phase 20 admin merge review UI complete
 Resume file: None
