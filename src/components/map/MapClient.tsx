@@ -17,6 +17,7 @@ import GeolocationButton from './GeolocationButton';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
+import CategoryChipsRow from '../events/CategoryChipsRow';
 import { ATLANTIC_CANADA_CENTER, INITIAL_ZOOM } from '@/lib/province-bounds';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
@@ -121,9 +122,10 @@ export default function MapClient({
         onToggle={onModeToggle ?? (() => {})}
       />
 
-      {/* Timeline bar — shown only in timelapse mode */}
+      {/* Timeline bar + category chips — shown only in timelapse mode */}
       {mapMode === 'timelapse' && (
-        <div className="absolute bottom-0 left-0 right-0 z-[1000] px-4 pb-4">
+        <div className="absolute bottom-0 left-0 right-0 z-[1000] px-4 pb-4 flex flex-col gap-2">
+          <CategoryChipsRow eventCount={eventCount ?? 0} />
           <TimelineBar
             timePosition={timePosition ?? 0}
             isPlaying={isPlaying ?? false}
