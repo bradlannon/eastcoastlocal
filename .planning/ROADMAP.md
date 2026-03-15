@@ -58,7 +58,7 @@
 
 </details>
 
-### v1.5 Event Dedup & UX Polish (Phases 18-20)
+### v1.5 Event Dedup & UX Polish (Phases 18-21)
 
 - [x] **Phase 18: Venue Deduplication** — Two-signal fuzzy merge of TM-created duplicate venue rows; cross-source event dedup falls out automatically (completed 2026-03-15)
 - [x] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table (completed 2026-03-15)
@@ -159,7 +159,9 @@ Plans:
   1. `normalizer.ts` uses COALESCE for `ticket_link` the same way `source_url` already does — a scraper upsert with null ticket_link does not overwrite an existing TM link
   2. The orphaned `findBestMatch` export in the venue dedup module is removed (ticketmaster.ts has its own inline implementation)
   3. `CategoryChipsRow` eventCount badge reflects the map-wide category count, not the bounds-clipped sidebar count
-**Plans**: 0 plans
+**Plans**: 1 plan
+Plans:
+- [ ] 21-01-PLAN.md — Gap closure: ticket_link COALESCE, findBestMatch removal, eventCount badge fix
 
 ## Progress
 
@@ -185,4 +187,4 @@ Plans:
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 21. Tech Debt Cleanup | v1.5 | 0/0 | Pending | — |
+| 21. Tech Debt Cleanup | v1.5 | 0/1 | In Progress | — |
