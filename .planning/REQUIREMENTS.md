@@ -3,9 +3,31 @@
 **Defined:** 2026-03-15
 **Core Value:** Users can instantly see what events are happening near them on a map — where, when, and what type
 
-## v1.4 Requirements
+## v1.5 Requirements
 
-Requirements for more scrapers, pipeline improvements, and discovery automation. Each maps to roadmap phases.
+Requirements for event/venue deduplication, source attribution, and UX polish. Each maps to roadmap phases.
+
+### Deduplication
+
+- [ ] **DEDUP-01**: System auto-detects and merges duplicate venues using name similarity + geocoordinate proximity after Ticketmaster ingest
+- [ ] **DEDUP-02**: Cross-source duplicate events are prevented when the same event appears from multiple sources for the same venue
+- [ ] **DEDUP-03**: Borderline venue merge candidates (name match but uncertain geo, or vice versa) are logged for admin review
+- [ ] **DEDUP-04**: Admin can view near-match venue pairs with side-by-side comparison and merge or keep separate
+
+### Source Attribution
+
+- [ ] **ATTR-01**: System tracks which sources each event was discovered from via an event_sources join table
+- [ ] **ATTR-02**: On cross-source conflict, ticket link is updated non-destructively if existing event has none
+
+### UX Polish
+
+- [ ] **UX-01**: User can click "Show on map" on an event card to animate the map to the venue location
+- [ ] **UX-02**: Category filter chips are visible and interactive in timelapse mode
+
+## v1.4 Requirements (Complete)
+
+<details>
+<summary>All 10 requirements complete</summary>
 
 ### Platform Integrations
 
@@ -25,6 +47,8 @@ Requirements for more scrapers, pipeline improvements, and discovery automation.
 
 - [x] **DISC-05**: High-confidence discovered sources are auto-approved using multiple signals (LLM confidence + test extraction + future events)
 - [x] **DISC-06**: Auto-approved sources are visible in admin UI and can be revoked
+
+</details>
 
 ## v1.3 Requirements (Complete)
 
@@ -65,20 +89,17 @@ Requirements for more scrapers, pipeline improvements, and discovery automation.
 - **DISC-07**: System learns from approved/rejected sources to improve discovery quality
 - **DISC-08**: Discovery covers Facebook Events (deferred — requires headless browser, blocked by Vercel Hobby)
 
-### UX Polish
-
-- **UX-01**: Zoom-to-location button on event cards
-- **UX-02**: Category filter chips visible in timelapse mode
-
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
+| Fully automated venue merge with no review path | False positives corrupt data permanently; two-signal gate + admin review for borderline cases is safer |
+| Fuzzy event matching independent of venue | Without resolved venue_id, title similarity produces false positives across different venues |
+| Real-time dedup during user requests | Fuzzy matching is O(n²); run in daily cron, not on request |
+| Animated flyTo on scroll/hover | Constant flyTo calls during scroll are jarring and break mobile UX; explicit button click only |
+| Zoom level above 16 on flyTo | CartoDB Positron tiles lose legibility; zoom 15 provides venue context |
 | Songkick integration | Commercial API only ($500+/month partnership required) |
 | Facebook Events | Requires headless browser; blocked by Vercel Hobby 50MB limit |
-| Multi-user admin with roles | Single operator — one admin credential sufficient for current scale |
-| Event editing in admin | Events are scraped, not manually managed |
-| Real-time scrape monitoring | Dashboard with last-run status is sufficient; no WebSocket needed |
 
 ## Traceability
 
@@ -86,35 +107,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 10 | Complete |
-| AUTH-02 | Phase 10 | Complete |
-| DASH-01 | Phase 11 | Complete |
-| DASH-02 | Phase 11 | Complete |
-| VENUE-01 | Phase 12 | Complete |
-| VENUE-02 | Phase 12 | Complete |
-| VENUE-03 | Phase 12 | Complete |
-| VENUE-04 | Phase 12 | Complete |
-| VENUE-05 | Phase 12 | Complete |
-| DISC-01 | Phase 13 | Complete |
-| DISC-02 | Phase 13 | Complete |
-| DISC-03 | Phase 13 | Complete |
-| DISC-04 | Phase 13 | Complete |
-| PLAT-01 | Phase 16 | Complete |
-| PLAT-02 | Phase 16 | Complete |
-| PLAT-03 | Phase 16 | Complete |
-| PLAT-04 | Phase 14 | Complete |
-| SCRP-01 | Phase 14 | Complete |
-| SCRP-02 | Phase 14 | Complete |
-| SCRP-03 | Phase 14 | Complete |
-| SCRP-04 | Phase 15 | Complete |
-| DISC-05 | Phase 17 | Complete |
-| DISC-06 | Phase 17 | Complete |
+| DEDUP-01 | — | Pending |
+| DEDUP-02 | — | Pending |
+| DEDUP-03 | — | Pending |
+| DEDUP-04 | — | Pending |
+| ATTR-01 | — | Pending |
+| ATTR-02 | — | Pending |
+| UX-01 | — | Pending |
+| UX-02 | — | Pending |
 
 **Coverage:**
-- v1.4 requirements: 10 total
-- Mapped to phases: 10
-- Unmapped: 0 ✓
+- v1.5 requirements: 8 total
+- Mapped to phases: 0
+- Unmapped: 8 ⚠️
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after v1.4 roadmap created*
+*Last updated: 2026-03-15 after v1.5 requirements scoped*
