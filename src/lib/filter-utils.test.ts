@@ -17,7 +17,7 @@ function makeEvent(
     province: string;
     lat: number | null;
     lng: number | null;
-    event_category: string;
+    event_category: "live_music" | "comedy" | "theatre" | "arts" | "sports" | "festival" | "community" | "other";
   }> = {}
 ): EventWithVenue {
   return {
@@ -118,9 +118,10 @@ describe('filterByDateRange', () => {
       const now = new Date();
       const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ..., 5=Fri, 6=Sat
 
-      // Skip this test when it's Saturday (past-Friday scenario)
-      // On Saturday, the weekend window is Sat+Sun, so a future Friday is NOT included
-      if (dayOfWeek === 6) return;
+      // Skip this test on Saturday and Sunday.
+      // On Saturday, the weekend window is Sat+Sun, so a future Friday is NOT included.
+      // On Sunday, the weekend window is only Sunday, so a future Friday is NOT included.
+      if (dayOfWeek === 6 || dayOfWeek === 0) return;
 
       // On Mon–Fri: find the upcoming Friday (0 days ahead if today is Friday)
       const daysUntilFriday = dayOfWeek <= 5 ? 5 - dayOfWeek : 0;

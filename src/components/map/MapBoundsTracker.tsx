@@ -10,7 +10,9 @@ interface MapBoundsTrackerProps {
 
 export default function MapBoundsTracker({ onBoundsChange }: MapBoundsTrackerProps) {
   const callbackRef = useRef(onBoundsChange);
-  callbackRef.current = onBoundsChange;
+  useEffect(() => {
+    callbackRef.current = onBoundsChange;
+  }, [onBoundsChange]);
 
   const fireBounds = useCallback((map: L.Map) => {
     const b = map.getBounds();

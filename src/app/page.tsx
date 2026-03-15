@@ -44,7 +44,7 @@ function HomeContent() {
   const [timePosition, setTimePosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showPins, setShowPins] = useState(false);
-  const referenceDate = useRef(new Date());
+  const [referenceDate] = useState(() => new Date());
 
   // Play loop: advance scrubber at 1s per step
   const playRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -82,7 +82,7 @@ function HomeContent() {
   // Mode-aware filter chain: derives sidebarEvents, heatPoints, and timeFilteredEvents
   const { sidebarEvents, heatPoints, timeFilteredEvents, mapEvents } = useMemo(() => {
     if (mapMode === 'timelapse') {
-      const center = positionToTimestamp(timePosition, referenceDate.current);
+      const center = positionToTimestamp(timePosition, referenceDate);
       const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
       const provinceFiltered = filterByProvince(timeWindowed, province);
       const categoryFiltered = filterByCategory(provinceFiltered, category);
@@ -102,15 +102,15 @@ function HomeContent() {
       timeFilteredEvents: [],
       mapEvents: categoryFiltered,
     };
-  }, [mapMode, timePosition, allEvents, when, province, category, bounds]);
+  }, [mapMode, timePosition, allEvents, when, province, category, bounds, referenceDate]);
 
   // Current time label for TimelineBar
   const currentLabel = useMemo(() => {
-    const ts = positionToTimestamp(timePosition, referenceDate.current);
+    const ts = positionToTimestamp(timePosition, referenceDate);
     const dayStr = format(ts, 'EEE MMM d');
     const block = positionToBlockName(timePosition);
     return `${dayStr} - ${block}`;
-  }, [timePosition]);
+  }, [timePosition, referenceDate]);
 
   // Timelapse handler functions
   const handleModeToggle = useCallback(() => {
@@ -209,7 +209,7 @@ function HomeContent() {
               onPlayPause={handlePlayPause}
               showPins={showPins}
               onTogglePins={handleTogglePins}
-              referenceDate={referenceDate.current}
+              referenceDate={referenceDate}
               timeFilteredEvents={timeFilteredEvents}
             />
           )}

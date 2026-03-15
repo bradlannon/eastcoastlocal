@@ -2,7 +2,6 @@ import { GET } from './route';
 import type { EventWithVenue } from '@/types/index';
 
 // Build mock data
-const pastDate = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000); // 7 days ago
 const futureDate1 = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000); // tomorrow
 const futureDate2 = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000); // 3 days from now
 
@@ -36,6 +35,7 @@ const mockRows: EventWithVenue[] = [
       ticket_link: null,
       description: null,
       cover_image_url: null,
+      event_category: null,
       created_at: new Date(),
       updated_at: new Date(),
     },
@@ -56,6 +56,7 @@ const mockRows: EventWithVenue[] = [
       ticket_link: null,
       description: null,
       cover_image_url: null,
+      event_category: null,
       created_at: new Date(),
       updated_at: new Date(),
     },
@@ -68,8 +69,6 @@ const mockOrderBy = jest.fn().mockResolvedValue(mockRows);
 const mockWhere = jest.fn().mockReturnValue({ orderBy: mockOrderBy });
 const mockInnerJoin = jest.fn().mockReturnValue({ where: mockWhere });
 const mockFrom = jest.fn().mockReturnValue({ innerJoin: mockInnerJoin });
-const mockSelect = jest.fn().mockReturnValue({ from: mockFrom });
-
 jest.mock('@/lib/db/client', () => ({
   db: {
     select: () => ({ from: mockFrom }),

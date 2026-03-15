@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import { notFound } from 'next/navigation';
 import { db } from '@/lib/db/client';
 import { venues, scrape_sources } from '@/lib/db/schema';
+import Link from 'next/link';
 import VenueEditForm from './VenueEditForm';
 import SourceManagement from './SourceManagement';
 
@@ -38,9 +39,9 @@ export default async function VenueDetailPage({ params }: PageProps) {
     <div>
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6">
-        <a href="/admin/venues" className="hover:text-gray-700 transition-colors">
+        <Link href="/admin/venues" className="hover:text-gray-700 transition-colors">
           Venues
-        </a>
+        </Link>
         <span className="mx-2">›</span>
         <span className="text-gray-900">{venue.name}</span>
       </nav>

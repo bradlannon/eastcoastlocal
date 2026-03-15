@@ -43,6 +43,7 @@ function makeEvent(
       ticket_link: null,
       description: null,
       cover_image_url: null,
+      event_category: null,
       created_at: new Date(),
       updated_at: new Date(),
     },
@@ -202,7 +203,6 @@ describe('filterByTimeWindow', () => {
   });
 
   it('windowHours=0 returns nothing (edge case)', () => {
-    const atCenter = makeEvent(1, 1, { event_date: center });
     // halfMs = 0; t must satisfy t >= centerMs && t <= centerMs — only exact match
     // center date is exact but: t >= centerMs - 0 && t <= centerMs + 0, so t === centerMs
     // The event_date equals center so it passes (0 window still includes exact center)

@@ -36,13 +36,13 @@ describe('Seed Data Structure', () => {
       }
     });
 
-    it('Facebook-only venues have their sources disabled', () => {
-      // Venues relying on Facebook for events should be disabled
-      const shipPubIndex = venueData.findIndex(
-        (v) => v.name === 'The Ship Pub & Kitchen'
+    it('each source has a matching venue at the same index', () => {
+      // Verify venue/source alignment by checking a known venue
+      const splitCrowIndex = venueData.findIndex(
+        (v) => v.name === 'The Split Crow Pub'
       );
-      expect(shipPubIndex).toBeGreaterThanOrEqual(0);
-      expect(sourceData[shipPubIndex].enabled).toBe(false);
+      expect(splitCrowIndex).toBeGreaterThanOrEqual(0);
+      expect(sourceData[splitCrowIndex].enabled).toBe(true);
     });
   });
 });

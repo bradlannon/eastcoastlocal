@@ -29,6 +29,7 @@ export default function HeatmapClickLayer({
   const [clickState, setClickState] = useState<{
     latlng: L.LatLng;
     venues: VenueGroup[];
+    timePosition: number;
   } | null>(null);
 
   // Derive time-windowed venue groups from current position
@@ -50,10 +51,8 @@ export default function HeatmapClickLayer({
     return groups;
   }, [allEvents, timePosition, referenceDate]);
 
-  // Clear popup when time position changes (prevents stale popups after scrubbing)
-  useEffect(() => {
-    setClickState(null);
-  }, [timePosition]);
+  // Derive whether popup is visible: clear when time position changes after click
+  const activeClickState = clickState && clickState.timePosition === timePosition ? clickState : null;
 
   // Map click handler
   useEffect(() => {
@@ -62,14 +61,14 @@ export default function HeatmapClickLayer({
       if (results.length === 0) return;
       // Per research Pitfall 4: pause BEFORE setting state
       onPause();
-      setClickState({ latlng: e.latlng, venues: results });
+      setClickState({ latlng: e.latlng, venues: results, timePosition });
     };
 
     map.on('click', handler);
     return () => {
       map.off('click', handler);
     };
-  }, [map, venueGroups, onPause]);
+  }, [map, venueGroups, onPause, timePosition]);
 
   // Cleanup on unmount (Pitfall 2: popup cleanup on mode switch)
   useEffect(() => {
@@ -78,14 +77,14 @@ export default function HeatmapClickLayer({
     };
   }, []);
 
-  if (!clickState) return null;
+  if (!activeClickState) return null;
 
   return (
     <Popup
-      position={clickState.latlng}
+      position={activeClickState.latlng}
       eventHandlers={{ remove: () => setClickState(null) }}
     >
-      <HeatmapPopup venues={clickState.venues} />
+      <HeatmapPopup venues={activeClickState.venues} />
     </Popup>
   );
 }

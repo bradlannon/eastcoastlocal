@@ -52,7 +52,7 @@ function makeMockSource(overrides: Partial<{
   };
 }
 
-const mockDb = db as {
+const mockDb = db as unknown as {
   query: {
     discovered_sources: {
       findFirst: jest.Mock;
