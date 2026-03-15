@@ -144,7 +144,10 @@ Plans:
   1. Admin can see a list of near-match venue pairs queued for review, showing name, address, and coordinates side by side
   2. Admin can merge a pair with one click — the duplicate venue's events and sources are reassigned to the canonical venue and the duplicate row is removed
   3. Admin can mark a pair as "keep separate" so it no longer appears in the review queue
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 20-01-PLAN.md — Backend: merge utility, server actions, ticketmaster dedup guard
+- [ ] 20-02-PLAN.md — Frontend: merge review page UI, admin nav badge
 
 ## Progress
 
@@ -168,5 +171,5 @@ Plans:
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 19. UX Polish & Source Attribution | 2/2 | Complete    | 2026-03-15 | — |
-| 20. Admin Merge Review | v1.5 | 0/? | Not started | — |
+| 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
+| 20. Admin Merge Review | v1.5 | 0/2 | Not started | — |
