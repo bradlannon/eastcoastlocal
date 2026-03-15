@@ -3,14 +3,19 @@ import { scrape_sources, venues } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { fetchAndPreprocess } from './fetcher';
 import { extractEvents } from './extractor';
+import { extractJsonLdEvents } from './json-ld';
 import { upsertEvent } from './normalizer';
 import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
+import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Delay between AI extraction requests to stay within Gemini rate limits.
 // Free tier: 20 req/day. Paid tier: much higher — can reduce this to 0.
 const AI_THROTTLE_MS = parseInt(process.env.SCRAPE_THROTTLE_MS ?? '4000', 10);
+
+// Delay between venue_website sources (not AI-related — HTTP courtesy throttle).
+const HTTP_THROTTLE_MS = parseInt(process.env.HTTP_THROTTLE_MS ?? '1000', 10);
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -56,20 +61,38 @@ export async function runScrapeJob(): Promise<void> {
           }
         }
 
-        // Fetch, extract, and upsert events
-        const { text: pageText } = await fetchAndPreprocess(source.url);
-        const extracted = await extractEvents(pageText, source.url);
+        // Fetch page(s) — multi-page support via source.max_pages
+        const { text, rawHtml } = await fetchAndPreprocess(source.url, {
+          maxPages: source.max_pages ?? 1,
+        });
+
+        // JSON-LD fast path: structured data is authoritative (confidence=1.0)
+        // Short-circuit — do NOT also call Gemini if JSON-LD found events
+        const jsonLdEvents = extractJsonLdEvents(rawHtml);
+
+        let extracted: ExtractedEvent[];
+        if (jsonLdEvents.length > 0) {
+          extracted = jsonLdEvents;
+          console.log(`  ✓ ${venue.name}: ${extracted.length} events (JSON-LD, skipping Gemini)`);
+        } else {
+          extracted = await extractEvents(text, source.url);
+          console.log(`  ✓ ${venue.name}: ${extracted.length} events`);
+
+          // AI throttle only applies when Gemini was actually called
+          if (AI_THROTTLE_MS > 0) {
+            await delay(AI_THROTTLE_MS);
+          }
+        }
 
         for (const event of extracted) {
           await upsertEvent(source.venue_id, event, source.url);
         }
 
         eventCount += extracted.length;
-        console.log(`  ✓ ${venue.name}: ${extracted.length} events`);
 
-        // Throttle AI requests to respect rate limits
-        if (AI_THROTTLE_MS > 0) {
-          await delay(AI_THROTTLE_MS);
+        // HTTP throttle between venue_website sources (separate from AI throttle)
+        if (HTTP_THROTTLE_MS > 0) {
+          await delay(HTTP_THROTTLE_MS);
         }
       } else if (source.source_type === 'eventbrite') {
         await scrapeEventbrite(source);
