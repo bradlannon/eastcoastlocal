@@ -23,8 +23,8 @@ Requirements for admin tools. Each maps to roadmap phases.
 ### Discovery Review
 
 - [x] **DISC-01**: Admin can view a list of discovered sources filtered by status (pending/approved/rejected)
-- [ ] **DISC-02**: Admin can approve a discovered source — promoting it to a venue + scrape source (replaces CLI)
-- [ ] **DISC-03**: Admin can reject a discovered source with an optional reason
+- [x] **DISC-02**: Admin can approve a discovered source — promoting it to a venue + scrape source (replaces CLI)
+- [x] **DISC-03**: Admin can reject a discovered source with an optional reason
 - [x] **DISC-04**: Admin can see the raw_context and discovery_method for each candidate to inform decisions
 
 ### Dashboard
@@ -71,8 +71,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VENUE-04 | Phase 12 | Complete |
 | VENUE-05 | Phase 12 | Complete |
 | DISC-01 | Phase 13 | Complete |
-| DISC-02 | Phase 13 | Pending |
-| DISC-03 | Phase 13 | Pending |
+| DISC-02 | Phase 13 | Complete |
+| DISC-03 | Phase 13 | Complete |
 | DISC-04 | Phase 13 | Complete |
 
 **Coverage:**

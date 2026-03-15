@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.3
 milestone_name: Admin Tools
 status: planning
-stopped_at: Completed 13-01-PLAN.md
-last_updated: "2026-03-15T04:15:42.807Z"
+stopped_at: Completed 13-02-PLAN.md
+last_updated: "2026-03-15T04:19:07.101Z"
 last_activity: "2026-03-15 — v1.3 roadmap created (4 phases: 10-13)"
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -51,6 +51,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 12-venue-source-management P01 | 8 | 2 tasks | 7 files |
 | Phase 12-venue-source-management P02 | 2 | 2 tasks | 4 files |
 | Phase 13-discovery-review P01 | 8 | 2 tasks | 3 files |
+| Phase 13-discovery-review P02 | 6 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 13-discovery-review]: Status tabs use Link + searchParams for server component re-render on each tab switch
 - [Phase 13-discovery-review]: Three parallel count() queries for per-status totals rather than GROUP BY - simpler at this scale
 - [Phase 13-discovery-review]: Fragment wrapper for row+detail-row pairs to maintain valid tbody structure in expandable table
+- [Phase 13-discovery-review]: approveCandidate wraps promoteSource in try/catch and always revalidates to avoid UI lockout on transient errors
+- [Phase 13-discovery-review]: Rejection reason appended to raw_context field — avoids schema migration while preserving audit trail
 
 ### Pending Todos
 
@@ -85,6 +88,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T04:15:42.804Z
-Stopped at: Completed 13-01-PLAN.md
+Last session: 2026-03-15T04:19:07.097Z
+Stopped at: Completed 13-02-PLAN.md
 Resume file: None

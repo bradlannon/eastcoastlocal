@@ -43,7 +43,7 @@
 - [x] **Phase 10: Admin Auth** - Protect /admin routes behind a login gate (completed 2026-03-15)
 - [x] **Phase 11: Admin Dashboard** - Operator landing page with system health at a glance (completed 2026-03-15)
 - [x] **Phase 12: Venue & Source Management** - Full CRUD for venues and their scrape sources (completed 2026-03-15)
-- [ ] **Phase 13: Discovery Review** - UI workflow to approve or reject discovered source candidates
+- [x] **Phase 13: Discovery Review** - UI workflow to approve or reject discovered source candidates (completed 2026-03-15)
 
 ## Phase Details
 
@@ -99,7 +99,7 @@ Plans:
   2. Admin can see the raw_context and discovery_method for each candidate before making a decision
   3. Admin can approve a candidate, which promotes it to a venue and active scrape source (equivalent to the current CLI workflow)
   4. Admin can reject a candidate with an optional reason recorded in the database
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 13-01-PLAN.md — Discovery list page with status tab filtering, expandable detail rows, and loading skeleton
@@ -121,4 +121,4 @@ Plans:
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
 | 11. Admin Dashboard | 1/1 | Complete    | 2026-03-15 | - |
 | 12. Venue & Source Management | 2/2 | Complete    | 2026-03-15 | - |
-| 13. Discovery Review | 1/2 | In Progress|  | - |
+| 13. Discovery Review | 2/2 | Complete   | 2026-03-15 | - |
