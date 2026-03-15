@@ -85,7 +85,10 @@ Plans:
   2. Discovered sources land in the staging table with `pending` status — no new source is automatically added to the active scrape queue
   3. Domain-based deduplication prevents already-configured venues from appearing as new candidates
   4. A promotion mechanism (script or endpoint) moves an approved staged source into `scrape_sources` so it will be scraped on the next cron run
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 09-01-PLAN.md — Discovery orchestrator + cron route + vercel.json weekly schedule
+- [ ] 09-02-PLAN.md — Promotion script to move approved sources into active scraping
 
 ## Progress
 
@@ -99,4 +102,4 @@ Plans:
 | 6. Category Schema | v1.2 | 0/1 | In Progress (checkpoint) | - |
 | 7. AI Categorization | 2/2 | Complete   | 2026-03-14 | - |
 | 8. Category Filter UI | 1/1 | Complete   | 2026-03-14 | - |
-| 9. Source Discovery | v1.2 | 0/TBD | Not started | - |
+| 9. Source Discovery | v1.2 | 0/2 | Not started | - |
