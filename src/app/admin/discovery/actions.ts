@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { discovered_sources } from '@/lib/db/schema';
+import { discovered_sources, scrape_sources } from '@/lib/db/schema';
 import { promoteSource } from '@/lib/scraper/promote-source';
 
 export async function approveCandidate(formData: FormData): Promise<void> {
@@ -61,6 +61,31 @@ export async function rejectCandidate(
     console.error('[rejectCandidate] DB update failed:', err);
     return { error: 'Failed to reject candidate. Please try again.' };
   }
+
+  revalidatePath('/admin/discovery');
+  redirect('/admin/discovery');
+}
+
+export async function revokeCandidate(formData: FormData): Promise<void> {
+  const id = parseInt(String(formData.get('id') ?? ''), 10);
+  if (isNaN(id)) return;
+
+  const staged = await db.query.discovered_sources.findFirst({
+    where: eq(discovered_sources.id, id),
+  });
+  if (!staged || staged.status !== 'approved') return;
+
+  // Disable scrape source first (non-destructive)
+  await db
+    .update(scrape_sources)
+    .set({ enabled: false })
+    .where(eq(scrape_sources.url, staged.url));
+
+  // Reset discovery record to pending
+  await db
+    .update(discovered_sources)
+    .set({ status: 'pending', reviewed_at: null, added_to_sources_at: null })
+    .where(eq(discovered_sources.id, id));
 
   revalidatePath('/admin/discovery');
   redirect('/admin/discovery');

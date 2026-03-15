@@ -4,7 +4,7 @@ import { Fragment, useState } from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { approveCandidate, rejectCandidate } from '../actions';
+import { approveCandidate, rejectCandidate, revokeCandidate } from '../actions';
 
 interface DiscoveryListProps {
   candidates: Array<{
@@ -19,6 +19,7 @@ interface DiscoveryListProps {
     raw_context: string | null;
     discovered_at: Date;
     reviewed_at: Date | null;
+    discovery_score: number | null;
   }>;
   counts: { pending: number; approved: number; rejected: number };
   activeStatus: string;
@@ -71,6 +72,19 @@ function RejectSubmitButton() {
   );
 }
 
+function RevokeSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="bg-amber-600 hover:bg-amber-700 disabled:opacity-60 text-white px-3 py-1 rounded text-sm transition-colors"
+    >
+      {pending ? 'Revoking…' : 'Confirm Revoke'}
+    </button>
+  );
+}
+
 function RejectForm({
   candidateId,
   onCancel,
@@ -110,6 +124,7 @@ export default function DiscoveryList({
 }: DiscoveryListProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
+  const [revokingId, setRevokingId] = useState<number | null>(null);
 
   function handleRowClick(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
@@ -162,6 +177,9 @@ export default function DiscoveryList({
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Province
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Score
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -185,12 +203,17 @@ export default function DiscoveryList({
                     <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                       {candidate.province ?? '—'}
                     </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                      {candidate.discovery_score !== null
+                        ? candidate.discovery_score.toFixed(2)
+                        : '—'}
+                    </td>
                   </tr>
 
                   {expandedId === candidate.id && (
                     <tr>
                       <td
-                        colSpan={4}
+                        colSpan={5}
                         className="px-4 py-4 bg-gray-50 border-t border-gray-200"
                       >
                         <div className="space-y-3">
@@ -264,20 +287,69 @@ export default function DiscoveryList({
                             </div>
                           ) : (
                             /* Status badge for approved/rejected tabs */
-                            <div className="flex items-center gap-3 mt-3">
+                            <div className="flex items-center gap-3 mt-3 flex-wrap">
                               {candidate.status === 'approved' ? (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                  Approved
-                                </span>
+                                <>
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Approved
+                                  </span>
+                                  {candidate.discovery_score !== null && (
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                      Auto-approved
+                                    </span>
+                                  )}
+                                  {candidate.reviewed_at && (
+                                    <span className="text-xs text-gray-500">
+                                      {formatDate(candidate.reviewed_at)}
+                                    </span>
+                                  )}
+                                  <div className="w-full mt-1">
+                                    {revokingId !== candidate.id ? (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setRevokingId(candidate.id);
+                                        }}
+                                        className="border border-amber-300 text-amber-700 hover:bg-amber-50 px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                                      >
+                                        Revoke
+                                      </button>
+                                    ) : (
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <form action={revokeCandidate}>
+                                          <input
+                                            type="hidden"
+                                            name="id"
+                                            value={candidate.id}
+                                          />
+                                          <RevokeSubmitButton />
+                                        </form>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRevokingId(null);
+                                          }}
+                                          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </>
                               ) : (
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                  Rejected
-                                </span>
-                              )}
-                              {candidate.reviewed_at && (
-                                <span className="text-xs text-gray-500">
-                                  {formatDate(candidate.reviewed_at)}
-                                </span>
+                                <>
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                    Rejected
+                                  </span>
+                                  {candidate.reviewed_at && (
+                                    <span className="text-xs text-gray-500">
+                                      {formatDate(candidate.reviewed_at)}
+                                    </span>
+                                  )}
+                                </>
                               )}
                             </div>
                           )}
