@@ -72,11 +72,22 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Zoom-to-location button on event cards — v1.5
 - ✓ Category filter chips visible in timelapse mode — v1.5
 
+## Current Milestone: v2.0 Mass Venue Discovery
+
+**Goal:** Scale event coverage from ~26 curated venues to hundreds across Atlantic Canada by adding bulk venue discovery via Google Maps Places API, Reddit mining via Gemini, expanded geographic coverage, and aggressive auto-approval.
+
+**Target features:**
+- Google Maps Places API bulk venue discovery across all 4 provinces
+- Reddit event/venue mining via Gemini (r/halifax, r/fredericton, r/stjohnsnl, etc.)
+- Expanded geographic coverage beyond 6 cities to smaller towns
+- Aggressive auto-approval pipeline for high-confidence discovered venues
+- Scalable onboarding flow for venues without scrapeable websites
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-(No active requirements — next milestone not yet planned)
+(Requirements to be defined)
 
 ### Out of Scope
 
@@ -161,4 +172,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | NavLinks extracted as client component | Admin layout can be async server component (fetches pending count) | ✓ Good — server/client boundary clean |
 
 ---
-*Last updated: 2026-03-15 after v1.5 milestone completed*
+*Last updated: 2026-03-15 after v2.0 milestone started*
