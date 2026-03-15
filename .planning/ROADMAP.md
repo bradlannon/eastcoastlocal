@@ -99,11 +99,11 @@ Plans:
   2. Admin can see the raw_context and discovery_method for each candidate before making a decision
   3. Admin can approve a candidate, which promotes it to a venue and active scrape source (equivalent to the current CLI workflow)
   4. Admin can reject a candidate with an optional reason recorded in the database
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 13-01: Discovery review list with filtering and candidate detail view
-- [ ] 13-02: Approve and reject actions with promotion logic
+- [ ] 13-01-PLAN.md — Discovery list page with status tab filtering, expandable detail rows, and loading skeleton
+- [ ] 13-02-PLAN.md — Approve and reject server actions wired to DiscoveryList with inline reject reason input
 
 ## Progress
 
@@ -121,4 +121,4 @@ Plans:
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
 | 11. Admin Dashboard | 1/1 | Complete    | 2026-03-15 | - |
 | 12. Venue & Source Management | 2/2 | Complete    | 2026-03-15 | - |
-| 13. Discovery Review | v1.3 | 0/TBD | Not started | - |
+| 13. Discovery Review | v1.3 | 0/2 | Not started | - |
