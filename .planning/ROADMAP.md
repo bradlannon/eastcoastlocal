@@ -49,7 +49,7 @@
 
 ### v1.4 More Scrapers (Phases 14-17)
 
-- [ ] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction
+- [x] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction (completed 2026-03-15)
 - [ ] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility
 - [ ] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map
 - [ ] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke
@@ -65,7 +65,7 @@
   2. Multiple sources on the same domain are not blocked during a scrape run — the per-domain delay is visible in orchestrator logs
   3. A source that fails with a transient HTTP error is retried automatically with exponential backoff before being logged as failed
   4. Venue pages containing schema.org Event JSON-LD produce events without a Gemini API call (visible via confidence=1.0 on extracted events)
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 14-01-PLAN.md — Enhanced fetcher (retry, rate limit, multi-page) + JSON-LD extraction module + schema migration
 - [ ] 14-02-PLAN.md — Orchestrator integration (JSON-LD fast path, multi-page wiring, HTTP throttle)
@@ -118,7 +118,7 @@ Plans:
 | 11. Admin Dashboard | v1.3 | 1/1 | Complete | 2026-03-15 |
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
-| 14. Fetch Pipeline | 1/2 | In Progress|  | - |
+| 14. Fetch Pipeline | 2/2 | Complete   | 2026-03-15 | - |
 | 15. Scrape Quality Metrics | v1.4 | 0/? | Not started | - |
 | 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |

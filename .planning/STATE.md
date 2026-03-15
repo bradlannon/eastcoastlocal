@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
 status: planning
-stopped_at: Completed 14-fetch-pipeline 14-01-PLAN.md
-last_updated: "2026-03-15T06:35:33.839Z"
+stopped_at: Completed 14-fetch-pipeline 14-02-PLAN.md
+last_updated: "2026-03-15T06:39:07.684Z"
 last_activity: 2026-03-15 — v1.4 roadmap created
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Progress: [░░░░░░░░░░] 0% (0/4 phases complete)
 
 *Updated after each plan completion*
 | Phase 14-fetch-pipeline P01 | 6 | 2 tasks | 9 files |
+| Phase 14-fetch-pipeline P02 | 2m | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -77,6 +78,8 @@ Recent decisions affecting current work:
 - [Phase 14-fetch-pipeline]: rawHtml captured before cheerio.load() mutation to preserve script tags for JSON-LD extraction
 - [Phase 14-fetch-pipeline]: fetchWithRetry retries only 429/503 (transient); 404 throws immediately to avoid wasting time on permanently blocked URLs
 - [Phase 14-fetch-pipeline]: Multi-page hard cap of 3 enforced in code (Math.min(maxPages, 3)) not just config — Vercel timeout constraint
+- [Phase 14-fetch-pipeline]: AI throttle scoped to Gemini branch only — no delay on JSON-LD fast path since no AI API call made
+- [Phase 14-fetch-pipeline]: HTTP_THROTTLE_MS (default 1000ms) applied between ALL venue_website sources after each upsert loop
 
 ### Pending Todos
 
@@ -93,7 +96,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15T06:35:33.836Z
-Stopped at: Completed 14-fetch-pipeline 14-01-PLAN.md
+Last session: 2026-03-15T06:39:07.681Z
+Stopped at: Completed 14-fetch-pipeline 14-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 14`
