@@ -15,8 +15,9 @@ export async function upsertEvent(
   extracted: ExtractedEvent,
   sourceUrl: string
 ): Promise<void> {
-  const normalizedPerformer = normalizePerformer(extracted.performer!);
-  const eventDate = new Date(extracted.event_date!);
+  if (!extracted.performer || !extracted.event_date) return;
+  const normalizedPerformer = normalizePerformer(extracted.performer);
+  const eventDate = new Date(extracted.event_date);
 
   await db
     .insert(events)
