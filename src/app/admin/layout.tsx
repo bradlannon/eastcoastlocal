@@ -1,10 +1,26 @@
+'use client';
+
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+
+const NAV_LINKS = [
+  { href: '/admin', label: 'Dashboard', exact: true },
+  { href: '/admin/venues', label: 'Venues', exact: false },
+  { href: '/admin/discovery', label: 'Discovery', exact: false },
+];
 
 export default function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
+  function isActive(href: string, exact: boolean): boolean {
+    if (exact) return pathname === href;
+    return pathname.startsWith(href);
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <nav className="bg-white border-b shadow-sm">
@@ -14,24 +30,19 @@ export default function AdminLayout({
               East Coast Local Admin
             </span>
             <div className="flex items-center gap-6">
-              <Link
-                href="/admin"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Dashboard
-              </Link>
-              <Link
-                href="/admin/venues"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Venues
-              </Link>
-              <Link
-                href="/admin/discovery"
-                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                Discovery
-              </Link>
+              {NAV_LINKS.map(({ href, label, exact }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`text-sm transition-colors ${
+                    isActive(href, exact)
+                      ? 'font-semibold text-gray-900'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  {label}
+                </Link>
+              ))}
             </div>
             <form action="/api/auth/logout" method="POST">
               <button
