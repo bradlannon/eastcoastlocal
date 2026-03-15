@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: Phase 19 context gathered
-last_updated: "2026-03-15T16:22:05.697Z"
+stopped_at: "Completed 19-02-PLAN.md: event_sources schema and source attribution"
+last_updated: "2026-03-15T18:10:23.242Z"
 last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
   completed_phases: 4
-  total_plans: 7
-  completed_plans: 7
+  total_plans: 9
+  completed_plans: 8
   percent: 14
 ---
 
@@ -49,6 +49,7 @@ Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 
 *Updated after each plan completion*
 | Phase 18-venue-deduplication P02 | 4 | 3 tasks | 4 files |
+| Phase 19-ux-polish-source-attribution P02 | 569 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -68,6 +69,8 @@ Recent decisions affecting current work:
 - [Phase 18-venue-deduplication]: scoreVenueCandidate hasGeo requires BOTH incoming AND candidate to have coordinates for the geo signal to activate
 - [Phase 18-venue-deduplication]: TM inline merge is unreachable by design: incoming lat/lng is always null for TM venues at creation time so scoreVenueCandidate routes to review:name_match_no_geo
 - [Phase 18-venue-deduplication]: findOrCreateVenue uses scoreVenueCandidate per-candidate (not findBestMatch) to retain candidate.id for audit log insertion
+- [Phase 19]: Used uniqueIndex on (event_id, source_type) for event_sources — prevents TM duplicate rows since PostgreSQL NULL != NULL in unique indexes for nullable scrape_source_id
+- [Phase 19]: COALESCE applied universally in upsertEvent onConflictDoUpdate — once source_url set by any source it is never overwritten
 
 ### Pending Todos
 
@@ -82,6 +85,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T16:22:05.690Z
-Stopped at: Phase 19 context gathered
-Resume file: .planning/phases/19-ux-polish-source-attribution/19-CONTEXT.md
+Last session: 2026-03-15T18:10:23.235Z
+Stopped at: Completed 19-02-PLAN.md: event_sources schema and source attribution
+Resume file: None

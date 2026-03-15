@@ -168,5 +168,5 @@ Plans:
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 19. UX Polish & Source Attribution | v1.5 | 0/2 | Not started | — |
+| 19. UX Polish & Source Attribution | 1/2 | In Progress|  | — |
 | 20. Admin Merge Review | v1.5 | 0/? | Not started | — |
