@@ -1,5 +1,14 @@
 # Milestones
 
+## v1.3 Admin Tools (Shipped: 2026-03-15)
+
+**Phases completed:** 4 phases, 6 plans, 0 tasks
+
+**Key accomplishments:**
+- (none recorded)
+
+---
+
 ## v1.2 Event Discovery (Shipped: 2026-03-15)
 
 **Phases completed:** 4 phases, 6 plans

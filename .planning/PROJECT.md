@@ -45,19 +45,20 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Discovered sources staged for review before scraping — v1.2
 - ✓ Approved sources can be promoted to active scraping — v1.2
 
+- ✓ Admin routes protected behind login gate — v1.3
+- ✓ Admin can log in with configured email/password — v1.3
+- ✓ Admin dashboard shows system health (venues, sources, discoveries, last scrape) — v1.3
+- ✓ Per-source scrape status with last success, last error, enabled/disabled — v1.3
+- ✓ Admin can view, add, and edit venues through web UI — v1.3
+- ✓ Admin can add scrape source URLs to venues — v1.3
+- ✓ Admin can toggle scrape sources enabled/disabled — v1.3
+- ✓ Admin can review discovered sources filtered by status — v1.3
+- ✓ Admin can approve discovered sources (promotes to venue + scrape source) — v1.3
+- ✓ Admin can reject discovered sources with optional reason — v1.3
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
-
-## Current Milestone: v1.3 Admin Tools
-
-**Goal:** Give operators a protected web UI to manage venues, scrape sources, and review discovered candidates — replacing CLI and direct DB access
-
-**Target features:**
-- Admin authentication (protect admin routes)
-- Venue and scrape source management (CRUD)
-- Discovered source review and approval UI
-- Scrape health dashboard (last run, error rates, source status)
 
 ### Out of Scope
 
@@ -83,7 +84,8 @@ Users can instantly see what events are happening near them on a map — where, 
 - The app is hands-off once configured — daily scrape cron and weekly discovery cron run automatically via Vercel
 - Public app accessible to anyone in the region
 - Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
-- v1.2 shipped: 6,172 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- v1.3 shipped: 7,983 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- Admin UI at /admin with JWT auth, dashboard, venue management, and discovery review
 - Deployed at eastcoastlocal.bradlannon.ca
 
 ## Constraints
@@ -116,8 +118,13 @@ Users can instantly see what events are happening near them on a map — where, 
 | Map-level click handler over per-marker | One listener regardless of venue count, handles overlap | ✓ Good — clean spatial proximity query with Haversine |
 | Fixed 8-value category taxonomy via pgEnum | Structured filtering, Zod enum validation at extraction time | ✓ Good — clean chip UI, predictable DB values |
 | Gemini + Google Search grounding for discovery | No new packages; reuses existing AI SDK integration | ✓ Good — finds venue websites directly from search results |
-| CLI-only source promotion (no admin UI) | Keeps v1.2 scope tight; admin UI deferred | ✓ Good — operator workflow sufficient for current scale |
+| CLI-only source promotion (no admin UI) | Keeps v1.2 scope tight; admin UI deferred | ✓ Good — replaced by web UI in v1.3 |
 | discovered_sources.status as plain text | Flexible status values without migration for each new state | ✓ Good — pending/approved/rejected without enum constraints |
+| SHA-256 via Web Crypto (not bcrypt) for admin auth | Edge-compatible, no native dependency | ✓ Good — single-admin credential, no performance concern |
+| jose library for JWT (not jsonwebtoken) | ESM-native, Edge runtime compatible | ✓ Good — works with Vercel Edge middleware |
+| Auto-geocode venues on save | Reuse existing Google Maps API integration | ✓ Good — venues get lat/lng automatically when created/edited |
+| promoteSource() reused for admin approve | No duplication of promotion logic | ✓ Good — web UI calls same function as CLI |
+| Rejection reason appended to raw_context | Avoids schema migration for dedicated column | ✓ Good — pragmatic; reason preserved without new column |
 
 ---
-*Last updated: 2026-03-15 after v1.3 milestone started*
+*Last updated: 2026-03-15 after v1.3 milestone completed*
