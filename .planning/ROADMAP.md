@@ -104,7 +104,10 @@ Plans:
   1. After a discovery run, candidates scoring 0.8 or higher are promoted to active scrape sources without any admin action
   2. Auto-approved sources appear in the admin discovery UI with a distinct label (e.g., "auto-approved") so they are identifiable
   3. An admin can revoke an auto-approved source from the admin UI, returning it to a reviewable state or disabling it
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 17-01-PLAN.md — Schema migration, scoreCandidate() heuristic, auto-promote loop in discovery orchestrator + unit tests
+- [ ] 17-02-PLAN.md — revokeCandidate server action, admin UI (score column, auto-approved badge, revoke button)
 
 ## Progress
 
@@ -126,4 +129,4 @@ Plans:
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
 | 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
 | 16. Ticketmaster Integration | 2/2 | Complete    | 2026-03-15 | - |
-| 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |
+| 17. Auto-Approve Discovery | v1.4 | 0/2 | Not started | - |
