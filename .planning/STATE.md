@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: Phase 20 context gathered
-last_updated: "2026-03-15T20:34:39.853Z"
+stopped_at: Completed 20-01-PLAN.md
+last_updated: "2026-03-15T20:56:00.063Z"
 last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
   completed_phases: 5
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 10
   percent: 14
 ---
 
@@ -51,6 +51,7 @@ Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 | Phase 18-venue-deduplication P02 | 4 | 3 tasks | 4 files |
 | Phase 19-ux-polish-source-attribution P02 | 569 | 2 tasks | 10 files |
 | Phase 19-ux-polish-source-attribution P01 | 15 | 3 tasks | 3 files |
+| Phase 20-admin-merge-review P01 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -75,6 +76,9 @@ Recent decisions affecting current work:
 - [Phase 19-ux-polish-source-attribution]: Map-pin icon on EventCard is visual-only affordance — flyTo triggered by whole-card click, icon conditional on venue.lat/lng
 - [Phase 19-ux-polish-source-attribution]: CategoryChipsRow uses nuqs useQueryState('category') directly — no prop drilling; timelapse category filter chain already reads from URL param
 - [Phase 19-ux-polish-source-attribution]: Timelapse default inverted post-checkpoint: pins visible by default, heatmap toggled on demand
+- [Phase 20-admin-merge-review]: event_sources rows cleaned up before deleting conflicting events (FK RESTRICT ordering)
+- [Phase 20-admin-merge-review]: canonical determination in mergePair: higher event count wins; ties break to venue_a
+- [Phase 20-admin-merge-review]: Ticketmaster dedup guard checks both (a,b) and (b,a) orderings before inserting candidate
 
 ### Pending Todos
 
@@ -89,6 +93,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T20:34:39.847Z
-Stopped at: Phase 20 context gathered
-Resume file: .planning/phases/20-admin-merge-review/20-CONTEXT.md
+Last session: 2026-03-15T20:55:54.867Z
+Stopped at: Completed 20-01-PLAN.md
+Resume file: None
