@@ -7,7 +7,7 @@
 - ✅ **v1.2 Event Discovery** — Phases 6-9 (shipped 2026-03-15)
 - ✅ **v1.3 Admin Tools** — Phases 10-13 (shipped 2026-03-15)
 - ✅ **v1.4 More Scrapers** — Phases 14-17 (shipped 2026-03-15)
-- 🔄 **v1.5 Event Dedup & UX Polish** — Phases 18-20 (in progress)
+- 🔄 **v1.5 Event Dedup & UX Polish** — Phases 18-21 (in progress)
 
 ## Phases
 
@@ -64,6 +64,7 @@
 - [x] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table (completed 2026-03-15)
 - [x] **Phase 20: Admin Merge Review** — Admin UI for surfacing and resolving borderline venue merge candidates logged in Phase 18
  (completed 2026-03-15)
+- [ ] **Phase 21: Tech Debt Cleanup** — COALESCE fix for ticket_link, orphaned export removal, eventCount badge accuracy (gap closure)
 ## Phase Details
 
 ### Phase 14: Fetch Pipeline
@@ -149,6 +150,17 @@ Plans:
 - [ ] 20-01-PLAN.md — Backend: merge utility, server actions, ticketmaster dedup guard
 - [ ] 20-02-PLAN.md — Frontend: merge review page UI, admin nav badge
 
+### Phase 21: Tech Debt Cleanup
+**Goal**: Close the ATTR-02 integration gap (ticket_link COALESCE), remove orphaned exports, and fix cosmetic eventCount badge — clearing all tech debt from v1.5 audit
+**Depends on**: Phase 19 (normalizer.ts COALESCE fix), Phase 18 (orphaned findBestMatch export)
+**Requirements**: ATTR-02
+**Gap Closure:** Closes gaps from v1.5 audit
+**Success Criteria** (what must be TRUE):
+  1. `normalizer.ts` uses COALESCE for `ticket_link` the same way `source_url` already does — a scraper upsert with null ticket_link does not overwrite an existing TM link
+  2. The orphaned `findBestMatch` export in the venue dedup module is removed (ticketmaster.ts has its own inline implementation)
+  3. `CategoryChipsRow` eventCount badge reflects the map-wide category count, not the bounds-clipped sidebar count
+**Plans**: 0 plans
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -172,4 +184,5 @@ Plans:
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 20. Admin Merge Review | 2/2 | Complete    | 2026-03-15 | — |
+| 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
+| 21. Tech Debt Cleanup | v1.5 | 0/0 | Pending | — |
