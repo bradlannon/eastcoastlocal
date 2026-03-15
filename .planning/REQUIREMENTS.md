@@ -9,8 +9,8 @@ Requirements for admin tools. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: Admin routes are protected behind a login gate — unauthenticated users cannot access /admin pages
-- [ ] **AUTH-02**: Admin can log in with a configured email/password credential
+- [x] **AUTH-01**: Admin routes are protected behind a login gate — unauthenticated users cannot access /admin pages
+- [x] **AUTH-02**: Admin can log in with a configured email/password credential
 
 ### Venue Management
 
@@ -61,8 +61,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 10 | Pending |
-| AUTH-02 | Phase 10 | Pending |
+| AUTH-01 | Phase 10 | Complete |
+| AUTH-02 | Phase 10 | Complete |
 | DASH-01 | Phase 11 | Pending |
 | DASH-02 | Phase 11 | Pending |
 | VENUE-01 | Phase 12 | Pending |
