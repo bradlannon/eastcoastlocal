@@ -99,22 +99,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DISC-02 | Phase 13 | Complete |
 | DISC-03 | Phase 13 | Complete |
 | DISC-04 | Phase 13 | Complete |
-| PLAT-01 | Pending | Pending |
-| PLAT-02 | Pending | Pending |
-| PLAT-03 | Pending | Pending |
-| PLAT-04 | Pending | Pending |
-| SCRP-01 | Pending | Pending |
-| SCRP-02 | Pending | Pending |
-| SCRP-03 | Pending | Pending |
-| SCRP-04 | Pending | Pending |
-| DISC-05 | Pending | Pending |
-| DISC-06 | Pending | Pending |
+| PLAT-01 | Phase 16 | Pending |
+| PLAT-02 | Phase 16 | Pending |
+| PLAT-03 | Phase 16 | Pending |
+| PLAT-04 | Phase 14 | Pending |
+| SCRP-01 | Phase 14 | Pending |
+| SCRP-02 | Phase 14 | Pending |
+| SCRP-03 | Phase 14 | Pending |
+| SCRP-04 | Phase 15 | Pending |
+| DISC-05 | Phase 17 | Pending |
+| DISC-06 | Phase 17 | Pending |
 
 **Coverage:**
 - v1.4 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after v1.4 requirements defined*
+*Last updated: 2026-03-15 after v1.4 roadmap created*
