@@ -2,11 +2,11 @@
 
 ## What This Is
 
-A public-facing web app that helps people discover live music across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping to automatically extract event data from venue websites and event platforms, then displays upcoming gigs on an interactive map with pin clusters and a heatmap timelapse mode that lets users scrub through 30 days of events to see when and where music is happening.
+A public-facing web app that helps people discover events across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping to automatically extract event data from venue websites and event platforms, then displays upcoming events on an interactive map with pin clusters and a heatmap timelapse mode. Events are automatically categorized by type (live music, comedy, theatre, arts, sports, festival, community) and users can filter by category. A weekly discovery pipeline automatically finds new event venues across the region.
 
 ## Core Value
 
-Users can instantly see what live music is happening near them on a map — where, when, and who's playing — without having to check dozens of individual venue websites.
+Users can instantly see what events are happening near them on a map — where, when, and what type — without having to check dozens of individual venue websites.
 
 ## Requirements
 
@@ -35,43 +35,47 @@ Users can instantly see what live music is happening near them on a map — wher
 - ✓ Toggle between pin/cluster view and heatmap timelapse mode — v1.1
 - ✓ Event list sidebar syncs with current time window — v1.1
 - ✓ Map viewport preserved when switching modes — v1.1
+- ✓ Events automatically assigned a category by AI during scraping — v1.2
+- ✓ Existing events backfilled with categories — v1.2
+- ✓ Database schema includes event_category enum column — v1.2
+- ✓ User can filter events by category using chip buttons — v1.2
+- ✓ Category filter applies to heatmap mode — v1.2
+- ✓ Category filter persisted in URL and shareable — v1.2
+- ✓ System automatically searches for new event venues across Atlantic Canada — v1.2
+- ✓ Discovered sources staged for review before scraping — v1.2
+- ✓ Approved sources can be promoted to active scraping — v1.2
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-## Current Milestone: v1.2 Event Discovery
-
-**Goal:** Automatically discover new event sources across Atlantic Canada, expand beyond live music to all event types, and let users filter by category
-
-**Target features:**
-- Automatic venue/source discovery (find new event sources without manual configuration)
-- All event types supported (comedy, theatre, festivals, community, etc. — not just live music)
-- AI-powered event categorization (Gemini tags each event with a category)
-- Category filtering on the map and event list
+(Next milestone not yet defined)
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Non-music events (festivals, community events, markets) — ~~focused on live music discovery only~~ REMOVED in v1.2: expanding to all event types
-- AI-powered source discovery (finding new venues automatically) — ~~configure sources manually~~ REMOVED in v1.2: building automatic discovery
 - User accounts/authentication — public read-only app, no login needed
 - Mobile native app — web-first, responsive design covers mobile
 - Event submission by venues — scraping-only
 - Ticket purchasing/booking — link out to source if available
 - Server-side heatmap aggregation — client-side filtering sufficient at Atlantic Canada data scale
 - URL persistence of time position — animation state through nuqs causes History API rate-limit issues
+- Multi-select category filter — single-select chips sufficient for current taxonomy size
+- Real-time discovery (user-triggered) — discovery is a periodic cron job, not on-demand
+- Category customization by users — fixed 8-category taxonomy enforced by AI
 
 ## Context
 
 - Geographic scope: All four Atlantic Canadian provinces (NB, NS, PEI, NL)
-- Event sources: 26 configured venues across all 4 provinces (pubs, bars, breweries, theatres)
+- Event sources: 26 configured venues across all 4 provinces (pubs, bars, breweries, theatres) + automated discovery of new sources
+- Event types: 8 categories — live music, comedy, theatre, arts, sports, festival, community, other
 - Scraping approach: AI-powered extraction using Gemini LLM to parse event data from arbitrary page formats — no brittle CSS selectors
-- The app is hands-off once configured — daily cron rescans happen automatically via Vercel
+- Discovery: Weekly Gemini + Google Search grounding scans 6 Atlantic Canada cities for new venue websites, stages for human review
+- The app is hands-off once configured — daily scrape cron and weekly discovery cron run automatically via Vercel
 - Public app accessible to anyone in the region
 - Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
-- v1.1 shipped: 5,108 LOC TypeScript, 48 tests, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- v1.2 shipped: 6,172 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
 - Deployed at eastcoastlocal.bradlannon.ca
 
 ## Constraints
@@ -88,7 +92,7 @@ Users can instantly see what live music is happening near them on a map — wher
 |----------|-----------|---------|
 | AI-powered extraction over structured scrapers | Resilient to site redesigns, hands-off maintenance | ✓ Good — Gemini LLM extracts reliably from arbitrary HTML |
 | Pin clusters over heat map | More intuitive for finding specific events | ✓ Good — one pin per venue with multi-event popups |
-| Live music only (no general events) | Focused scope, clear value prop for v1 | ✓ Good — kept scope tight |
+| Live music only (no general events) | Focused scope, clear value prop for v1 | ✓ Good — kept scope tight; expanded in v1.2 |
 | No user accounts for v1 | Public read-only reduces complexity, faster to ship | ✓ Good — shipped in 2 days |
 | Cloud deployment (Vercel) | Managed platform, no infrastructure management | ✓ Good — Neon integration auto-injects DATABASE_URL |
 | Gemini Pro via Vercel AI SDK | User already pays for Gemini; avoids additional API costs | ✓ Good — generateText + Output.object pattern works |
@@ -102,6 +106,10 @@ Users can instantly see what live music is happening near them on a map — wher
 | 6-hour blocks over hourly steps | Matches event scheduling patterns, 120 steps for 30 days | ✓ Good — readable labels (Morning/Afternoon/Evening/Night) |
 | Dynamic heatmap max scaling | Sparse data (few venues) invisible with default max:1.0 | ✓ Good — single events always visible |
 | Map-level click handler over per-marker | One listener regardless of venue count, handles overlap | ✓ Good — clean spatial proximity query with Haversine |
+| Fixed 8-value category taxonomy via pgEnum | Structured filtering, Zod enum validation at extraction time | ✓ Good — clean chip UI, predictable DB values |
+| Gemini + Google Search grounding for discovery | No new packages; reuses existing AI SDK integration | ✓ Good — finds venue websites directly from search results |
+| CLI-only source promotion (no admin UI) | Keeps v1.2 scope tight; admin UI deferred | ✓ Good — operator workflow sufficient for current scale |
+| discovered_sources.status as plain text | Flexible status values without migration for each new state | ✓ Good — pending/approved/rejected without enum constraints |
 
 ---
-*Last updated: 2026-03-14 after v1.2 milestone started*
+*Last updated: 2026-03-15 after v1.2 milestone complete*

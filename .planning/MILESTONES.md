@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.2 Event Discovery (Shipped: 2026-03-15)
+
+**Phases completed:** 4 phases, 6 plans
+**Timeline:** 1 day (2026-03-14 → 2026-03-15)
+**Stats:** 6,172 LOC TypeScript, 27 files changed, 1,525 lines added
+
+**Key accomplishments:**
+- 8-value event category taxonomy (pgEnum + Drizzle migration) with discovered_sources staging table and backfill script
+- AI-powered event categorization via Gemini — broadened extractor beyond live music to comedy, theatre, arts, sports, festival, community events
+- Category filter chip UI with URL persistence via nuqs, category badges on event cards and detail pages
+- Automated source discovery pipeline using Gemini + Google Search grounding across 6 Atlantic Canada cities
+- Weekly Vercel cron for discovery with domain deduplication against existing sources
+- CLI-based source promotion from staging to active scrape pipeline
+
+---
+
 ## v1.1 Heatmap Timelapse (Shipped: 2026-03-14)
 
 **Phases completed:** 2 phases, 6 plans

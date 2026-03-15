@@ -1,83 +1,55 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.2
-milestone_name: Event Discovery
-status: executing
-stopped_at: Completed 09-01-PLAN.md — discovery pipeline with Gemini grounding, cron route, and vercel.json schedule
-last_updated: "2026-03-15T00:17:56.067Z"
-last_activity: 2026-03-14 — Phase 8 Plan 01 complete; category chip row, URL persistence, badges on cards and detail page
+milestone: null
+milestone_name: null
+status: complete
+stopped_at: v1.2 Event Discovery milestone completed and archived
+last_updated: "2026-03-15"
+last_activity: 2026-03-15 — v1.2 milestone complete, archived to milestones/
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-14)
+See: .planning/PROJECT.md (updated 2026-03-15)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Phase 8 — Category Filter UI
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 8 of 9 (Category Filter UI)
-Plan: 1 of 1 in current phase (complete)
-Status: In Progress — Phase 8 Plan 01 done; category filter UI complete; ready for Phase 9
-Last activity: 2026-03-14 — Phase 8 Plan 01 complete; category chip row, URL persistence, badges on cards and detail page
+Phase: None — between milestones
+Plan: N/A
+Status: v1.2 Event Discovery shipped. Ready for next milestone.
+Last activity: 2026-03-15 — v1.2 milestone archived
 
-Progress: [██████████] 100% (Phase 8 Plan 01 done)
+Progress: [██████████] 100% (v1.2 complete)
 
 ## Accumulated Context
 
 ### Decisions
 
 Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- v1.2 scope: Expanding from live music to all event types (comedy, theatre, festival, community, arts, sports)
-- Category taxonomy: Fixed 8-value enum (live_music, comedy, theatre, arts, sports, festival, community, other) — enforced via z.enum() in Zod schema
-- Discovery: Gemini + Google Search grounding; no new npm packages needed
-- Schema first: CAT-03 is the hard gate — phases 7, 8, 9 all depend on it
-- Backfill: Run immediately after Phase 7 deploys — not a deferred task
-- [Phase 07-ai-categorization]: Backfill reported 0 rows updated — DB default 'community' applied at insert time; no historical null event_category values existed
-- [Phase 07-ai-categorization]: Human verified zero NULLs in events.event_category via Drizzle Studio before proceeding to Phase 8
-- [Phase 08-category-filter-ui]: Category chip row uses overflow-x-auto for mobile horizontal scroll; filterByCategory uses strict equality on event_category
-- [Phase 09-source-discovery]: Venue address constructed as city, province, Canada from staged data — no geocoding at promotion time
-- [Phase 09-source-discovery]: source_name falls back to domain when null — ensures venue always has a non-empty name
-- [Phase 09-source-discovery]: reviewed_at and added_to_sources_at both set to the same Date() — single atomic timestamp at promotion
-- [Phase 09-source-discovery]: DISCOVERY_THROTTLE_MS read inside runDiscoveryJob() body for testability; google.tools.googleSearch({}) with key 'google_search' confirmed working API
-
-### Decisions from 06-01
-
-- Export EVENT_CATEGORIES const array alongside pgEnum so Phase 7 can use `z.enum(EVENT_CATEGORIES)` without re-declaring values
-- event_category defaults to 'community' at DB level; backfill handles historical nulls after Phase 7 deploys
-- discovered_sources.status is plain text (not enum) — keeps discovery pipeline status flexible
-
-### Decisions from 07-01
-
-- event_category uses z.enum(EVENT_CATEGORIES).default('other') — NOT .optional() or .nullable() — so Zod default applies even when Gemini omits the field
-- Bandsintown hardcoded to 'live_music' (music platform); Eventbrite hardcoded to 'other' (mixed types)
-- Filter logic in extractor unchanged — event_category is metadata, not a quality filter
-- Extractor test for Zod default simulates post-SDK output (SDK applies Zod defaults before returning experimental_output)
 
 ### Pending Todos
 
 - Zoom-to-location button on event cards (backlog from v1.1)
-- Run backfill-categories.ts after Phase 7 ships (before Phase 8)
+- Category chip UI hidden in timelapse mode — UX improvement (tech debt from v1.2)
+- Pre-existing seed.test.ts failure: "The Ship Pub & Kitchen" not found
 
 ### Blockers/Concerns
 
-- Phase 9: Gemini grounding output quality for Atlantic Canada discovery is unverified — test on Halifax before building full orchestrator
-- Phase 9: Confirm `useSearchGrounding` is available in current installed `@ai-sdk/google` version before planning
-- Pre-existing seed.test.ts failure: "The Ship Pub & Kitchen" not found — deferred, out of scope for Phase 7
+None — between milestones.
 
 ## Session Continuity
 
-Last session: 2026-03-15T00:15:06.358Z
-Stopped at: Completed 09-01-PLAN.md — discovery pipeline with Gemini grounding, cron route, and vercel.json schedule
+Last session: 2026-03-15
+Stopped at: v1.2 milestone completed and archived
 Resume file: None
