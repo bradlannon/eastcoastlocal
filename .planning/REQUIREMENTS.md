@@ -3,9 +3,33 @@
 **Defined:** 2026-03-15
 **Core Value:** Users can instantly see what events are happening near them on a map — where, when, and what type
 
-## v1.3 Requirements
+## v1.4 Requirements
 
-Requirements for admin tools. Each maps to roadmap phases.
+Requirements for more scrapers, pipeline improvements, and discovery automation. Each maps to roadmap phases.
+
+### Platform Integrations
+
+- [ ] **PLAT-01**: System scrapes Atlantic Canada events from Ticketmaster Discovery API filtered by province
+- [ ] **PLAT-02**: Ticketmaster events are matched to existing venues or new venues are auto-created with geocoding
+- [ ] **PLAT-03**: Ticketmaster attribution is displayed on events sourced from their API (per ToS)
+- [ ] **PLAT-04**: System extracts events from Google Events JSON-LD structured data on venue pages before calling Gemini
+
+### Scraping Pipeline
+
+- [ ] **SCRP-01**: Scraper follows pagination links on venue websites up to a configurable page limit
+- [ ] **SCRP-02**: Per-domain rate limiting prevents sources from being blocked during scrape runs
+- [ ] **SCRP-03**: Failed scrape requests are retried with exponential backoff
+- [ ] **SCRP-04**: Admin dashboard displays per-source quality metrics (event count, confidence, failure rate)
+
+### Discovery Automation
+
+- [ ] **DISC-05**: High-confidence discovered sources are auto-approved using multiple signals (LLM confidence + test extraction + future events)
+- [ ] **DISC-06**: Auto-approved sources are visible in admin UI and can be revoked
+
+## v1.3 Requirements (Complete)
+
+<details>
+<summary>All 13 requirements complete</summary>
 
 ### Authentication
 
@@ -32,12 +56,14 @@ Requirements for admin tools. Each maps to roadmap phases.
 - [x] **DASH-01**: Admin dashboard shows summary stats: total venues, active sources, pending discoveries, last scrape time
 - [x] **DASH-02**: Admin can see per-source scrape status (last success, last error, enabled/disabled)
 
+</details>
+
 ## Future Requirements
 
 ### Enhanced Discovery
 
-- **DISC-05**: System learns from approved/rejected sources to improve discovery quality
-- **DISC-06**: Discovery covers event platforms beyond venue websites (Facebook Events, community boards)
+- **DISC-07**: System learns from approved/rejected sources to improve discovery quality
+- **DISC-08**: Discovery covers Facebook Events (deferred — requires headless browser, blocked by Vercel Hobby)
 
 ### UX Polish
 
@@ -48,12 +74,11 @@ Requirements for admin tools. Each maps to roadmap phases.
 
 | Feature | Reason |
 |---------|--------|
+| Songkick integration | Commercial API only ($500+/month partnership required) |
+| Facebook Events | Requires headless browser; blocked by Vercel Hobby 50MB limit |
 | Multi-user admin with roles | Single operator — one admin credential sufficient for current scale |
-| OAuth/social login | Password auth is simpler; admin is one person |
-| Bulk import/export | Manual venue management sufficient at 26-venue scale |
-| Real-time scrape monitoring | Dashboard with last-run status is sufficient; no WebSocket needed |
-| Public-facing user accounts | App remains public read-only |
 | Event editing in admin | Events are scraped, not manually managed |
+| Real-time scrape monitoring | Dashboard with last-run status is sufficient; no WebSocket needed |
 
 ## Traceability
 
@@ -74,12 +99,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DISC-02 | Phase 13 | Complete |
 | DISC-03 | Phase 13 | Complete |
 | DISC-04 | Phase 13 | Complete |
+| PLAT-01 | Pending | Pending |
+| PLAT-02 | Pending | Pending |
+| PLAT-03 | Pending | Pending |
+| PLAT-04 | Pending | Pending |
+| SCRP-01 | Pending | Pending |
+| SCRP-02 | Pending | Pending |
+| SCRP-03 | Pending | Pending |
+| SCRP-04 | Pending | Pending |
+| DISC-05 | Pending | Pending |
+| DISC-06 | Pending | Pending |
 
 **Coverage:**
-- v1.3 requirements: 13 total
-- Mapped to phases: 13
-- Unmapped: 0
+- v1.4 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10 ⚠️
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 — traceability filled in after roadmap creation*
+*Last updated: 2026-03-15 after v1.4 requirements defined*
