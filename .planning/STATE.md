@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
 status: planning
-stopped_at: Completed 16-02-PLAN.md
-last_updated: "2026-03-15T07:39:34.559Z"
+stopped_at: Completed 17-01-PLAN.md
+last_updated: "2026-03-15T07:54:04.727Z"
 last_activity: 2026-03-15 — Phase 15 complete (SCRP-04 satisfied)
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_plans: 7
+  completed_plans: 6
   percent: 50
 ---
 
@@ -60,6 +60,7 @@ Progress: [█████░░░░░] 50% (2/4 phases complete)
 | Phase 15-scrape-quality-metrics P01 | 25 | 2 tasks | 7 files |
 | Phase 16-ticketmaster-integration P01 | 4m | 2 tasks | 3 files |
 | Phase 16-ticketmaster-integration P02 | 94s | 2 tasks | 6 files |
+| Phase 17-auto-approve-discovery P01 | 3min | 1 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -89,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 16-ticketmaster-integration]: mapTmClassification and findOrCreateVenue exported as named exports for direct unit testability
 - [Phase 16-ticketmaster-integration]: Seed script uses Promise.all for parallel venue inserts then queries back IDs to handle onConflictDoNothing case
 - [Phase 16-02]: TM metrics (last_event_count, avg_confidence) remain null — handler returns void, consistent with eventbrite/bandsintown
+- [Phase 17-auto-approve-discovery]: Social domain penalty set to -1.0 (not -0.50) to guarantee Math.clamp(0) for any score combination
+- [Phase 17-auto-approve-discovery]: AUTO_APPROVE_THRESHOLD reads from env var at module load (default 0.8) — configurable without code deploy
+- [Phase 17-auto-approve-discovery]: discovery_score nullable — null means not yet scored (pre-Phase 17 rows)
 
 ### Pending Todos
 
@@ -105,7 +109,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15T07:36:49.291Z
-Stopped at: Completed 16-02-PLAN.md
+Last session: 2026-03-15T07:54:04.723Z
+Stopped at: Completed 17-01-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 16`

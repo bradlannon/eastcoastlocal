@@ -23,7 +23,7 @@ Requirements for more scrapers, pipeline improvements, and discovery automation.
 
 ### Discovery Automation
 
-- [ ] **DISC-05**: High-confidence discovered sources are auto-approved using multiple signals (LLM confidence + test extraction + future events)
+- [x] **DISC-05**: High-confidence discovered sources are auto-approved using multiple signals (LLM confidence + test extraction + future events)
 - [ ] **DISC-06**: Auto-approved sources are visible in admin UI and can be revoked
 
 ## v1.3 Requirements (Complete)
@@ -107,7 +107,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCRP-02 | Phase 14 | Complete |
 | SCRP-03 | Phase 14 | Complete |
 | SCRP-04 | Phase 15 | Complete |
-| DISC-05 | Phase 17 | Pending |
+| DISC-05 | Phase 17 | Complete |
 | DISC-06 | Phase 17 | Pending |
 
 **Coverage:**
