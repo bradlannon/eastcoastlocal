@@ -9,9 +9,9 @@ Requirements for more scrapers, pipeline improvements, and discovery automation.
 
 ### Platform Integrations
 
-- [ ] **PLAT-01**: System scrapes Atlantic Canada events from Ticketmaster Discovery API filtered by province
-- [ ] **PLAT-02**: Ticketmaster events are matched to existing venues or new venues are auto-created with geocoding
-- [ ] **PLAT-03**: Ticketmaster attribution is displayed on events sourced from their API (per ToS)
+- [x] **PLAT-01**: System scrapes Atlantic Canada events from Ticketmaster Discovery API filtered by province
+- [x] **PLAT-02**: Ticketmaster events are matched to existing venues or new venues are auto-created with geocoding
+- [x] **PLAT-03**: Ticketmaster attribution is displayed on events sourced from their API (per ToS)
 - [x] **PLAT-04**: System extracts events from Google Events JSON-LD structured data on venue pages before calling Gemini
 
 ### Scraping Pipeline
@@ -99,9 +99,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DISC-02 | Phase 13 | Complete |
 | DISC-03 | Phase 13 | Complete |
 | DISC-04 | Phase 13 | Complete |
-| PLAT-01 | Phase 16 | Pending |
-| PLAT-02 | Phase 16 | Pending |
-| PLAT-03 | Phase 16 | Pending |
+| PLAT-01 | Phase 16 | Complete |
+| PLAT-02 | Phase 16 | Complete |
+| PLAT-03 | Phase 16 | Complete |
 | PLAT-04 | Phase 14 | Complete |
 | SCRP-01 | Phase 14 | Complete |
 | SCRP-02 | Phase 14 | Complete |
