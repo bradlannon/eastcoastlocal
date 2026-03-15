@@ -51,7 +51,7 @@
 
 - [x] **Phase 14: Fetch Pipeline** — Schema migration, rate limiting, multi-page support, retry logic, and Google JSON-LD extraction (completed 2026-03-15)
 - [x] **Phase 15: Scrape Quality Metrics** — Per-source quality tracking instrumented in orchestrator; admin dashboard visibility (completed 2026-03-15)
-- [ ] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map
+- [x] **Phase 16: Ticketmaster Integration** — Ticketmaster Discovery API pulling major Atlantic Canada ticketed events into the map (completed 2026-03-15)
 - [ ] **Phase 17: Auto-Approve Discovery** — High-confidence discovered sources promoted automatically; admin can review and revoke
 
 ## Phase Details
@@ -91,7 +91,7 @@ Plans:
   2. Ticketmaster events display "via Ticketmaster" attribution and link back to the TM event page
   3. A Ticketmaster event for a venue that already exists in the database is matched to that venue rather than creating a duplicate
   4. A Ticketmaster event for a venue not yet in the database results in a new venue being auto-created with geocoding
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 16-01-PLAN.md — TM handler with venue find-or-create, category mapping, and unit tests + seed script
 - [ ] 16-02-PLAN.md — Orchestrator wiring, attribution UI, admin source type recognition
@@ -125,5 +125,5 @@ Plans:
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
 | 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
-| 16. Ticketmaster Integration | 1/2 | In Progress|  | - |
+| 16. Ticketmaster Integration | 2/2 | Complete   | 2026-03-15 | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |

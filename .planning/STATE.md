@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.4
 milestone_name: More Scrapers
 status: planning
-stopped_at: Completed 16-01-PLAN.md
-last_updated: "2026-03-15T07:33:38.828Z"
+stopped_at: Completed 16-02-PLAN.md
+last_updated: "2026-03-15T07:36:49.294Z"
 last_activity: 2026-03-15 — Phase 15 complete (SCRP-04 satisfied)
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 4
+  completed_plans: 5
   percent: 50
 ---
 
@@ -59,6 +59,7 @@ Progress: [█████░░░░░] 50% (2/4 phases complete)
 | Phase 14-fetch-pipeline P02 | 2m | 1 tasks | 1 files |
 | Phase 15-scrape-quality-metrics P01 | 25 | 2 tasks | 7 files |
 | Phase 16-ticketmaster-integration P01 | 4m | 2 tasks | 3 files |
+| Phase 16-ticketmaster-integration P02 | 94s | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,7 @@ Recent decisions affecting current work:
 - [Phase 15-scrape-quality-metrics]: Failure path omits last_event_count and avg_confidence from .set() to preserve last known values across failures
 - [Phase 16-ticketmaster-integration]: mapTmClassification and findOrCreateVenue exported as named exports for direct unit testability
 - [Phase 16-ticketmaster-integration]: Seed script uses Promise.all for parallel venue inserts then queries back IDs to handle onConflictDoNothing case
+- [Phase 16-02]: TM metrics (last_event_count, avg_confidence) remain null — handler returns void, consistent with eventbrite/bandsintown
 
 ### Pending Todos
 
@@ -103,7 +105,7 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-15T07:33:38.825Z
-Stopped at: Completed 16-01-PLAN.md
+Last session: 2026-03-15T07:36:49.291Z
+Stopped at: Completed 16-02-PLAN.md
 Resume file: None
 Next action: `/gsd:plan-phase 16`
