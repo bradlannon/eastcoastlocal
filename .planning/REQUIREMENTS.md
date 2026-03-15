@@ -1,52 +1,59 @@
 # Requirements: East Coast Local
 
-**Defined:** 2026-03-14
+**Defined:** 2026-03-15
 **Core Value:** Users can instantly see what events are happening near them on a map — where, when, and what type
 
-## v1.2 Requirements
+## v1.3 Requirements
 
-Requirements for event discovery and categorization. Each maps to roadmap phases.
+Requirements for admin tools. Each maps to roadmap phases.
 
-### Categorization
+### Authentication
 
-- [x] **CAT-01**: Events are automatically assigned a category by AI during scraping (live_music, comedy, theatre, arts, sports, festival, community, other)
-- [x] **CAT-02**: Existing events in the database are backfilled with categories
-- [x] **CAT-03**: Database schema includes event_category enum column on events table
+- [ ] **AUTH-01**: Admin routes are protected behind a login gate — unauthenticated users cannot access /admin pages
+- [ ] **AUTH-02**: Admin can log in with a configured email/password credential
 
-### Filtering
+### Venue Management
 
-- [x] **FILT-01**: User can filter events by category using horizontal chip buttons
-- [x] **FILT-02**: Category filter applies to heatmap mode (heatmap only shows selected categories)
-- [x] **FILT-03**: Category filter selection is persisted in the URL and shareable
+- [ ] **VENUE-01**: Admin can view a list of all venues with name, province, and source count
+- [ ] **VENUE-02**: Admin can add a new venue with name, address, city, province
+- [ ] **VENUE-03**: Admin can edit an existing venue's details
+- [ ] **VENUE-04**: Admin can add a scrape source URL to a venue (creates scrape_sources row)
+- [ ] **VENUE-05**: Admin can enable/disable a scrape source without deleting it
 
-### Discovery
+### Discovery Review
 
-- [x] **DISC-01**: System automatically searches for new event venues/sources across Atlantic Canada cities
-- [x] **DISC-02**: Discovered sources land in a staging table for review before being scraped
-- [x] **DISC-03**: Approved sources can be promoted from staging to active scraping
+- [ ] **DISC-01**: Admin can view a list of discovered sources filtered by status (pending/approved/rejected)
+- [ ] **DISC-02**: Admin can approve a discovered source — promoting it to a venue + scrape source (replaces CLI)
+- [ ] **DISC-03**: Admin can reject a discovered source with an optional reason
+- [ ] **DISC-04**: Admin can see the raw_context and discovery_method for each candidate to inform decisions
+
+### Dashboard
+
+- [ ] **DASH-01**: Admin dashboard shows summary stats: total venues, active sources, pending discoveries, last scrape time
+- [ ] **DASH-02**: Admin can see per-source scrape status (last success, last error, enabled/disabled)
 
 ## Future Requirements
 
-### Admin Tools
-
-- **ADMIN-01**: Admin UI to manage venues and scrape sources
-- **ADMIN-02**: Admin can manually add a venue/source URL
-- **ADMIN-03**: Admin can review and approve/reject discovered sources in a UI
-
 ### Enhanced Discovery
 
-- **DISC-04**: System learns from approved/rejected sources to improve discovery quality
-- **DISC-05**: Discovery covers event platforms beyond venue websites (Facebook Events, community boards)
+- **DISC-05**: System learns from approved/rejected sources to improve discovery quality
+- **DISC-06**: Discovery covers event platforms beyond venue websites (Facebook Events, community boards)
+
+### UX Polish
+
+- **UX-01**: Zoom-to-location button on event cards
+- **UX-02**: Category filter chips visible in timelapse mode
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| User accounts/authentication | Public read-only app, admin tools deferred |
-| Manual event submission | Scraping/discovery only for v1.2 |
-| Multi-select category filter | Single-select chips for v1.2, multi-select in future |
-| Real-time discovery (user-triggered) | Discovery is a periodic cron job, not on-demand |
-| Category customization by users | Fixed 8-category taxonomy enforced by AI |
+| Multi-user admin with roles | Single operator — one admin credential sufficient for current scale |
+| OAuth/social login | Password auth is simpler; admin is one person |
+| Bulk import/export | Manual venue management sufficient at 26-venue scale |
+| Real-time scrape monitoring | Dashboard with last-run status is sufficient; no WebSocket needed |
+| Public-facing user accounts | App remains public read-only |
+| Event editing in admin | Events are scraped, not manually managed |
 
 ## Traceability
 
@@ -54,21 +61,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CAT-01 | Phase 7 | Complete |
-| CAT-02 | Phase 7 | Complete |
-| CAT-03 | Phase 6 | Complete (2026-03-14) |
-| FILT-01 | Phase 8 | Complete |
-| FILT-02 | Phase 8 | Complete |
-| FILT-03 | Phase 8 | Complete |
-| DISC-01 | Phase 9 | Complete |
-| DISC-02 | Phase 9 | Complete |
-| DISC-03 | Phase 9 | Complete |
+| AUTH-01 | - | Pending |
+| AUTH-02 | - | Pending |
+| VENUE-01 | - | Pending |
+| VENUE-02 | - | Pending |
+| VENUE-03 | - | Pending |
+| VENUE-04 | - | Pending |
+| VENUE-05 | - | Pending |
+| DISC-01 | - | Pending |
+| DISC-02 | - | Pending |
+| DISC-03 | - | Pending |
+| DISC-04 | - | Pending |
+| DASH-01 | - | Pending |
+| DASH-02 | - | Pending |
 
 **Coverage:**
-- v1.2 requirements: 9 total
-- Mapped to phases: 9
-- Unmapped: 0 ✓
+- v1.3 requirements: 13 total
+- Mapped to phases: 0
+- Unmapped: 13
 
 ---
-*Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 — traceability populated after roadmap creation*
+*Requirements defined: 2026-03-15*
+*Last updated: 2026-03-15 — initial definition*
