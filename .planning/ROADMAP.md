@@ -131,7 +131,10 @@ Plans:
   2. Category filter chips are visible and interactive while the heatmap timelapse is playing — selecting a chip filters both the heatmap intensity and the event list sidebar
   3. Each event row in the database records the source(s) it was seen from in an event_sources join table — queryable by source_type and source_id
   4. When a cross-source event match occurs and the existing row has no ticket link, the incoming ticket link is applied non-destructively
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 19-01-PLAN.md — Frontend UX: map-pin icon on EventCard, CategoryChipsRow in timelapse overlay
+- [ ] 19-02-PLAN.md — Backend: event_sources join table, upsertEvent source tracking, COALESCE source_url
 
 ### Phase 20: Admin Merge Review
 **Goal**: Admin can inspect and resolve borderline venue merge candidates that Phase 18 logged but did not auto-merge, preventing permanent data gaps from under-merging
@@ -164,6 +167,6 @@ Plans:
 | 15. Scrape Quality Metrics | v1.4 | 1/1 | Complete | 2026-03-15 |
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
-| 18. Venue Deduplication | 2/2 | Complete    | 2026-03-15 | — |
-| 19. UX Polish & Source Attribution | v1.5 | 0/? | Not started | — |
+| 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
+| 19. UX Polish & Source Attribution | v1.5 | 0/2 | Not started | — |
 | 20. Admin Merge Review | v1.5 | 0/? | Not started | — |
