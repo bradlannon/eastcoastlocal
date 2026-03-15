@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: Completed 20-01-PLAN.md
-last_updated: "2026-03-15T20:56:00.063Z"
+stopped_at: "Checkpoint: human-verify task in 20-02-PLAN.md"
+last_updated: "2026-03-15T21:00:10.069Z"
 last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 11
-  completed_plans: 10
+  completed_plans: 11
   percent: 14
 ---
 
@@ -52,6 +52,7 @@ Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 | Phase 19-ux-polish-source-attribution P02 | 569 | 2 tasks | 10 files |
 | Phase 19-ux-polish-source-attribution P01 | 15 | 3 tasks | 3 files |
 | Phase 20-admin-merge-review P01 | 5 | 2 tasks | 4 files |
+| Phase 20-admin-merge-review P02 | 2 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -79,6 +80,7 @@ Recent decisions affecting current work:
 - [Phase 20-admin-merge-review]: event_sources rows cleaned up before deleting conflicting events (FK RESTRICT ordering)
 - [Phase 20-admin-merge-review]: canonical determination in mergePair: higher event count wins; ties break to venue_a
 - [Phase 20-admin-merge-review]: Ticketmaster dedup guard checks both (a,b) and (b,a) orderings before inserting candidate
+- [Phase 20-admin-merge-review]: Drizzle alias() used for venue self-join (venue_a/venue_b); NavLinks extracted as client component so AdminLayout can be async server component
 
 ### Pending Todos
 
@@ -93,6 +95,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T20:55:54.867Z
-Stopped at: Completed 20-01-PLAN.md
+Last session: 2026-03-15T21:00:10.062Z
+Stopped at: Checkpoint: human-verify task in 20-02-PLAN.md
 Resume file: None
