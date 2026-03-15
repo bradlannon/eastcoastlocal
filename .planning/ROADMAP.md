@@ -91,7 +91,10 @@ Plans:
   2. Ticketmaster events display "via Ticketmaster" attribution and link back to the TM event page
   3. A Ticketmaster event for a venue that already exists in the database is matched to that venue rather than creating a duplicate
   4. A Ticketmaster event for a venue not yet in the database results in a new venue being auto-created with geocoding
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 16-01-PLAN.md — TM handler with venue find-or-create, category mapping, and unit tests + seed script
+- [ ] 16-02-PLAN.md — Orchestrator wiring, attribution UI, admin source type recognition
 
 ### Phase 17: Auto-Approve Discovery
 **Goal**: High-confidence discovered venue sources are promoted to active scraping automatically, reducing the admin review queue without introducing noise into the pipeline
@@ -122,5 +125,5 @@ Plans:
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
 | 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
-| 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
+| 16. Ticketmaster Integration | v1.4 | 0/2 | Planning | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |
