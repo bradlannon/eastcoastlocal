@@ -8,6 +8,7 @@
 - ✅ **v1.3 Admin Tools** — Phases 10-13 (shipped 2026-03-15)
 - ✅ **v1.4 More Scrapers** — Phases 14-17 (shipped 2026-03-15)
 - ✅ **v1.5 Event Dedup & UX Polish** — Phases 18-21 (shipped 2026-03-15)
+- 🚧 **v2.0 Mass Venue Discovery** — Phases 22-25 (in progress)
 
 ## Phases
 
@@ -68,7 +69,64 @@
 
 </details>
 
+### 🚧 v2.0 Mass Venue Discovery (In Progress)
+
+**Milestone Goal:** Scale venue coverage from ~26 curated venues to hundreds across Atlantic Canada via Google Maps Places API bulk discovery, Reddit mining, expanded geographic coverage, and aggressive auto-approval.
+
+- [ ] **Phase 22: Schema Foundation** - Migrate schema to support google_place_id and pre-geocoded coordinates across the discovery pipeline
+- [ ] **Phase 23: Places API Discovery** - Build and wire the Places API discoverer with expanded city coverage, per-method scoring, and production cron scheduling
+- [ ] **Phase 24: Reddit Discovery** - Add Reddit subreddit mining as a supplemental discovery channel with Gemini extraction
+- [ ] **Phase 25: Admin Scale Tooling** - Reduce admin review friction with batch approve, discovery run metrics, and dashboard summary
+
+## Phase Details
+
+### Phase 22: Schema Foundation
+**Goal**: The database schema supports structured discovery data — pre-geocoded coordinates, google_place_id, and address — so that Places API candidates can flow through the pipeline without redundant geocoding calls
+**Depends on**: Phase 21
+**Requirements**: SCHEMA-01, SCHEMA-02
+**Success Criteria** (what must be TRUE):
+  1. discovered_sources rows can store address, lat, lng, and google_place_id without a workaround
+  2. venues rows have a google_place_id column available for dedup anchoring
+  3. Migration runs cleanly against the Neon Postgres instance with no data loss to existing rows
+  4. Existing pipeline (insert, promote, score) continues to work after migration
+**Plans**: TBD
+
+### Phase 23: Places API Discovery
+**Goal**: The system discovers hundreds of Atlantic Canada venues per week via Google Maps Places API, automatically scores and stages candidates across ~30 cities and all 4 provinces, and runs as an isolated cron endpoint that does not compete with existing discovery jobs for the 60-second timeout budget
+**Depends on**: Phase 22
+**Requirements**: PLACES-01, PLACES-02, PLACES-03, PLACES-04, PLACES-05, PLACES-06, PLACES-07, GEO-01, GEO-02, GEO-03, SCORE-01, SCORE-02, SCORE-03
+**Success Criteria** (what must be TRUE):
+  1. Running the Places discovery cron produces staged candidates in discovered_sources covering cities across all 4 Atlantic provinces
+  2. Only venue-relevant place types (bar, night_club, concert_hall, performing_arts_theater, comedy_club, community_center, stadium) appear as candidates
+  3. Venues already in the database are not re-staged as duplicates
+  4. Venues without a website are staged with status no_website rather than discarded
+  5. Places candidates auto-approve at 0.8 threshold; Reddit-sourced candidates use 0.9; each discovery channel runs on its own cron schedule within the 60-second limit
+**Plans**: TBD
+
+### Phase 24: Reddit Discovery
+**Goal**: The system supplements Places API coverage by mining Atlantic Canada subreddits for venue and event mentions, extracting structured data via Gemini, and flowing candidates through the existing discovered_sources pipeline
+**Depends on**: Phase 23
+**Requirements**: REDDIT-01, REDDIT-02, REDDIT-03, REDDIT-04
+**Success Criteria** (what must be TRUE):
+  1. Running the Reddit discovery cron produces staged candidates sourced from Atlantic Canada subreddits
+  2. Extracted candidates include structured venue name and location data derived from post text via Gemini
+  3. Reddit candidates are tagged with discovery_method = reddit_gemini and flow through the existing staging pipeline
+  4. Province-specific subreddits are configurable and each maps to the correct province
+**Plans**: TBD
+
+### Phase 25: Admin Scale Tooling
+**Goal**: Admin can process a high volume of staged discovery candidates efficiently — batch-approving multiple candidates at once, and seeing discovery run health at a glance on the dashboard
+**Depends on**: Phase 22
+**Requirements**: ADMIN-01, ADMIN-02, ADMIN-03
+**Success Criteria** (what must be TRUE):
+  1. Admin can select multiple discovered sources via checkboxes and approve them in a single action
+  2. Each discovery run logs candidate counts (found, auto-approved, queued for review, errors)
+  3. Admin dashboard shows a summary of the most recent discovery run without navigating to a separate page
+**Plans**: TBD
+
 ## Progress
+
+**Execution Order:** 22 → 23 → 24 → 25 (Phase 25 depends only on Phase 22; can execute after Phase 22 completes if Phase 23/24 are in flight)
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -93,3 +151,7 @@
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
+| 22. Schema Foundation | v2.0 | 0/TBD | Not started | - |
+| 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
+| 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
+| 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |

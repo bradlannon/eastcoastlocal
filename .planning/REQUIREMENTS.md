@@ -78,34 +78,34 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHEMA-01 | — | Pending |
-| SCHEMA-02 | — | Pending |
-| PLACES-01 | — | Pending |
-| PLACES-02 | — | Pending |
-| PLACES-03 | — | Pending |
-| PLACES-04 | — | Pending |
-| PLACES-05 | — | Pending |
-| PLACES-06 | — | Pending |
-| PLACES-07 | — | Pending |
-| GEO-01 | — | Pending |
-| GEO-02 | — | Pending |
-| GEO-03 | — | Pending |
-| REDDIT-01 | — | Pending |
-| REDDIT-02 | — | Pending |
-| REDDIT-03 | — | Pending |
-| REDDIT-04 | — | Pending |
-| SCORE-01 | — | Pending |
-| SCORE-02 | — | Pending |
-| SCORE-03 | — | Pending |
-| ADMIN-01 | — | Pending |
-| ADMIN-02 | — | Pending |
-| ADMIN-03 | — | Pending |
+| SCHEMA-01 | Phase 22 | Pending |
+| SCHEMA-02 | Phase 22 | Pending |
+| PLACES-01 | Phase 23 | Pending |
+| PLACES-02 | Phase 23 | Pending |
+| PLACES-03 | Phase 23 | Pending |
+| PLACES-04 | Phase 23 | Pending |
+| PLACES-05 | Phase 23 | Pending |
+| PLACES-06 | Phase 23 | Pending |
+| PLACES-07 | Phase 23 | Pending |
+| GEO-01 | Phase 23 | Pending |
+| GEO-02 | Phase 23 | Pending |
+| GEO-03 | Phase 23 | Pending |
+| SCORE-01 | Phase 23 | Pending |
+| SCORE-02 | Phase 23 | Pending |
+| SCORE-03 | Phase 23 | Pending |
+| REDDIT-01 | Phase 24 | Pending |
+| REDDIT-02 | Phase 24 | Pending |
+| REDDIT-03 | Phase 24 | Pending |
+| REDDIT-04 | Phase 24 | Pending |
+| ADMIN-01 | Phase 25 | Pending |
+| ADMIN-02 | Phase 25 | Pending |
+| ADMIN-03 | Phase 25 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 22 total
-- Mapped to phases: 0
-- Unmapped: 22 ⚠️
+- Mapped to phases: 22
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 after initial definition*
+*Last updated: 2026-03-15 after roadmap creation*
