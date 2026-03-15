@@ -14,7 +14,7 @@ jest.mock('@/lib/db/client', () => {
 
 // Mock the schema to get reference to events table and event_sources table
 jest.mock('@/lib/db/schema', () => ({
-  events: { venue_id: 'venue_id', event_date: 'event_date', normalized_performer: 'normalized_performer', source_url: 'source_url', id: 'id' },
+  events: { venue_id: 'venue_id', event_date: 'event_date', normalized_performer: 'normalized_performer', source_url: 'source_url', ticket_link: 'ticket_link', id: 'id' },
   event_sources: { event_id: 'event_id', source_type: 'source_type' },
   EVENT_CATEGORIES: ['live_music', 'comedy', 'theatre', 'arts', 'sports', 'festival', 'community', 'other'],
   eventCategoryEnum: jest.fn(),
@@ -251,6 +251,29 @@ describe('upsertEvent', () => {
     const sourceUrlVal = conflictArgs.set.source_url;
     expect(typeof sourceUrlVal).not.toBe('string');
     expect(sourceUrlVal).toBeDefined();
+  });
+
+  it('uses COALESCE for ticket_link in onConflictDoUpdate set clause', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'COALESCE Ticket Test',
+      event_date: '2026-12-02',
+      event_time: null,
+      price: null,
+      ticket_link: 'https://tickets.example.com/event',
+      description: null,
+      cover_image_url: null,
+      confidence: 0.9,
+      event_category: 'other',
+    };
+
+    await upsertEvent(1, extracted, 'https://source.com');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const conflictArgs = mockDb.insert.mock.results[0].value.values.mock.results[0].value.onConflictDoUpdate.mock.calls[0][0];
+    // ticket_link should be a SQL expression object (not a plain string) — indicates COALESCE usage
+    const ticketLinkVal = conflictArgs.set.ticket_link;
+    expect(typeof ticketLinkVal).not.toBe('string');
+    expect(ticketLinkVal).toBeDefined();
   });
 
   it('defaults scrapeSourceId to null and sourceType to scrape when called with 3 args', async () => {

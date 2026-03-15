@@ -46,7 +46,7 @@ export async function upsertEvent(
         source_url: sql`COALESCE(${events.source_url}, ${sourceUrl})`,
         scrape_timestamp: new Date(),
         price: extracted.price ?? null,
-        ticket_link: extracted.ticket_link ?? null,
+        ticket_link: sql`COALESCE(${events.ticket_link}, ${extracted.ticket_link ?? null})`,
         description: extracted.description ?? null,
         cover_image_url: extracted.cover_image_url ?? null,
         event_category: extracted.event_category ?? 'other',
