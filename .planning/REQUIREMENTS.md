@@ -29,8 +29,8 @@ Requirements for admin tools. Each maps to roadmap phases.
 
 ### Dashboard
 
-- [ ] **DASH-01**: Admin dashboard shows summary stats: total venues, active sources, pending discoveries, last scrape time
-- [ ] **DASH-02**: Admin can see per-source scrape status (last success, last error, enabled/disabled)
+- [x] **DASH-01**: Admin dashboard shows summary stats: total venues, active sources, pending discoveries, last scrape time
+- [x] **DASH-02**: Admin can see per-source scrape status (last success, last error, enabled/disabled)
 
 ## Future Requirements
 
@@ -63,8 +63,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AUTH-01 | Phase 10 | Complete |
 | AUTH-02 | Phase 10 | Complete |
-| DASH-01 | Phase 11 | Pending |
-| DASH-02 | Phase 11 | Pending |
+| DASH-01 | Phase 11 | Complete |
+| DASH-02 | Phase 11 | Complete |
 | VENUE-01 | Phase 12 | Pending |
 | VENUE-02 | Phase 12 | Pending |
 | VENUE-03 | Phase 12 | Pending |
