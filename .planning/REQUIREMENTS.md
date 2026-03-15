@@ -61,25 +61,25 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | - | Pending |
-| AUTH-02 | - | Pending |
-| VENUE-01 | - | Pending |
-| VENUE-02 | - | Pending |
-| VENUE-03 | - | Pending |
-| VENUE-04 | - | Pending |
-| VENUE-05 | - | Pending |
-| DISC-01 | - | Pending |
-| DISC-02 | - | Pending |
-| DISC-03 | - | Pending |
-| DISC-04 | - | Pending |
-| DASH-01 | - | Pending |
-| DASH-02 | - | Pending |
+| AUTH-01 | Phase 10 | Pending |
+| AUTH-02 | Phase 10 | Pending |
+| DASH-01 | Phase 11 | Pending |
+| DASH-02 | Phase 11 | Pending |
+| VENUE-01 | Phase 12 | Pending |
+| VENUE-02 | Phase 12 | Pending |
+| VENUE-03 | Phase 12 | Pending |
+| VENUE-04 | Phase 12 | Pending |
+| VENUE-05 | Phase 12 | Pending |
+| DISC-01 | Phase 13 | Pending |
+| DISC-02 | Phase 13 | Pending |
+| DISC-03 | Phase 13 | Pending |
+| DISC-04 | Phase 13 | Pending |
 
 **Coverage:**
 - v1.3 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-15*
-*Last updated: 2026-03-15 — initial definition*
+*Last updated: 2026-03-15 — traceability filled in after roadmap creation*
