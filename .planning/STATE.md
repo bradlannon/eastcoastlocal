@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
-stopped_at: "Completed 19-02-PLAN.md: event_sources schema and source attribution"
-last_updated: "2026-03-15T18:10:23.242Z"
+stopped_at: "Completed 19-01-PLAN.md: map-pin icon and timelapse category chips"
+last_updated: "2026-03-15T19:57:49.263Z"
 last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
   percent: 14
 ---
 
@@ -50,6 +50,7 @@ Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 *Updated after each plan completion*
 | Phase 18-venue-deduplication P02 | 4 | 3 tasks | 4 files |
 | Phase 19-ux-polish-source-attribution P02 | 569 | 2 tasks | 10 files |
+| Phase 19-ux-polish-source-attribution P01 | 15 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -71,6 +72,9 @@ Recent decisions affecting current work:
 - [Phase 18-venue-deduplication]: findOrCreateVenue uses scoreVenueCandidate per-candidate (not findBestMatch) to retain candidate.id for audit log insertion
 - [Phase 19]: Used uniqueIndex on (event_id, source_type) for event_sources — prevents TM duplicate rows since PostgreSQL NULL != NULL in unique indexes for nullable scrape_source_id
 - [Phase 19]: COALESCE applied universally in upsertEvent onConflictDoUpdate — once source_url set by any source it is never overwritten
+- [Phase 19-ux-polish-source-attribution]: Map-pin icon on EventCard is visual-only affordance — flyTo triggered by whole-card click, icon conditional on venue.lat/lng
+- [Phase 19-ux-polish-source-attribution]: CategoryChipsRow uses nuqs useQueryState('category') directly — no prop drilling; timelapse category filter chain already reads from URL param
+- [Phase 19-ux-polish-source-attribution]: Timelapse default inverted post-checkpoint: pins visible by default, heatmap toggled on demand
 
 ### Pending Todos
 
@@ -85,6 +89,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T18:10:23.235Z
-Stopped at: Completed 19-02-PLAN.md: event_sources schema and source attribution
+Last session: 2026-03-15T19:57:49.258Z
+Stopped at: Completed 19-01-PLAN.md: map-pin icon and timelapse category chips
 Resume file: None

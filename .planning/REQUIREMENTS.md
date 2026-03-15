@@ -21,8 +21,8 @@ Requirements for event/venue deduplication, source attribution, and UX polish. E
 
 ### UX Polish
 
-- [ ] **UX-01**: User can click "Show on map" on an event card to animate the map to the venue location
-- [ ] **UX-02**: Category filter chips are visible and interactive in timelapse mode
+- [x] **UX-01**: User can click "Show on map" on an event card to animate the map to the venue location
+- [x] **UX-02**: Category filter chips are visible and interactive in timelapse mode
 
 ## v1.4 Requirements (Complete)
 
@@ -113,8 +113,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEDUP-04 | Phase 20 | Pending |
 | ATTR-01 | Phase 19 | Complete |
 | ATTR-02 | Phase 19 | Complete |
-| UX-01 | Phase 19 | Pending |
-| UX-02 | Phase 19 | Pending |
+| UX-01 | Phase 19 | Complete |
+| UX-02 | Phase 19 | Complete |
 
 **Coverage:**
 - v1.5 requirements: 8 total

@@ -61,7 +61,7 @@
 ### v1.5 Event Dedup & UX Polish (Phases 18-20)
 
 - [x] **Phase 18: Venue Deduplication** — Two-signal fuzzy merge of TM-created duplicate venue rows; cross-source event dedup falls out automatically (completed 2026-03-15)
-- [ ] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table
+- [x] **Phase 19: UX Polish & Source Attribution** — Zoom-to-location on event cards, category chips in timelapse mode, and event source tracking join table (completed 2026-03-15)
 - [x] **Phase 20: Admin Merge Review** — Admin UI for surfacing and resolving borderline venue merge candidates logged in Phase 18
  (completed 2026-03-15)
 ## Phase Details
@@ -168,5 +168,5 @@ Plans:
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 18. Venue Deduplication | v1.5 | 2/2 | Complete | 2026-03-15 |
-| 19. UX Polish & Source Attribution | 1/2 | In Progress|  | — |
+| 19. UX Polish & Source Attribution | 2/2 | Complete   | 2026-03-15 | — |
 | 20. Admin Merge Review | v1.5 | 0/? | Not started | — |
