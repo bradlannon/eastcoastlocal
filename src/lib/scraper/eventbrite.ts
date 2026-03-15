@@ -57,7 +57,9 @@ export async function scrapeEventbrite(source: ScrapeSource): Promise<void> {
         confidence: 1.0,
         event_category: 'other' as const,
       },
-      event.url
+      event.url,
+      source.id,
+      'scrape'
     );
   }
 }

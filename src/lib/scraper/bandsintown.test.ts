@@ -193,7 +193,9 @@ describe('scrapeBandsintown', () => {
         cover_image_url: null,
         confidence: 1.0,
       }),
-      'https://www.bandsintown.com/e/bit001'
+      'https://www.bandsintown.com/e/bit001',
+      2,
+      'scrape'
     );
   });
 
@@ -212,7 +214,9 @@ describe('scrapeBandsintown', () => {
       expect.objectContaining({
         ticket_link: 'https://www.bandsintown.com/e/bit002',
       }),
-      'https://www.bandsintown.com/e/bit002'
+      'https://www.bandsintown.com/e/bit002',
+      2,
+      'scrape'
     );
   });
 

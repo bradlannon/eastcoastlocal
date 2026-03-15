@@ -110,7 +110,7 @@ export async function scrapeTicketmaster(source: ScrapeSource): Promise<void> {
       event_category: mapTmClassification(event.classifications ?? []),
     };
 
-    await upsertEvent(venueId, extracted, event.url);
+    await upsertEvent(venueId, extracted, event.url, null, 'ticketmaster');
   }
 }
 

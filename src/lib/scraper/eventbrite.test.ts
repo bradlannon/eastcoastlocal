@@ -114,7 +114,9 @@ describe('scrapeEventbrite', () => {
         cover_image_url: 'https://img.eventbrite.com/logo.jpg',
         confidence: 1.0,
       }),
-      'https://www.eventbrite.com/e/evt001'
+      'https://www.eventbrite.com/e/evt001',
+      1,
+      'scrape'
     );
   });
 
@@ -172,7 +174,9 @@ describe('scrapeEventbrite', () => {
         description: null,
         cover_image_url: null,
       }),
-      'https://www.eventbrite.com/e/evt003'
+      'https://www.eventbrite.com/e/evt003',
+      1,
+      'scrape'
     );
   });
 });

@@ -159,7 +159,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ confidence: 1.0 }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -175,7 +177,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.any(Object),
-      'https://www.ticketmaster.com/event/tm001'
+      'https://www.ticketmaster.com/event/tm001',
+      null,
+      'ticketmaster'
     );
   });
 
@@ -191,7 +195,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ ticket_link: 'https://www.ticketmaster.com/event/tm001' }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -250,7 +256,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ event_time: '19:00' }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -270,7 +278,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ event_time: null }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -286,7 +296,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ price: '$25+' }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -305,7 +317,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ price: null }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 
@@ -322,7 +336,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ cover_image_url: 'https://s1.ticketimg.com/16_9.jpg' }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
 
     jest.clearAllMocks();
@@ -350,7 +366,9 @@ describe('scrapeTicketmaster', () => {
     expect(mockUpsertEvent).toHaveBeenCalledWith(
       expect.any(Number),
       expect.objectContaining({ cover_image_url: 'https://s1.ticketimg.com/4_3.jpg' }),
-      expect.any(String)
+      expect.any(String),
+      null,
+      'ticketmaster'
     );
   });
 

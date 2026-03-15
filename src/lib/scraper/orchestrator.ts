@@ -101,7 +101,7 @@ export async function runScrapeJob(): Promise<void> {
           : null;
 
         for (const event of extracted) {
-          await upsertEvent(source.venue_id, event, source.url);
+          await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
         }
 
         eventCount += extracted.length;
