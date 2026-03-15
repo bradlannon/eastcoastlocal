@@ -57,7 +57,7 @@ export async function runScrapeJob(): Promise<void> {
         }
 
         // Fetch, extract, and upsert events
-        const pageText = await fetchAndPreprocess(source.url);
+        const { text: pageText } = await fetchAndPreprocess(source.url);
         const extracted = await extractEvents(pageText, source.url);
 
         for (const event of extracted) {

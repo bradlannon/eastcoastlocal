@@ -19,6 +19,7 @@ const mockSource: ScrapeSource = {
   last_scrape_status: 'pending',
   source_type: 'bandsintown',
   enabled: true,
+  max_pages: 1,
   created_at: new Date(),
 };
 

@@ -155,9 +155,9 @@ describe('fetchAndPreprocess', () => {
   it('exhausted retries — error thrown after 3 attempts (0 + 2 retries)', async () => {
     const html = makeLongHtml('<main>Content</main>');
     global.fetch = jest.fn().mockResolvedValue(makeResponse(html, 429));
-    await expect(fetchAndPreprocess('https://example.com')).rejects.toThrow();
+    await expect(fetchAndPreprocess('https://example-exhaust.com')).rejects.toThrow();
     expect(global.fetch).toHaveBeenCalledTimes(3);
-  });
+  }, 15000);
 
   // ---- New: Per-domain rate limiting ----
 

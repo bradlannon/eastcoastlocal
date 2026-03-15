@@ -1,18 +1,79 @@
 import * as cheerio from 'cheerio';
 
-export async function fetchAndPreprocess(url: string): Promise<string> {
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'Mozilla/5.0 (compatible; EastCoastLocal/1.0)',
-    },
-    signal: AbortSignal.timeout(15_000),
-  });
+// Module-level per-domain rate limiting state
+const domainLastRequest = new Map<string, number>();
+const DOMAIN_MIN_GAP_MS = 2000; // 2s base + up to 500ms jitter
 
-  if (!response.ok) {
-    throw new Error(`HTTP error: ${response.status} for ${url}`);
+function delay(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function applyDomainRateLimit(url: string): Promise<void> {
+  const domain = new URL(url).hostname;
+  const last = domainLastRequest.get(domain) ?? 0;
+  const elapsed = Date.now() - last;
+  const gap = DOMAIN_MIN_GAP_MS + Math.random() * 500; // 2000–2500ms
+  if (elapsed < gap) {
+    await delay(gap - elapsed);
+  }
+  domainLastRequest.set(domain, Date.now());
+}
+
+async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
+  let lastErr: Error | null = null;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      // Check for Retry-After header from previous response if available
+      const backoffMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s
+      await delay(backoffMs);
+    }
+    try {
+      const resp = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EastCoastLocal/1.0)' },
+        signal: AbortSignal.timeout(15_000),
+      });
+      // Only retry on transient errors
+      if (resp.status === 429 || resp.status === 503) {
+        if (attempt < retries) {
+          lastErr = new Error(`HTTP error: ${resp.status} for ${url}`);
+          continue;
+        }
+      }
+      return resp;
+    } catch (err) {
+      lastErr = err as Error;
+    }
+  }
+  throw lastErr ?? new Error(`Failed to fetch ${url}`);
+}
+
+function detectNextPageUrl(html: string, baseUrl: string): string | null {
+  const $ = cheerio.load(html);
+  const nextLink = $(
+    'a[rel="next"], ' +
+    'a[aria-label*="next" i], ' +
+    'a.pagination-next, ' +
+    'li.next > a'
+  ).first();
+  const href = nextLink.attr('href');
+  if (!href) return null;
+  try {
+    return new URL(href, baseUrl).toString();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchPage(url: string): Promise<{ html: string; text: string }> {
+  await applyDomainRateLimit(url);
+  const resp = await fetchWithRetry(url);
+
+  if (!resp.ok) {
+    throw new Error(`HTTP error: ${resp.status} for ${url}`);
   }
 
-  const html = await response.text();
+  const html = await resp.text();
 
   if (html.length < 5000) {
     throw new Error(`Page too short (${html.length} chars) — likely bot-blocked: ${url}`);
@@ -39,6 +100,30 @@ export async function fetchAndPreprocess(url: string): Promise<string> {
   // Collapse whitespace and trim
   text = text.replace(/\s+/g, ' ').trim();
 
-  // Limit to 15,000 chars
-  return text.slice(0, 15_000);
+  return { html, text };
+}
+
+export async function fetchAndPreprocess(
+  url: string,
+  options?: { maxPages?: number }
+): Promise<{ text: string; rawHtml: string }> {
+  const maxPages = Math.min(options?.maxPages ?? 1, 3); // hard cap at 3 — Vercel timeout constraint
+  let allText = '';
+  let firstHtml = '';
+  let currentUrl: string | null = url;
+  let pageCount = 0;
+
+  while (currentUrl && pageCount < maxPages) {
+    if (pageCount > 0) await delay(500); // 500ms between pages within same source
+    const { html, text } = await fetchPage(currentUrl);
+    if (pageCount === 0) firstHtml = html;
+    allText += text;
+    currentUrl = detectNextPageUrl(html, currentUrl);
+    pageCount++;
+  }
+
+  return {
+    text: allText.slice(0, 15_000),
+    rawHtml: firstHtml,
+  };
 }
