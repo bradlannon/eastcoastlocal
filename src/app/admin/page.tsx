@@ -45,6 +45,19 @@ function statusBadge(status: string | null) {
   );
 }
 
+function failuresBadge(count: number | null) {
+  if (count == null) return <span className="text-gray-400 text-sm">—</span>;
+  if (count >= 3) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+        {count} failures
+      </span>
+    );
+  }
+  if (count === 0) return <span className="text-sm text-gray-700">0</span>;
+  return <span className="text-sm text-gray-700">{count}</span>;
+}
+
 export default async function AdminDashboardPage() {
   let venueCount = 0;
   let activeSourceCount = 0;
@@ -57,6 +70,9 @@ export default async function AdminDashboardPage() {
     lastScrapedAt: Date | null;
     enabled: boolean;
     venueName: string;
+    lastEventCount: number | null;
+    avgConfidence: number | null;
+    consecutiveFailures: number | null;
   }> = [];
   let loadError = false;
 
@@ -88,11 +104,14 @@ export default async function AdminDashboardPage() {
           lastScrapedAt: scrape_sources.last_scraped_at,
           enabled: scrape_sources.enabled,
           venueName: venues.name,
+          lastEventCount: scrape_sources.last_event_count,
+          avgConfidence: scrape_sources.avg_confidence,
+          consecutiveFailures: scrape_sources.consecutive_failures,
         })
         .from(scrape_sources)
         .innerJoin(venues, eq(scrape_sources.venue_id, venues.id))
         .orderBy(
-          sql`CASE WHEN ${scrape_sources.last_scrape_status} = 'failure' THEN 0 WHEN ${scrape_sources.last_scrape_status} = 'pending' THEN 1 ELSE 2 END`
+          sql`CASE WHEN ${scrape_sources.last_scrape_status} = 'failure' THEN 0 WHEN ${scrape_sources.consecutive_failures} >= 3 THEN 1 WHEN ${scrape_sources.last_scrape_status} = 'pending' THEN 2 ELSE 3 END`
         ),
     ]);
 
@@ -187,6 +206,15 @@ export default async function AdminDashboardPage() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Scraped
                 </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Events
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Confidence
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Failures
+                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -211,6 +239,15 @@ export default async function AdminDashboardPage() {
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                     {relativeTime(row.lastScrapedAt)}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                    {row.lastEventCount ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
+                    {row.avgConfidence?.toFixed(2) ?? '—'}
+                  </td>
+                  <td className="px-4 py-3 text-sm whitespace-nowrap">
+                    {failuresBadge(row.consecutiveFailures)}
                   </td>
                 </tr>
               ))}
