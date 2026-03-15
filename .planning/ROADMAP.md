@@ -120,5 +120,5 @@ Plans:
 | 9. Source Discovery | v1.2 | 2/2 | Complete | 2026-03-15 |
 | 10. Admin Auth | 1/1 | Complete    | 2026-03-15 | - |
 | 11. Admin Dashboard | 1/1 | Complete    | 2026-03-15 | - |
-| 12. Venue & Source Management | 2/2 | Complete   | 2026-03-15 | - |
+| 12. Venue & Source Management | 2/2 | Complete    | 2026-03-15 | - |
 | 13. Discovery Review | v1.3 | 0/TBD | Not started | - |
