@@ -176,7 +176,7 @@ function HomeContent() {
         <div className="flex-shrink-0 h-[44px] bg-white border-b border-gray-200 animate-pulse" />
       ) : mapMode === 'cluster' ? (
         <EventFilters
-          eventCount={sidebarEvents.length}
+          eventCount={mapEvents.length}
         />
       ) : null}
 
@@ -203,7 +203,7 @@ function HomeContent() {
               isPlaying={isPlaying}
               timePosition={timePosition}
               currentLabel={currentLabel}
-              eventCount={sidebarEvents.length}
+              eventCount={mapEvents.length}
               onTimePositionChange={setTimePosition}
               onScrubStart={handleScrubStart}
               onPlayPause={handlePlayPause}
