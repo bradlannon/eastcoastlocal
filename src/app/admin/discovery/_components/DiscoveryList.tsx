@@ -1,7 +1,10 @@
 'use client';
 
 import { Fragment, useState } from 'react';
+import { useActionState } from 'react';
+import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
+import { approveCandidate, rejectCandidate } from '../actions';
 
 interface DiscoveryListProps {
   candidates: Array<{
@@ -42,15 +45,76 @@ function truncateUrl(url: string, maxLength = 50): string {
   return url.slice(0, maxLength) + '…';
 }
 
+function ApproveSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-1.5 rounded text-sm font-medium transition-colors"
+    >
+      {pending ? 'Approving…' : 'Approve'}
+    </button>
+  );
+}
+
+function RejectSubmitButton() {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="bg-red-600 hover:bg-red-700 disabled:opacity-60 text-white px-3 py-1 rounded text-sm transition-colors"
+    >
+      {pending ? 'Rejecting…' : 'Confirm Reject'}
+    </button>
+  );
+}
+
+function RejectForm({
+  candidateId,
+  onCancel,
+}: {
+  candidateId: number;
+  onCancel: () => void;
+}) {
+  const [state, formAction] = useActionState(rejectCandidate, {});
+
+  return (
+    <form action={formAction} className="flex items-center gap-2 flex-wrap mt-2">
+      <input type="hidden" name="id" value={candidateId} />
+      <input
+        name="reason"
+        placeholder="Reason (optional)"
+        className="border rounded px-2 py-1 text-sm w-64"
+      />
+      <RejectSubmitButton />
+      <button
+        type="button"
+        onClick={onCancel}
+        className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm transition-colors"
+      >
+        Cancel
+      </button>
+      {state?.error && (
+        <p className="text-red-600 text-sm w-full">{state.error}</p>
+      )}
+    </form>
+  );
+}
+
 export default function DiscoveryList({
   candidates,
   counts,
   activeStatus,
 }: DiscoveryListProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
 
   function handleRowClick(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
+    // Close reject form if collapsing row
+    if (expandedId === id) setRejectingId(null);
   }
 
   return (
@@ -160,10 +224,63 @@ export default function DiscoveryList({
                             </p>
                           </div>
 
-                          {/* Action buttons placeholder */}
-                          <div className="flex gap-2 mt-3">
-                            {/* Approve/Reject buttons added in Plan 02 */}
-                          </div>
+                          {/* Action area */}
+                          {activeStatus === 'pending' ? (
+                            <div className="mt-3">
+                              {/* Approve + open-reject buttons */}
+                              <div className="flex gap-2">
+                                {/* Approve form */}
+                                <form action={approveCandidate}>
+                                  <input
+                                    type="hidden"
+                                    name="id"
+                                    value={candidate.id}
+                                  />
+                                  <ApproveSubmitButton />
+                                </form>
+
+                                {/* Reject trigger button (only when reject form not open) */}
+                                {rejectingId !== candidate.id && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setRejectingId(candidate.id);
+                                    }}
+                                    className="border border-red-300 text-red-600 hover:bg-red-50 px-4 py-1.5 rounded text-sm font-medium transition-colors"
+                                  >
+                                    Reject
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Inline reject form */}
+                              {rejectingId === candidate.id && (
+                                <RejectForm
+                                  candidateId={candidate.id}
+                                  onCancel={() => setRejectingId(null)}
+                                />
+                              )}
+                            </div>
+                          ) : (
+                            /* Status badge for approved/rejected tabs */
+                            <div className="flex items-center gap-3 mt-3">
+                              {candidate.status === 'approved' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Approved
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  Rejected
+                                </span>
+                              )}
+                              {candidate.reviewed_at && (
+                                <span className="text-xs text-gray-500">
+                                  {formatDate(candidate.reviewed_at)}
+                                </span>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </td>
                     </tr>
