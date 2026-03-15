@@ -117,7 +117,10 @@
   2. The same event appearing from both a TM ingest and a venue website scrape shows as a single event, not two identical entries
   3. Merge candidates that match on name but not geo (or geo but not name) are written to a review log and not auto-merged
   4. A dry-run mode logs all merge candidates with scores without executing any merges, enabling threshold validation before enabling production auto-merge
-**Plans**: TBD
+**Plans**: 2 plans
+Plans:
+- [ ] 18-01-PLAN.md — TDD: venue-dedup scoring module with full test coverage
+- [ ] 18-02-PLAN.md — Integration: wire dedup into TM pipeline, schema migration, dry-run CLI
 
 ### Phase 19: UX Polish & Source Attribution
 **Goal**: Users can navigate directly from event cards to venue locations on the map, category filters are accessible in timelapse mode, and the system records which source each event was discovered from
@@ -161,6 +164,6 @@
 | 15. Scrape Quality Metrics | v1.4 | 1/1 | Complete | 2026-03-15 |
 | 16. Ticketmaster Integration | v1.4 | 2/2 | Complete | 2026-03-15 |
 | 17. Auto-Approve Discovery | v1.4 | 2/2 | Complete | 2026-03-15 |
-| 18. Venue Deduplication | v1.5 | 0/? | Not started | — |
+| 18. Venue Deduplication | v1.5 | 0/2 | Not started | — |
 | 19. UX Polish & Source Attribution | v1.5 | 0/? | Not started | — |
 | 20. Admin Merge Review | v1.5 | 0/? | Not started | — |
