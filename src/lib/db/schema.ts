@@ -77,6 +77,7 @@ export const scrape_sources = pgTable('scrape_sources', {
   last_scrape_status: text('last_scrape_status').default('pending'), // success, failure, pending
   source_type: text('source_type').notNull(), // venue_website, eventbrite, bandsintown
   enabled: boolean('enabled').notNull().default(true),
+  max_pages: integer('max_pages').notNull().default(1),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
 

@@ -1,0 +1,1 @@
+ALTER TABLE "scrape_sources" ADD COLUMN "max_pages" integer DEFAULT 1 NOT NULL;

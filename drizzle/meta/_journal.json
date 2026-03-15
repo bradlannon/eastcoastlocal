@@ -15,6 +15,13 @@
       "when": 1773522186794,
       "tag": "0001_worthless_miek",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1773556102889,
+      "tag": "0002_gray_joshua_kane",
+      "breakpoints": true
     }
   ]
 }
