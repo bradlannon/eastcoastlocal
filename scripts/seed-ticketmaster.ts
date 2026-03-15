@@ -1,3 +1,5 @@
+import 'dotenv/config';
+
 /**
  * One-time seed script: creates 4 placeholder venues + 4 scrape_sources rows for
  * Ticketmaster Discovery API integration (one per Atlantic Canada province).
