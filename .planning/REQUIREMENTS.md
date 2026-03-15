@@ -23,7 +23,7 @@ Requirements for event discovery and categorization. Each maps to roadmap phases
 
 - [ ] **DISC-01**: System automatically searches for new event venues/sources across Atlantic Canada cities
 - [ ] **DISC-02**: Discovered sources land in a staging table for review before being scraped
-- [ ] **DISC-03**: Approved sources can be promoted from staging to active scraping
+- [x] **DISC-03**: Approved sources can be promoted from staging to active scraping
 
 ## Future Requirements
 
@@ -62,7 +62,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FILT-03 | Phase 8 | Complete |
 | DISC-01 | Phase 9 | Pending |
 | DISC-02 | Phase 9 | Pending |
-| DISC-03 | Phase 9 | Pending |
+| DISC-03 | Phase 9 | Complete |
 
 **Coverage:**
 - v1.2 requirements: 9 total

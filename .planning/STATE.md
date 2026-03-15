@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.2
 milestone_name: Event Discovery
 status: executing
-stopped_at: 08-01 complete — category filter UI with chip row, URL persistence, and category badges
-last_updated: "2026-03-14T23:55:34.880Z"
+stopped_at: Completed 09-02-PLAN.md
+last_updated: "2026-03-15T00:14:00.549Z"
 last_activity: 2026-03-14 — Phase 8 Plan 01 complete; category chip row, URL persistence, badges on cards and detail page
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 100
 ---
 
@@ -47,6 +47,9 @@ Recent decisions affecting current work:
 - [Phase 07-ai-categorization]: Backfill reported 0 rows updated — DB default 'community' applied at insert time; no historical null event_category values existed
 - [Phase 07-ai-categorization]: Human verified zero NULLs in events.event_category via Drizzle Studio before proceeding to Phase 8
 - [Phase 08-category-filter-ui]: Category chip row uses overflow-x-auto for mobile horizontal scroll; filterByCategory uses strict equality on event_category
+- [Phase 09-source-discovery]: Venue address constructed as city, province, Canada from staged data — no geocoding at promotion time
+- [Phase 09-source-discovery]: source_name falls back to domain when null — ensures venue always has a non-empty name
+- [Phase 09-source-discovery]: reviewed_at and added_to_sources_at both set to the same Date() — single atomic timestamp at promotion
 
 ### Decisions from 06-01
 
@@ -74,6 +77,6 @@ Recent decisions affecting current work:
 
 ## Session Continuity
 
-Last session: 2026-03-14T23:28:14.017Z
-Stopped at: 08-01 complete — category filter UI with chip row, URL persistence, and category badges
+Last session: 2026-03-15T00:14:00.546Z
+Stopped at: Completed 09-02-PLAN.md
 Resume file: None
