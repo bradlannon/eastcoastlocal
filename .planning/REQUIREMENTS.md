@@ -10,7 +10,7 @@ Requirements for event/venue deduplication, source attribution, and UX polish. E
 ### Deduplication
 
 - [x] **DEDUP-01**: System auto-detects and merges duplicate venues using name similarity + geocoordinate proximity after Ticketmaster ingest
-- [ ] **DEDUP-02**: Cross-source duplicate events are prevented when the same event appears from multiple sources for the same venue
+- [x] **DEDUP-02**: Cross-source duplicate events are prevented when the same event appears from multiple sources for the same venue
 - [x] **DEDUP-03**: Borderline venue merge candidates (name match but uncertain geo, or vice versa) are logged for admin review
 - [ ] **DEDUP-04**: Admin can view near-match venue pairs with side-by-side comparison and merge or keep separate
 
@@ -108,7 +108,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | Requirement | Phase | Status |
 |-------------|-------|--------|
 | DEDUP-01 | Phase 18 | Complete |
-| DEDUP-02 | Phase 18 | Pending |
+| DEDUP-02 | Phase 18 | Complete |
 | DEDUP-03 | Phase 18 | Complete |
 | DEDUP-04 | Phase 20 | Pending |
 | ATTR-01 | Phase 19 | Pending |

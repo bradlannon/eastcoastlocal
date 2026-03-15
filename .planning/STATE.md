@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.5
 milestone_name: Event Dedup & UX Polish
-status: planning
-stopped_at: Completed 18-01-PLAN.md — venue dedup scoring module built and tested
-last_updated: "2026-03-15T15:36:25.088Z"
-last_activity: 2026-03-15 — Roadmap created for v1.5 (Phases 18-20)
+status: completed
+stopped_at: Completed 18-02-PLAN.md — TM pipeline integration and backfill CLI
+last_updated: "2026-03-15T15:44:13.043Z"
+last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
   completed_phases: 4
@@ -48,6 +48,7 @@ Progress: [█░░░░░░░░░] ~14% (1 of ~7 v1.5 plans)
 | 20. Admin Merge Review | — | — | — |
 
 *Updated after each plan completion*
+| Phase 18-venue-deduplication P02 | 4 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,8 @@ Recent decisions affecting current work:
 - [v1.5] `fastest-levenshtein@1.0.16` selected for edit-distance scoring; zero dependencies, pure JS, server-side only
 - [Phase 18-venue-deduplication]: Test fixtures must satisfy the 0.15 name ratio — 'Scotiabank Centre Halifax' vs 'Scotiabank Centre' (0.32) does not qualify; 'Scotiabank Center' vs 'Scotiabank Centre' (0.118) does
 - [Phase 18-venue-deduplication]: scoreVenueCandidate hasGeo requires BOTH incoming AND candidate to have coordinates for the geo signal to activate
+- [Phase 18-venue-deduplication]: TM inline merge is unreachable by design: incoming lat/lng is always null for TM venues at creation time so scoreVenueCandidate routes to review:name_match_no_geo
+- [Phase 18-venue-deduplication]: findOrCreateVenue uses scoreVenueCandidate per-candidate (not findBestMatch) to retain candidate.id for audit log insertion
 
 ### Pending Todos
 
@@ -79,6 +82,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T15:36:25.083Z
-Stopped at: Completed 18-01-PLAN.md — venue dedup scoring module built and tested
-Resume file: .planning/milestones/v1.5-phases/18-venue-deduplication/18-01-SUMMARY.md
+Last session: 2026-03-15T15:44:13.039Z
+Stopped at: Completed 18-02-PLAN.md — TM pipeline integration and backfill CLI
+Resume file: None
