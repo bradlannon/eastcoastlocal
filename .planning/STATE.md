@@ -4,7 +4,7 @@ milestone: v1.5
 milestone_name: Event Dedup & UX Polish
 status: completed
 stopped_at: Completed 18-02-PLAN.md — TM pipeline integration and backfill CLI
-last_updated: "2026-03-15T15:44:13.043Z"
+last_updated: "2026-03-15T15:47:49.633Z"
 last_activity: "2026-03-15 — Plan 18-01 executed: venue dedup scoring module"
 progress:
   total_phases: 7
