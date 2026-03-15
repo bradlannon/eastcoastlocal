@@ -89,7 +89,10 @@
   2. venues rows have a google_place_id column available for dedup anchoring
   3. Migration runs cleanly against the Neon Postgres instance with no data loss to existing rows
   4. Existing pipeline (insert, promote, score) continues to work after migration
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 22-01-PLAN.md — Add columns and indexes to schema, generate and apply migration 0007
+- [ ] 22-02-PLAN.md — Update promoteSource() to carry structured data through to venues
 
 ### Phase 23: Places API Discovery
 **Goal**: The system discovers hundreds of Atlantic Canada venues per week via Google Maps Places API, automatically scores and stages candidates across ~30 cities and all 4 provinces, and runs as an isolated cron endpoint that does not compete with existing discovery jobs for the 60-second timeout budget
@@ -151,7 +154,7 @@
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
-| 22. Schema Foundation | v2.0 | 0/TBD | Not started | - |
+| 22. Schema Foundation | v2.0 | 0/2 | Not started | - |
 | 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
