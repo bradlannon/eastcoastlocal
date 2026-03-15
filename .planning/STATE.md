@@ -4,8 +4,8 @@ milestone: v1.4
 milestone_name: More Scrapers
 status: planning
 stopped_at: Completed 15-01-PLAN.md (phase 15 complete)
-last_updated: "2026-03-15T07:12:58.685Z"
-last_activity: 2026-03-15 — v1.4 roadmap created
+last_updated: "2026-03-15T07:15:20.557Z"
+last_activity: 2026-03-15 — Phase 15 complete (SCRP-04 satisfied)
 progress:
   total_phases: 4
   completed_phases: 2

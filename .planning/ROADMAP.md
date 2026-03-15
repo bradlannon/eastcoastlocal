@@ -121,6 +121,6 @@ Plans:
 | 12. Venue & Source Management | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 13. Discovery Review | v1.3 | 2/2 | Complete | 2026-03-15 |
 | 14. Fetch Pipeline | 2/2 | Complete    | 2026-03-15 | - |
-| 15. Scrape Quality Metrics | 1/1 | Complete   | 2026-03-15 | - |
+| 15. Scrape Quality Metrics | 1/1 | Complete    | 2026-03-15 | - |
 | 16. Ticketmaster Integration | v1.4 | 0/? | Not started | - |
 | 17. Auto-Approve Discovery | v1.4 | 0/? | Not started | - |
