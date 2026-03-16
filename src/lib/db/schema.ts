@@ -168,6 +168,12 @@ export const discovered_sources = pgTable(
   ]
 );
 
+export const app_settings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updated_at: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const discovery_runs = pgTable('discovery_runs', {
   id: serial('id').primaryKey(),
   discovery_method: text('discovery_method').notNull(), // 'google_places' | 'gemini_google_search' | 'reddit_gemini'

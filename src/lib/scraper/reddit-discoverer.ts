@@ -7,10 +7,10 @@
  * Exports: REDDIT_SUBREDDITS, ALL_REDDIT_SUBREDDITS, runRedditDiscovery,
  *          fetchSubredditPosts, matchesVenueKeywords
  */
-import { google } from '@ai-sdk/google';
 import { generateText, Output } from 'ai';
 import { z } from 'zod';
 import { like } from 'drizzle-orm';
+import { getExtractionModel } from '@/lib/ai/model';
 import { db } from '@/lib/db/client';
 import { discovered_sources } from '@/lib/db/schema';
 import { scoreCandidate } from './discovery-orchestrator';
@@ -196,8 +196,10 @@ async function extractVenueCandidates(
     .map((p, i) => `[Post ${i + 1} | id: ${p.id}]\nTitle: ${p.title}\n${p.selftext ? `Body: ${p.selftext}` : ''}`)
     .join('\n\n');
 
+  const model = await getExtractionModel();
+
   const { experimental_output } = await generateText({
-    model: google('gemini-2.5-flash'),
+    model,
     output: Output.object({ schema: RedditCandidateSchema }),
     prompt: `You are extracting Atlantic Canada venue information from Reddit posts.
 

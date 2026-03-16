@@ -64,6 +64,13 @@
       "when": 1773662004155,
       "tag": "0008_stiff_pretty_boy",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1773664611944,
+      "tag": "0009_large_stryfe",
+      "breakpoints": true
     }
   ]
 }

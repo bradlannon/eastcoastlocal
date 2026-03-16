@@ -1,15 +1,16 @@
 import { generateText, Output } from 'ai';
-import { google } from '@ai-sdk/google';
 import { ExtractedEventSchema, type ExtractedEvent } from '@/lib/schemas/extracted-event';
+import { getExtractionModel } from '@/lib/ai/model';
 
 export async function extractEvents(
   pageText: string,
   sourceUrl: string
 ): Promise<ExtractedEvent[]> {
   const today = new Date().toISOString().slice(0, 10);
+  const model = await getExtractionModel();
 
   const { experimental_output } = await generateText({
-    model: google('gemini-2.5-flash'),
+    model,
     output: Output.object({ schema: ExtractedEventSchema }),
     prompt: `Today's date is ${today}.
 
