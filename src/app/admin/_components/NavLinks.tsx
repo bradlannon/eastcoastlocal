@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: '/admin/venues', label: 'Venues', exact: false },
   { href: '/admin/discovery', label: 'Discovery', exact: false },
   { href: '/admin/merge-review', label: 'Merge Review', exact: false },
+  { href: '/admin/archived', label: 'Archived', exact: false },
   { href: '/admin/settings', label: 'Settings', exact: false },
 ];
 
