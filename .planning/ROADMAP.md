@@ -9,6 +9,7 @@
 - ✅ **v1.4 More Scrapers** — Phases 14-17 (shipped 2026-03-15)
 - ✅ **v1.5 Event Dedup & UX Polish** — Phases 18-21 (shipped 2026-03-15)
 - ✅ **v2.0 Mass Venue Discovery** — Phases 22-25 (shipped 2026-03-16)
+- **v2.1 Tech Debt Cleanup** — Phases 26-28 (active)
 
 ## Phases
 
@@ -79,6 +80,44 @@
 
 </details>
 
+**v2.1 Tech Debt Cleanup (Phases 26-28)**
+
+- [ ] **Phase 26: Data Fixes** - Fix FK violation risk in dedup backfill, EventCard attribution, and remove dead phone column
+- [ ] **Phase 27: Admin & Config** - Add no_website tab to discovery admin and make GEMINI_AUTO_APPROVE env-overridable
+- [ ] **Phase 28: Tests & Validation** - Fix broken Ticketmaster unit tests and finalize Nyquist VALIDATION.md files
+
+## Phase Details
+
+### Phase 26: Data Fixes
+**Goal**: Data integrity risks eliminated and attribution logic uses correct source data
+**Depends on**: Nothing (data layer fixes are independent)
+**Requirements**: DATA-01, DATA-02, DATA-03
+**Success Criteria** (what must be TRUE):
+  1. Running venue-dedup-backfill.ts --execute no longer risks FK violations — merged events/sources are re-parented before the duplicate venue is deleted
+  2. EventCard attribution badge derives from event_sources.source_type column, not a string-match on source_url
+  3. The phone column is absent from discovered_sources and venues tables — schema migration applied, no references remain in application code
+**Plans**: TBD
+
+### Phase 27: Admin & Config
+**Goal**: Admin can see all discovered venue stubs and configure auto-approve thresholds without code changes
+**Depends on**: Phase 26
+**Requirements**: ADMIN-01, ADMIN-02
+**Success Criteria** (what must be TRUE):
+  1. Admin navigating to /admin/discovery sees a "No Website" tab listing Places API venue stubs with no_website status
+  2. The no_website tab shows the correct count of stubs and supports approve/reject actions
+  3. GEMINI_AUTO_APPROVE threshold in places-discoverer reads from an environment variable with the existing hardcoded value as the fallback default
+**Plans**: TBD
+
+### Phase 28: Tests & Validation
+**Goal**: Test suite passes cleanly and all Nyquist validation files reflect actual implementation
+**Depends on**: Phase 27
+**Requirements**: TEST-01, TEST-02
+**Success Criteria** (what must be TRUE):
+  1. Running the test suite produces zero failures in ticketmaster.test.ts — the .limit() mock chain resolves correctly
+  2. All 12 Nyquist VALIDATION.md files are finalized (not draft) with accurate pass/fail assessments
+  3. CI test run exits with code 0 — no skipped or broken tests remain in the Ticketmaster test file
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -108,3 +147,6 @@
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
+| 26. Data Fixes | v2.1 | 0/? | Not started | - |
+| 27. Admin & Config | v2.1 | 0/? | Not started | - |
+| 28. Tests & Validation | v2.1 | 0/? | Not started | - |

@@ -40,19 +40,19 @@ None — this is a cleanup milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | TBD | Pending |
-| DATA-02 | TBD | Pending |
-| DATA-03 | TBD | Pending |
-| ADMIN-01 | TBD | Pending |
-| ADMIN-02 | TBD | Pending |
-| TEST-01 | TBD | Pending |
-| TEST-02 | TBD | Pending |
+| DATA-01 | Phase 26 | Pending |
+| DATA-02 | Phase 26 | Pending |
+| DATA-03 | Phase 26 | Pending |
+| ADMIN-01 | Phase 27 | Pending |
+| ADMIN-02 | Phase 27 | Pending |
+| TEST-01 | Phase 28 | Pending |
+| TEST-02 | Phase 28 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 7 total
-- Mapped to phases: 0
-- Unmapped: 7 ⚠️
+- Mapped to phases: 7
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after initial definition*
+*Last updated: 2026-03-16 after roadmap creation*
