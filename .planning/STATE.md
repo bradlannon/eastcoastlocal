@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: completed
 stopped_at: Completed 25-03-PLAN.md — Phase 25 plans 01-03 complete
-last_updated: "2026-03-16T12:16:51.012Z"
-last_activity: "2026-03-16 — Completed 25-02: Batch approve UI on discovery pending tab, human-verified"
+last_updated: "2026-03-16T12:20:11.702Z"
+last_activity: "2026-03-16 — Completed 25-03: Last Discovery stat card and Recent Discovery Runs table on admin dashboard"
 progress:
   total_phases: 4
   completed_phases: 4

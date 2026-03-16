@@ -168,4 +168,4 @@ Plans:
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 25. Admin Scale Tooling | 3/3 | Complete   | 2026-03-16 | - |
+| 25. Admin Scale Tooling | 3/3 | Complete    | 2026-03-16 | - |
