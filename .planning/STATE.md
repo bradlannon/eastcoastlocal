@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: executing
-stopped_at: "Completed 24-01: Reddit discovery module (reddit-discoverer.ts)"
-last_updated: "2026-03-16T02:49:35.542Z"
+stopped_at: "Completed 24-02: Reddit cron endpoint (discover-reddit route + vercel.json schedule)"
+last_updated: "2026-03-16T02:53:36.692Z"
 last_activity: "2026-03-15 — Completed 24-01: Reddit discovery module (reddit-discoverer.ts), 16 tests pass"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
   percent: 86
 ---
 
@@ -56,6 +56,7 @@ Recent decisions affecting v2.0:
 - [Phase 24-reddit-discovery]: No-URL Reddit candidates use synthetic reddit:t3_{postId} URL as status=pending (NOT no_website) — admin reviews noisy Reddit names
 - [Phase 24-reddit-discovery]: Auto-approve only triggers for Reddit candidates with real website URLs at score >= 0.9 GEMINI_AUTO_APPROVE threshold
 - [Phase 24-reddit-discovery]: Reddit post ID dedup via raw_context LIKE 'reddit:t3_%' query at run start — no separate column needed
+- [Phase 24-reddit-discovery]: Friday 9am UTC (0 9 * * 5) schedule for Reddit discovery cron — distinct day from Places province crons (Mon-Thu)
 
 ### Tech Debt (from v1.5 audit)
 
@@ -77,6 +78,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T02:49:28.138Z
-Stopped at: Completed 24-01: Reddit discovery module (reddit-discoverer.ts)
+Last session: 2026-03-16T02:53:36.688Z
+Stopped at: Completed 24-02: Reddit cron endpoint (discover-reddit route + vercel.json schedule)
 Resume file: None

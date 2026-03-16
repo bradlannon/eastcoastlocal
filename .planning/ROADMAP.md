@@ -75,7 +75,7 @@
 
 - [x] **Phase 22: Schema Foundation** - Migrate schema to support google_place_id and pre-geocoded coordinates across the discovery pipeline (completed 2026-03-16)
 - [x] **Phase 23: Places API Discovery** - Build and wire the Places API discoverer with expanded city coverage, per-method scoring, and production cron scheduling (completed 2026-03-16)
-- [ ] **Phase 24: Reddit Discovery** - Add Reddit subreddit mining as a supplemental discovery channel with Gemini extraction
+- [x] **Phase 24: Reddit Discovery** - Add Reddit subreddit mining as a supplemental discovery channel with Gemini extraction (completed 2026-03-16)
 - [ ] **Phase 25: Admin Scale Tooling** - Reduce admin review friction with batch approve, discovery run metrics, and dashboard summary
 
 ## Phase Details
@@ -119,7 +119,7 @@ Plans:
   2. Extracted candidates include structured venue name and location data derived from post text via Gemini
   3. Reddit candidates are tagged with discovery_method = reddit_gemini and flow through the existing staging pipeline
   4. Province-specific subreddits are configurable and each maps to the correct province
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 24-01-PLAN.md — Core reddit-discoverer module with TDD tests
 - [ ] 24-02-PLAN.md — Cron endpoint and vercel.json schedule
@@ -163,5 +163,5 @@ Plans:
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 23. Places API Discovery | 3/3 | Complete    | 2026-03-16 | - |
-| 24. Reddit Discovery | 1/2 | In Progress|  | - |
+| 24. Reddit Discovery | 2/2 | Complete   | 2026-03-16 | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
