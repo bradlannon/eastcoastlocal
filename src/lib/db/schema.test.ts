@@ -15,6 +15,7 @@ describe('Database Schema Structure', () => {
         'website',
         'phone',
         'venue_type',
+        'google_place_id',
         'created_at',
       ];
       for (const col of expected) {
@@ -108,6 +109,12 @@ describe('Database Schema Structure', () => {
         'discovered_at',
         'reviewed_at',
         'added_to_sources_at',
+        'lat',
+        'lng',
+        'address',
+        'google_place_id',
+        'place_types',
+        'phone',
       ];
       for (const col of expected) {
         expect(columns).toContain(col);
