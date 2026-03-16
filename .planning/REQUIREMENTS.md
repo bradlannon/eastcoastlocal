@@ -44,8 +44,8 @@ Requirements for Mass Venue Discovery milestone. Each maps to roadmap phases.
 
 ### Schema
 
-- [ ] **SCHEMA-01**: Database migration adds google_place_id, address, lat, lng to discovered_sources
-- [ ] **SCHEMA-02**: Database migration adds google_place_id to venues table
+- [x] **SCHEMA-01**: Database migration adds google_place_id, address, lat, lng to discovered_sources
+- [x] **SCHEMA-02**: Database migration adds google_place_id to venues table
 
 ## Future Requirements
 
@@ -78,8 +78,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SCHEMA-01 | Phase 22 | Pending |
-| SCHEMA-02 | Phase 22 | Pending |
+| SCHEMA-01 | Phase 22 | Complete |
+| SCHEMA-02 | Phase 22 | Complete |
 | PLACES-01 | Phase 23 | Pending |
 | PLACES-02 | Phase 23 | Pending |
 | PLACES-03 | Phase 23 | Pending |

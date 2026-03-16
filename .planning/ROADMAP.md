@@ -89,7 +89,7 @@
   2. venues rows have a google_place_id column available for dedup anchoring
   3. Migration runs cleanly against the Neon Postgres instance with no data loss to existing rows
   4. Existing pipeline (insert, promote, score) continues to work after migration
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 22-01-PLAN.md — Add columns and indexes to schema, generate and apply migration 0007
 - [ ] 22-02-PLAN.md — Update promoteSource() to carry structured data through to venues
@@ -154,7 +154,7 @@ Plans:
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
-| 22. Schema Foundation | v2.0 | 0/2 | Not started | - |
+| 22. Schema Foundation | 1/2 | In Progress|  | - |
 | 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |

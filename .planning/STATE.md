@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: planning
-stopped_at: Phase 22 context gathered
-last_updated: "2026-03-15T23:47:08.394Z"
+stopped_at: Completed 22-01-PLAN.md
+last_updated: "2026-03-16T00:05:47.718Z"
 last_activity: 2026-03-15 — v2.0 roadmap created, 22/22 requirements mapped
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 2
+  completed_plans: 1
   percent: 0
 ---
 
@@ -43,6 +43,7 @@ Recent decisions affecting v2.0:
 - Per-method auto-approve thresholds: google_places = 0.8, reddit_gemini = 0.9
 - No-website Places venues staged as status=no_website rather than discarded (dedup anchors for Ticketmaster)
 - Admin review for all sources remains on single /admin/discovery page (filter chip, not new page)
+- [Phase 22-schema-foundation]: Placed google_place_id before created_at in venues; used nullable unique index pattern for optional dedup anchors
 
 ### Tech Debt (from v1.5 audit)
 
@@ -64,6 +65,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-15T23:47:08.389Z
-Stopped at: Phase 22 context gathered
-Resume file: .planning/phases/22-schema-foundation/22-CONTEXT.md
+Last session: 2026-03-16T00:05:47.713Z
+Stopped at: Completed 22-01-PLAN.md
+Resume file: None
