@@ -13,6 +13,7 @@ export const ExtractedEventSchema = z.object({
       cover_image_url: z.string().url().nullable(),
       confidence: z.number().min(0).max(1),
       event_category: z.enum(EVENT_CATEGORIES).default('other'),
+      recurrence_pattern: z.string().optional(),
     })
   ),
 });

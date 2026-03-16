@@ -37,6 +37,25 @@ export const venues = pgTable(
   ]
 );
 
+export const recurring_series = pgTable(
+  'recurring_series',
+  {
+    id: serial('id').primaryKey(),
+    venue_id: integer('venue_id')
+      .references(() => venues.id)
+      .notNull(),
+    normalized_performer: text('normalized_performer').notNull(),
+    created_at: timestamp('created_at').defaultNow().notNull(),
+    updated_at: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('recurring_series_venue_performer_key').on(
+      table.venue_id,
+      table.normalized_performer
+    ),
+  ]
+);
+
 export const events = pgTable(
   'events',
   {
@@ -58,6 +77,8 @@ export const events = pgTable(
     event_category: eventCategoryEnum('event_category').default('community'),
     created_at: timestamp('created_at').defaultNow().notNull(),
     updated_at: timestamp('updated_at').defaultNow().notNull(),
+    archived_at: timestamp('archived_at', { withTimezone: true }),
+    series_id: integer('series_id').references(() => recurring_series.id),
   },
   (table) => [
     // Composite dedup key: venue + date + normalized performer

@@ -78,6 +78,13 @@
       "when": 1773668802870,
       "tag": "0010_purple_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1773693169304,
+      "tag": "0011_clumsy_stingray",
+      "breakpoints": true
     }
   ]
 }
