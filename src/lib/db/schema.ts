@@ -17,19 +17,26 @@ export const EVENT_CATEGORIES = [
 
 export const eventCategoryEnum = pgEnum('event_category', EVENT_CATEGORIES);
 
-export const venues = pgTable('venues', {
-  id: serial('id').primaryKey(),
-  name: text('name').notNull(),
-  address: text('address').notNull(),
-  city: text('city').notNull(),
-  province: text('province').notNull(), // NB, NS, PEI, NL
-  lat: doublePrecision('lat'),
-  lng: doublePrecision('lng'),
-  website: text('website'),
-  phone: text('phone'),
-  venue_type: text('venue_type'), // pub, concert_hall, outdoor, etc.
-  created_at: timestamp('created_at').defaultNow().notNull(),
-});
+export const venues = pgTable(
+  'venues',
+  {
+    id: serial('id').primaryKey(),
+    name: text('name').notNull(),
+    address: text('address').notNull(),
+    city: text('city').notNull(),
+    province: text('province').notNull(), // NB, NS, PEI, NL
+    lat: doublePrecision('lat'),
+    lng: doublePrecision('lng'),
+    website: text('website'),
+    phone: text('phone'),
+    venue_type: text('venue_type'), // pub, concert_hall, outdoor, etc.
+    google_place_id: text('google_place_id'), // for cross-source dedup anchoring
+    created_at: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('venues_google_place_id_key').on(table.google_place_id),
+  ]
+);
 
 export const events = pgTable(
   'events',
@@ -133,18 +140,30 @@ export const event_sources = pgTable(
   ]
 );
 
-export const discovered_sources = pgTable('discovered_sources', {
-  id: serial('id').primaryKey(),
-  url: text('url').notNull().unique(),
-  domain: text('domain').notNull(),
-  source_name: text('source_name'),
-  province: text('province'),
-  city: text('city'),
-  status: text('status').notNull().default('pending'),
-  discovery_method: text('discovery_method'),
-  raw_context: text('raw_context'),
-  discovery_score: doublePrecision('discovery_score'),
-  discovered_at: timestamp('discovered_at').defaultNow().notNull(),
-  reviewed_at: timestamp('reviewed_at'),
-  added_to_sources_at: timestamp('added_to_sources_at'),
-});
+export const discovered_sources = pgTable(
+  'discovered_sources',
+  {
+    id: serial('id').primaryKey(),
+    url: text('url').notNull().unique(),
+    domain: text('domain').notNull(),
+    source_name: text('source_name'),
+    province: text('province'),
+    city: text('city'),
+    status: text('status').notNull().default('pending'),
+    discovery_method: text('discovery_method'),
+    raw_context: text('raw_context'),
+    discovery_score: doublePrecision('discovery_score'),
+    discovered_at: timestamp('discovered_at').defaultNow().notNull(),
+    reviewed_at: timestamp('reviewed_at'),
+    added_to_sources_at: timestamp('added_to_sources_at'),
+    lat: doublePrecision('lat'), // pre-geocoded latitude from Places API
+    lng: doublePrecision('lng'), // pre-geocoded longitude from Places API
+    address: text('address'), // full formatted address e.g. "1234 Barrington St, Halifax, NS B3J 1Y9"
+    google_place_id: text('google_place_id'), // Google Maps Place ID for dedup
+    place_types: text('place_types'), // JSON array string e.g. '["bar","night_club"]'
+    phone: text('phone'), // phone number from Places API
+  },
+  (table) => [
+    uniqueIndex('discovered_sources_google_place_id_key').on(table.google_place_id),
+  ]
+);
