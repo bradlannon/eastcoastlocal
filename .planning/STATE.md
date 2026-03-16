@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
-status: planning
-stopped_at: "Completed 23-01-PLAN.md"
-last_updated: "2026-03-16T01:15:16Z"
-last_activity: 2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)
+status: executing
+stopped_at: Completed 23-02-PLAN.md
+last_updated: "2026-03-16T01:23:15.992Z"
+last_activity: "2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)"
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
   percent: 8
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 ## Current Position
 
 Phase: 23 of 25 (Places API Discovery)
-Plan: 1 of 3 complete
+Plan: 2 of 3 complete
 Status: Executing
-Last activity: 2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)
+Last activity: 2026-03-15 — Completed 23-02: Places API core discovery engine (searchCity, processPlaceResult, enrichVenue, runPlacesDiscovery)
 
-Progress: [█░░░░░░░░░] 8%
+Progress: [████████░░] 80%
 
 ## Accumulated Context
 
@@ -49,6 +49,8 @@ Recent decisions affecting v2.0:
 - [Phase 22-schema-foundation]: Status guard (pending-only) unchanged in promoteSource; no_website promotion path deferred to Phase 23
 - [Phase 23-01]: VENUE_PLACE_TYPES restricted to 7 types; tier scoring: core=0.85 auto-approve, secondary=0.70 admin review
 - [Phase 23-01]: no_website promotion creates venue-only stub, skips scrape_sources insert; status guard allows pending|no_website, throws for approved|rejected
+- [Phase 23]: Synthetic URL for no_website venues is places:{google_place_id} — unique, stable, readable key for Ticketmaster dedup anchoring
+- [Phase 23]: Two-step dedup: google_place_id fast-path (exact match) then fuzzy name+geo loop; staged_review counts toward stagedPending in DiscoveryRunResult
 
 ### Tech Debt (from v1.5 audit)
 
@@ -70,6 +72,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T01:15:16Z
-Stopped at: Completed 23-01-PLAN.md
-Resume file: .planning/phases/23-places-api-discovery/23-01-SUMMARY.md
+Last session: 2026-03-16T01:23:15.987Z
+Stopped at: Completed 23-02-PLAN.md
+Resume file: .planning/phases/23-places-api-discovery/23-02-SUMMARY.md

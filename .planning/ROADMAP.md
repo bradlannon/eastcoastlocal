@@ -104,7 +104,7 @@ Plans:
   3. Venues already in the database are not re-staged as duplicates
   4. Venues without a website are staged with status no_website rather than discarded
   5. Places candidates auto-approve at 0.8 threshold; Reddit-sourced candidates use 0.9; each discovery channel runs on its own cron schedule within the 60-second limit
-**Plans:** 1/3 plans executed
+**Plans:** 2/3 plans executed
 Plans:
 - [ ] 23-01-PLAN.md — Types, city list, scoring/filtering functions, promoteSource no_website update
 - [ ] 23-02-PLAN.md — Core discoverer: searchCity, pagination, dedup, staging, runPlacesDiscovery
@@ -159,6 +159,6 @@ Plans:
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 23. Places API Discovery | 1/3 | In Progress|  | - |
+| 23. Places API Discovery | 2/3 | In Progress|  | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
