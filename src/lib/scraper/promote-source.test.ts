@@ -159,11 +159,18 @@ describe('promoteSource', () => {
     await expect(promoteSource(999)).rejects.toThrow(/not found/i);
   });
 
-  it('Test 5: throws if discovered source status is not pending', async () => {
+  it('Test 5: throws if discovered source status is not pending or no_website (e.g. approved)', async () => {
     const source = makeMockSource({ status: 'approved' });
     mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
 
-    await expect(promoteSource(1)).rejects.toThrow(/not pending/i);
+    await expect(promoteSource(1)).rejects.toThrow(/not promotable/i);
+  });
+
+  it('Test 5b: throws if discovered source status is rejected', async () => {
+    const source = makeMockSource({ status: 'rejected' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    await expect(promoteSource(1)).rejects.toThrow(/not promotable/i);
   });
 
   it('Test 6: when source_name is null, venue name falls back to domain', async () => {
@@ -282,5 +289,63 @@ describe('promoteSource', () => {
     expect(venueValues.lat).toBeUndefined();
     expect(venueValues.lng).toBeUndefined();
     expect(venueValues.google_place_id).toBeUndefined();
+  });
+
+  it('Test 12: no_website source creates venue row but does NOT insert scrape_sources', async () => {
+    const source = makeMockSource({ status: 'no_website', url: 'places:ChIJstub456' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 20 }]) };
+    mockDb.insert.mockReturnValueOnce(venueInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    // venues insert happens once, scrape_sources insert does NOT happen
+    expect(mockDb.insert).toHaveBeenCalledTimes(1);
+    const venueValues = venueInsertMock.values.mock.calls[0][0];
+    expect(venueValues.name).toBe('Example Venue');
+  });
+
+  it('Test 13: no_website source gets status updated to approved', async () => {
+    const source = makeMockSource({ status: 'no_website', url: 'places:ChIJstub456' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 21 }]) };
+    mockDb.insert.mockReturnValueOnce(venueInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    const setArgs = updateMock.set.mock.calls[0][0];
+    expect(setArgs.status).toBe('approved');
+    expect(setArgs.reviewed_at).toBeInstanceOf(Date);
+    expect(setArgs.added_to_sources_at).toBeInstanceOf(Date);
+  });
+
+  it('Test 14: pending source still creates both venue and scrape_source (backward compat)', async () => {
+    const source = makeMockSource({ status: 'pending' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 22 }]) };
+    const scrapeSourceInsertMock = { values: jest.fn().mockResolvedValue([]) };
+    mockDb.insert
+      .mockReturnValueOnce(venueInsertMock)
+      .mockReturnValueOnce(scrapeSourceInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    // Both inserts happen for pending status
+    expect(mockDb.insert).toHaveBeenCalledTimes(2);
+    const scrapeValues = scrapeSourceInsertMock.values.mock.calls[0][0];
+    expect(scrapeValues.venue_id).toBe(22);
+    expect(scrapeValues.source_type).toBe('venue_website');
   });
 });

@@ -21,9 +21,9 @@ export async function promoteSource(discoveredId: number): Promise<void> {
     throw new Error(`Discovered source with ID ${discoveredId} not found`);
   }
 
-  if (staged.status !== 'pending') {
+  if (staged.status !== 'pending' && staged.status !== 'no_website') {
     throw new Error(
-      `Discovered source ${discoveredId} is not pending (current status: ${staged.status})`
+      `Discovered source ${discoveredId} is not promotable (current status: ${staged.status})`
     );
   }
 
@@ -49,14 +49,16 @@ export async function promoteSource(discoveredId: number): Promise<void> {
     })
     .returning({ id: venues.id });
 
-  // Step 4: Insert into scrape_sources
-  await db.insert(scrape_sources).values({
-    url: staged.url,
-    venue_id: venue.id,
-    source_type: 'venue_website',
-    scrape_frequency: 'daily',
-    enabled: true,
-  });
+  // Step 4: Insert into scrape_sources (skip for no_website stubs)
+  if (staged.status === 'pending') {
+    await db.insert(scrape_sources).values({
+      url: staged.url,
+      venue_id: venue.id,
+      source_type: 'venue_website',
+      scrape_frequency: 'daily',
+      enabled: true,
+    });
+  }
 
   // Step 5: Update discovered_sources status to approved with timestamps
   const now = new Date();
@@ -70,9 +72,8 @@ export async function promoteSource(discoveredId: number): Promise<void> {
     .where(eq(discovered_sources.id, discoveredId));
 
   // Step 6: Confirmation
-  console.log(
-    `Promoted discovered source ${discoveredId} (${staged.url}) — venue ID: ${venue.id}`
-  );
+  const type = staged.status === 'no_website' ? 'stub' : 'full';
+  console.log(`Promoted discovered source ${discoveredId} (${type}) — venue ID: ${venue.id}`);
 }
 
 // CLI entry point
