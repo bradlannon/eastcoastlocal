@@ -51,6 +51,7 @@ export async function upsertEvent(
         cover_image_url: extracted.cover_image_url ?? null,
         event_category: extracted.event_category ?? 'other',
         updated_at: new Date(),
+        // archived_at intentionally omitted — preserves existing value on re-scrape (ARCH-04)
       },
     })
     .returning({ id: events.id });

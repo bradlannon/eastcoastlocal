@@ -253,6 +253,27 @@ describe('upsertEvent', () => {
     expect(sourceUrlVal).toBeDefined();
   });
 
+  it('upsertEvent ON CONFLICT SET does not include archived_at', async () => {
+    const extracted: ExtractedEvent = {
+      performer: 'Archive Guard Test',
+      event_date: '2026-10-01',
+      event_time: null,
+      price: null,
+      ticket_link: null,
+      description: null,
+      cover_image_url: null,
+      confidence: 0.9,
+      event_category: 'other',
+    };
+
+    await upsertEvent(1, extracted, 'https://source.com');
+
+    const mockDb = db as unknown as { insert: jest.Mock };
+    const conflictArgs = mockDb.insert.mock.results[0].value.values.mock.results[0].value.onConflictDoUpdate.mock.calls[0][0];
+    // archived_at must NOT be in the SET object — omission preserves existing value on re-scrape (ARCH-04)
+    expect(conflictArgs.set).not.toHaveProperty('archived_at');
+  });
+
   it('uses COALESCE for ticket_link in onConflictDoUpdate set clause', async () => {
     const extracted: ExtractedEvent = {
       performer: 'COALESCE Ticket Test',

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { gte, eq, inArray } from 'drizzle-orm';
+import { isNull, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { events, venues, event_sources } from '@/lib/db/schema';
 
@@ -11,7 +11,7 @@ export async function GET() {
       .select()
       .from(events)
       .innerJoin(venues, eq(events.venue_id, venues.id))
-      .where(gte(events.event_date, new Date()))
+      .where(isNull(events.archived_at))
       .orderBy(events.event_date);
 
     // Supplementary: get source_types for these events
