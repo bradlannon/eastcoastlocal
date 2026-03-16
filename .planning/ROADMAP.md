@@ -69,7 +69,7 @@
 
 </details>
 
-### 🚧 v2.0 Mass Venue Discovery (In Progress)
+### v2.0 Mass Venue Discovery (In Progress)
 
 **Milestone Goal:** Scale venue coverage from ~26 curated venues to hundreds across Atlantic Canada via Google Maps Places API bulk discovery, Reddit mining, expanded geographic coverage, and aggressive auto-approval.
 
@@ -104,7 +104,11 @@ Plans:
   3. Venues already in the database are not re-staged as duplicates
   4. Venues without a website are staged with status no_website rather than discarded
   5. Places candidates auto-approve at 0.8 threshold; Reddit-sourced candidates use 0.9; each discovery channel runs on its own cron schedule within the 60-second limit
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 23-01-PLAN.md — Types, city list, scoring/filtering functions, promoteSource no_website update
+- [ ] 23-02-PLAN.md — Core discoverer: searchCity, pagination, dedup, staging, runPlacesDiscovery
+- [ ] 23-03-PLAN.md — 4 province cron endpoints, vercel.json schedules, Gemini threshold update
 
 ### Phase 24: Reddit Discovery
 **Goal**: The system supplements Places API coverage by mining Atlantic Canada subreddits for venue and event mentions, extracting structured data via Gemini, and flowing candidates through the existing discovered_sources pipeline
@@ -154,7 +158,7 @@ Plans:
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
-| 22. Schema Foundation | 2/2 | Complete    | 2026-03-16 | - |
-| 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
+| 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
+| 23. Places API Discovery | v2.0 | 0/3 | Planning | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
