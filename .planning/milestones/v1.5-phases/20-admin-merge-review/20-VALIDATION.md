@@ -1,9 +1,9 @@
 ---
 phase: 20
 slug: admin-merge-review
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,11 +38,11 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 20-01-01 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/db/merge-venue.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 20-01-02 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/db/merge-venue.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 20-01-03 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/scraper/ticketmaster.test.ts --no-coverage` | ✅ extend | ⬜ pending |
-| 20-02-01 | 02 | 1 | DEDUP-04 | manual | Server component rendering | N/A | ⬜ pending |
-| 20-02-02 | 02 | 1 | DEDUP-04 | manual | Server action integration | N/A | ⬜ pending |
+| 20-01-01 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/db/merge-venue.test.ts --no-coverage` | N/A | ✅ pass |
+| 20-01-02 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/db/merge-venue.test.ts --no-coverage` | N/A | ✅ pass |
+| 20-01-03 | 01 | 1 | DEDUP-04 | unit | `npx jest src/lib/scraper/ticketmaster.test.ts --no-coverage` | ✅ extend | ✅ pass |
+| 20-02-01 | 02 | 1 | DEDUP-04 | manual | Server component rendering | N/A | ✅ pass |
+| 20-02-02 | 02 | 1 | DEDUP-04 | manual | Server action integration | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,8 +50,8 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/db/merge-venue.test.ts` — unit tests for `performVenueMerge` and `keepSeparate` (mocked DB)
-- [ ] `src/app/admin/merge-review/` — directory structure (page.tsx, actions.ts, _components/)
+- [x] `src/lib/db/merge-venue.test.ts` — unit tests for `performVenueMerge` and `keepSeparate` (mocked DB)
+- [x] `src/app/admin/merge-review/` — directory structure (page.tsx, actions.ts, _components/)
 
 *Existing infrastructure covers test framework — Jest already configured.*
 
@@ -70,11 +70,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

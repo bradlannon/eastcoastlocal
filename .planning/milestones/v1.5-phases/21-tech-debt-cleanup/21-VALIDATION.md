@@ -1,9 +1,9 @@
 ---
 phase: 21
 slug: tech-debt-cleanup
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,9 +38,9 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 21-01-01 | 01 | 1 | ATTR-02 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | ✅ (add test) | ⬜ pending |
-| 21-01-02 | 01 | 1 | (tech debt) | unit | `npx jest src/lib/scraper/venue-dedup.test.ts --no-coverage` | ✅ (update) | ⬜ pending |
-| 21-01-03 | 01 | 1 | (tech debt) | manual | Visual: badge count stable on map pan in timelapse mode | N/A | ⬜ pending |
+| 21-01-01 | 01 | 1 | ATTR-02 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | ✅ (add test) | ✅ pass |
+| 21-01-02 | 01 | 1 | (tech debt) | unit | `npx jest src/lib/scraper/venue-dedup.test.ts --no-coverage` | ✅ (update) | ✅ pass |
+| 21-01-03 | 01 | 1 | (tech debt) | manual | Visual: badge count stable on map pan in timelapse mode | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,7 +48,7 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] Add ticket_link COALESCE test to `src/lib/scraper/normalizer.test.ts` — covers ATTR-02 (mirrors existing source_url COALESCE test)
+- [x] Add ticket_link COALESCE test to `src/lib/scraper/normalizer.test.ts` — covers ATTR-02 (mirrors existing source_url COALESCE test)
 
 *Existing infrastructure covers all other phase requirements.*
 
@@ -64,11 +64,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

@@ -1,9 +1,9 @@
 ---
 phase: 23
 slug: places-api-discovery
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,19 +38,19 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 23-01-01 | 01 | 1 | PLACES-01 | unit | `npx jest places-discoverer.test.ts -t "searchCity"` | ❌ W0 | ⬜ pending |
-| 23-01-02 | 01 | 1 | PLACES-02 | unit | `npx jest places-discoverer.test.ts -t "isVenueRelevant"` | ❌ W0 | ⬜ pending |
-| 23-01-03 | 01 | 1 | PLACES-03 | unit | `npx jest places-discoverer.test.ts -t "throttle"` | ❌ W0 | ⬜ pending |
-| 23-01-04 | 01 | 1 | PLACES-04 | unit | `npx jest places-discoverer.test.ts -t "dedup"` | ❌ W0 | ⬜ pending |
-| 23-01-05 | 01 | 1 | PLACES-05 | unit | `npx jest places-discoverer.test.ts -t "websiteUri"` | ❌ W0 | ⬜ pending |
-| 23-01-06 | 01 | 1 | PLACES-06 | unit | `npx jest places-discoverer.test.ts -t "no.website"` | ❌ W0 | ⬜ pending |
-| 23-01-07 | 01 | 1 | PLACES-07 | unit | `npx jest places-discoverer.test.ts -t "google_place_id"` | ❌ W0 | ⬜ pending |
-| 23-02-01 | 02 | 1 | GEO-01 | unit | `npx jest places-discoverer.test.ts -t "PLACES_CITIES"` | ❌ W0 | ⬜ pending |
-| 23-02-02 | 02 | 1 | GEO-02 | unit | `npx jest discover-places-ns/route.test.ts` | ❌ W0 | ⬜ pending |
-| 23-02-03 | 02 | 1 | GEO-03 | manual | inspect vercel.json | N/A | ⬜ pending |
-| 23-03-01 | 03 | 1 | SCORE-01 | unit | `npx jest places-discoverer.test.ts -t "scorePlacesCandidate"` | ❌ W0 | ⬜ pending |
-| 23-03-02 | 03 | 1 | SCORE-02 | unit | `npx jest discovery-orchestrator.test.ts -t "auto-approve"` | existing (update) | ⬜ pending |
-| 23-03-03 | 03 | 1 | SCORE-03 | unit | `npx jest places-discoverer.test.ts -t "discovery_method"` | ❌ W0 | ⬜ pending |
+| 23-01-01 | 01 | 1 | PLACES-01 | unit | `npx jest places-discoverer.test.ts -t "searchCity"` | N/A | ✅ pass |
+| 23-01-02 | 01 | 1 | PLACES-02 | unit | `npx jest places-discoverer.test.ts -t "isVenueRelevant"` | N/A | ✅ pass |
+| 23-01-03 | 01 | 1 | PLACES-03 | unit | `npx jest places-discoverer.test.ts -t "throttle"` | N/A | ✅ pass |
+| 23-01-04 | 01 | 1 | PLACES-04 | unit | `npx jest places-discoverer.test.ts -t "dedup"` | N/A | ✅ pass |
+| 23-01-05 | 01 | 1 | PLACES-05 | unit | `npx jest places-discoverer.test.ts -t "websiteUri"` | N/A | ✅ pass |
+| 23-01-06 | 01 | 1 | PLACES-06 | unit | `npx jest places-discoverer.test.ts -t "no.website"` | N/A | ✅ pass |
+| 23-01-07 | 01 | 1 | PLACES-07 | unit | `npx jest places-discoverer.test.ts -t "google_place_id"` | N/A | ✅ pass |
+| 23-02-01 | 02 | 1 | GEO-01 | unit | `npx jest places-discoverer.test.ts -t "PLACES_CITIES"` | N/A | ✅ pass |
+| 23-02-02 | 02 | 1 | GEO-02 | unit | `npx jest discover-places-ns/route.test.ts` | N/A | ✅ pass |
+| 23-02-03 | 02 | 1 | GEO-03 | manual | inspect vercel.json | N/A | ✅ pass |
+| 23-03-01 | 03 | 1 | SCORE-01 | unit | `npx jest places-discoverer.test.ts -t "scorePlacesCandidate"` | N/A | ✅ pass |
+| 23-03-02 | 03 | 1 | SCORE-02 | unit | `npx jest discovery-orchestrator.test.ts -t "auto-approve"` | existing (update) | ✅ pass |
+| 23-03-03 | 03 | 1 | SCORE-03 | unit | `npx jest places-discoverer.test.ts -t "discovery_method"` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -58,11 +58,11 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/places-discoverer.test.ts` — stubs for PLACES-01 through PLACES-07, GEO-01, SCORE-01, SCORE-03
-- [ ] `src/app/api/cron/discover-places-ns/route.test.ts` — covers GEO-02
-- [ ] `src/app/api/cron/discover-places-nb/route.test.ts` — same pattern
-- [ ] `src/app/api/cron/discover-places-pei/route.test.ts` — same pattern
-- [ ] `src/app/api/cron/discover-places-nl/route.test.ts` — same pattern
+- [x] `src/lib/scraper/places-discoverer.test.ts` — stubs for PLACES-01 through PLACES-07, GEO-01, SCORE-01, SCORE-03
+- [x] `src/app/api/cron/discover-places-ns/route.test.ts` — covers GEO-02
+- [x] `src/app/api/cron/discover-places-nb/route.test.ts` — same pattern
+- [x] `src/app/api/cron/discover-places-pei/route.test.ts` — same pattern
+- [x] `src/app/api/cron/discover-places-nl/route.test.ts` — same pattern
 
 *(SCORE-02 uses existing `discovery-orchestrator.test.ts` but tests must be updated when threshold changes from 0.8 to 0.9)*
 
@@ -78,11 +78,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

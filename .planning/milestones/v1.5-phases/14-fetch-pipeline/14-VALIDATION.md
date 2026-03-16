@@ -1,9 +1,9 @@
 ---
 phase: 14
 slug: fetch-pipeline
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -19,7 +19,7 @@ created: 2026-03-15
 |----------|-------|
 | **Framework** | jest 30.x + ts-jest 29.x |
 | **Config file** | jest.config.ts |
-| **Quick run command** | `npx jest --testPathPattern=fetcher\|json-ld\|orchestrator` |
+| **Quick run command** | `npx jest fetcher json-ld orchestrator` |
 | **Full suite command** | `npm test` |
 | **Estimated runtime** | ~3 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-03-15
 
 ## Sampling Rate
 
-- **After every task commit:** Run `npx jest --testPathPattern=fetcher\|json-ld\|orchestrator`
+- **After every task commit:** Run `npx jest fetcher json-ld orchestrator`
 - **After every plan wave:** Run `npm test`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 5 seconds
@@ -38,11 +38,11 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 14-01-01 | 01 | 1 | SCRP-02 | unit | `npx jest fetcher` | ✅ | ⬜ pending |
-| 14-01-02 | 01 | 1 | SCRP-03 | unit | `npx jest fetcher` | ✅ | ⬜ pending |
-| 14-01-03 | 01 | 1 | PLAT-04 | unit | `npx jest json-ld` | ❌ W0 | ⬜ pending |
-| 14-02-01 | 02 | 2 | SCRP-01 | unit | `npx jest orchestrator` | ✅ | ⬜ pending |
-| 14-02-02 | 02 | 2 | SCRP-02 | integration | `npx jest orchestrator` | ✅ | ⬜ pending |
+| 14-01-01 | 01 | 1 | SCRP-02 | unit | `npx jest fetcher` | ✅ | ✅ pass |
+| 14-01-02 | 01 | 1 | SCRP-03 | unit | `npx jest fetcher` | ✅ | ✅ pass |
+| 14-01-03 | 01 | 1 | PLAT-04 | unit | `npx jest json-ld` | N/A | ✅ pass |
+| 14-02-01 | 02 | 2 | SCRP-01 | unit | `npx jest orchestrator` | ✅ | ✅ pass |
+| 14-02-02 | 02 | 2 | SCRP-02 | integration | `npx jest orchestrator` | ✅ | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,8 +50,8 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/json-ld.test.ts` — stubs for JSON-LD extraction (PLAT-04)
-- [ ] Update `src/lib/scraper/fetcher.test.ts` — tests for new return type `{ text, rawHtml }`
+- [x] `src/lib/scraper/json-ld.test.ts` — stubs for JSON-LD extraction (PLAT-04)
+- [x] Update `src/lib/scraper/fetcher.test.ts` — tests for new return type `{ text, rawHtml }`
 
 *Existing jest infrastructure covers all other requirements.*
 
@@ -68,11 +68,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

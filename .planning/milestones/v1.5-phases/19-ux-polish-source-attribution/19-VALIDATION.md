@@ -1,9 +1,9 @@
 ---
 phase: 19
 slug: ux-polish-source-attribution
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,12 +38,12 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 19-01-01 | 01 | 1 | UX-01 | manual | N/A — React component, no jsdom | N/A | ⬜ pending |
-| 19-01-02 | 01 | 1 | UX-02 | manual | N/A — React component, no jsdom | N/A | ⬜ pending |
-| 19-02-01 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/db/schema.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 19-02-02 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 19-02-03 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/scraper/ticketmaster.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 19-02-04 | 02 | 1 | ATTR-02 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
+| 19-01-01 | 01 | 1 | UX-01 | manual | N/A — React component, no jsdom | N/A | ✅ pass |
+| 19-01-02 | 01 | 1 | UX-02 | manual | N/A — React component, no jsdom | N/A | ✅ pass |
+| 19-02-01 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/db/schema.test.ts --no-coverage` | N/A | ✅ pass |
+| 19-02-02 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | N/A | ✅ pass |
+| 19-02-03 | 02 | 1 | ATTR-01 | unit | `npx jest src/lib/scraper/ticketmaster.test.ts --no-coverage` | N/A | ✅ pass |
+| 19-02-04 | 02 | 1 | ATTR-02 | unit | `npx jest src/lib/scraper/normalizer.test.ts --no-coverage` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -51,8 +51,8 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/normalizer.test.ts` — extend with event_sources insert tests (ATTR-01), COALESCE source_url tests (ATTR-02), update mock chain for `.returning({ id: events.id })`
-- [ ] `src/lib/scraper/ticketmaster.test.ts` — extend with test asserting upsertEvent called with source_type='ticketmaster' (ATTR-01)
+- [x] `src/lib/scraper/normalizer.test.ts` — extend with event_sources insert tests (ATTR-01), COALESCE source_url tests (ATTR-02), update mock chain for `.returning({ id: events.id })`
+- [x] `src/lib/scraper/ticketmaster.test.ts` — extend with test asserting upsertEvent called with source_type='ticketmaster' (ATTR-01)
 
 *Existing infrastructure covers UX-01/UX-02 via manual browser verification (no jsdom/React Testing Library setup).*
 
@@ -69,11 +69,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

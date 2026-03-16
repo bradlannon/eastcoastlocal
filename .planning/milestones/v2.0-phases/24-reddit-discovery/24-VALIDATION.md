@@ -1,9 +1,9 @@
 ---
 phase: 24
 slug: reddit-discovery
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -38,18 +38,18 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 24-01-01 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "fetchSubredditPosts" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-02 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "matchesVenueKeywords" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-03 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "skips Gemini when no posts match keywords" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-04 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "Gemini extraction" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-05 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "stages candidate with URL" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-06 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "stages candidate without URL" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-07 | 01 | 1 | REDDIT-03 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "REDDIT_SUBREDDITS" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-08 | 01 | 1 | REDDIT-03 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "province hint" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-09 | 01 | 1 | REDDIT-04 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "auto-approve" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-01-10 | 01 | 1 | REDDIT-04 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "does not auto-approve" --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-02-01 | 02 | 1 | REDDIT-04 | unit | `npx jest src/app/api/cron/discover-reddit/route.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
-| 24-02-02 | 02 | 1 | REDDIT-04 | unit | `npx jest src/app/api/cron/discover-reddit/route.test.ts --no-coverage` | ❌ W0 | ⬜ pending |
+| 24-01-01 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "fetchSubredditPosts" --no-coverage` | N/A | ✅ pass |
+| 24-01-02 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "matchesVenueKeywords" --no-coverage` | N/A | ✅ pass |
+| 24-01-03 | 01 | 1 | REDDIT-01 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "skips Gemini when no posts match keywords" --no-coverage` | N/A | ✅ pass |
+| 24-01-04 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "Gemini extraction" --no-coverage` | N/A | ✅ pass |
+| 24-01-05 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "stages candidate with URL" --no-coverage` | N/A | ✅ pass |
+| 24-01-06 | 01 | 1 | REDDIT-02 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "stages candidate without URL" --no-coverage` | N/A | ✅ pass |
+| 24-01-07 | 01 | 1 | REDDIT-03 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "REDDIT_SUBREDDITS" --no-coverage` | N/A | ✅ pass |
+| 24-01-08 | 01 | 1 | REDDIT-03 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "province hint" --no-coverage` | N/A | ✅ pass |
+| 24-01-09 | 01 | 1 | REDDIT-04 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "auto-approve" --no-coverage` | N/A | ✅ pass |
+| 24-01-10 | 01 | 1 | REDDIT-04 | unit | `npx jest src/lib/scraper/reddit-discoverer.test.ts -t "does not auto-approve" --no-coverage` | N/A | ✅ pass |
+| 24-02-01 | 02 | 1 | REDDIT-04 | unit | `npx jest src/app/api/cron/discover-reddit/route.test.ts --no-coverage` | N/A | ✅ pass |
+| 24-02-02 | 02 | 1 | REDDIT-04 | unit | `npx jest src/app/api/cron/discover-reddit/route.test.ts --no-coverage` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -57,8 +57,8 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/reddit-discoverer.test.ts` — stubs for REDDIT-01, REDDIT-02, REDDIT-03, REDDIT-04
-- [ ] `src/app/api/cron/discover-reddit/route.test.ts` — auth + success + error tests
+- [x] `src/lib/scraper/reddit-discoverer.test.ts` — stubs for REDDIT-01, REDDIT-02, REDDIT-03, REDDIT-04
+- [x] `src/app/api/cron/discover-reddit/route.test.ts` — auth + success + error tests
 
 *Existing infrastructure covers test framework — no new framework install needed.*
 
@@ -75,11 +75,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

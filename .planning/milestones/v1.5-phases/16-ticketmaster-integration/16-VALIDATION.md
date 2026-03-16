@@ -1,9 +1,9 @@
 ---
 phase: 16
 slug: ticketmaster-integration
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-15
 ---
 
@@ -19,7 +19,7 @@ created: 2026-03-15
 |----------|-------|
 | **Framework** | jest 30.x + ts-jest 29.x |
 | **Config file** | jest.config.ts |
-| **Quick run command** | `npx jest --testPathPattern=ticketmaster` |
+| **Quick run command** | `npx jest ticketmaster` |
 | **Full suite command** | `npm test` |
 | **Estimated runtime** | ~3 seconds |
 
@@ -27,7 +27,7 @@ created: 2026-03-15
 
 ## Sampling Rate
 
-- **After every task commit:** Run `npx jest --testPathPattern=ticketmaster`
+- **After every task commit:** Run `npx jest ticketmaster`
 - **After every plan wave:** Run `npm test`
 - **Before `/gsd:verify-work`:** Full suite must be green
 - **Max feedback latency:** 5 seconds
@@ -38,8 +38,8 @@ created: 2026-03-15
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 16-01-01 | 01 | 1 | PLAT-01, PLAT-02 | unit | `npx jest ticketmaster` | ❌ W0 | ⬜ pending |
-| 16-01-02 | 01 | 1 | PLAT-03 | unit | `npx tsc --noEmit` | N/A | ⬜ pending |
+| 16-01-01 | 01 | 1 | PLAT-01, PLAT-02 | unit | `npx jest ticketmaster` | Yes | ✅ pass |
+| 16-01-02 | 01 | 1 | PLAT-03 | unit | `npx tsc --noEmit` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -47,7 +47,7 @@ created: 2026-03-15
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/ticketmaster.test.ts` — stubs for TM handler (PLAT-01, PLAT-02)
+- [x] `src/lib/scraper/ticketmaster.test.ts` — stubs for TM handler (PLAT-01, PLAT-02)
 
 *Existing jest infrastructure covers framework needs.*
 
@@ -65,11 +65,11 @@ created: 2026-03-15
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16
