@@ -101,7 +101,13 @@ Users can instantly see what events are happening near them on a map — where, 
 
 <!-- Current scope. Building toward these. -->
 
-(None — planning next milestone)
+## Current Milestone: v2.2 Event Data Quality
+
+**Goal:** Make event data trustworthy by handling recurring events as grouped series and archiving past events to keep the UI fresh.
+
+**Target features:**
+- Recurring event series detection and grouping (tag occurrences, UI badge/collapse)
+- Past event archival via daily cron (archived_at flag, excluded from API, visible in admin)
 
 ### Out of Scope
 
@@ -203,4 +209,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | parseFloat env pattern for GEMINI_AUTO_APPROVE | Match existing env-overridable pattern in discovery-orchestrator.ts and reddit-discoverer.ts | ✓ Good — consistent threshold configuration across all discoverers |
 
 ---
-*Last updated: 2026-03-16 after v2.1 milestone*
+*Last updated: 2026-03-16 after v2.2 milestone start*

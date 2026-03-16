@@ -1,16 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Tech Debt Cleanup
-status: Milestone complete — awaiting next milestone
-stopped_at: v2.1 milestone archived
-last_updated: "2026-03-16T17:30:00.000Z"
-last_activity: 2026-03-16 — v2.1 Tech Debt Cleanup milestone completed
+milestone: v2.2
+milestone_name: Event Data Quality
+status: Defining requirements
+stopped_at: null
+last_updated: "2026-03-16T18:00:00.000Z"
+last_activity: 2026-03-16 — Milestone v2.2 started
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
 ---
 
 # Project State
@@ -20,14 +20,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Planning next milestone
+**Current focus:** v2.2 Event Data Quality — defining requirements
 
 ## Current Position
 
-Phase: — (milestone complete)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Milestone v2.1 complete — awaiting next milestone
-Last activity: 2026-03-16 — v2.1 Tech Debt Cleanup archived
+Status: Defining requirements
+Last activity: 2026-03-16 — Milestone v2.2 started
 
 ## Accumulated Context
 
@@ -48,5 +48,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: v2.1 milestone archived
+Stopped at: Defining requirements for v2.2
 Resume file: None
