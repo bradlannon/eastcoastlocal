@@ -16,6 +16,18 @@ const baseEvent = {
   confidence: 0.9,
 };
 
+describe('ExtractedEventSchema - recurrence_pattern field', () => {
+  test('Test 1: Parsing an event with recurrence_pattern present succeeds and returns the string value', () => {
+    const result = EventSchema.parse({ ...baseEvent, recurrence_pattern: 'Every Thursday' });
+    expect(result.recurrence_pattern).toBe('Every Thursday');
+  });
+
+  test('Test 2: Parsing an event without recurrence_pattern succeeds and returns undefined', () => {
+    const result = EventSchema.parse({ ...baseEvent });
+    expect(result.recurrence_pattern).toBeUndefined();
+  });
+});
+
 describe('ExtractedEventSchema - event_category field', () => {
   test('Test 1: Parsing an event with event_category "live_music" succeeds and returns "live_music"', () => {
     const result = EventSchema.parse({ ...baseEvent, event_category: 'live_music' });

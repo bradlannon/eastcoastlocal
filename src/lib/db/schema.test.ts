@@ -1,4 +1,4 @@
-import { venues, events, scrape_sources, discovered_sources, eventCategoryEnum } from './schema';
+import { venues, events, scrape_sources, discovered_sources, eventCategoryEnum, recurring_series } from './schema';
 
 describe('Database Schema Structure', () => {
   describe('venues table', () => {
@@ -41,6 +41,24 @@ describe('Database Schema Structure', () => {
         'description',
         'cover_image_url',
         'event_category',
+        'created_at',
+        'updated_at',
+        'archived_at',
+        'series_id',
+      ];
+      for (const col of expected) {
+        expect(columns).toContain(col);
+      }
+    });
+  });
+
+  describe('recurring_series table', () => {
+    it('has all expected columns', () => {
+      const columns = Object.keys(recurring_series);
+      const expected = [
+        'id',
+        'venue_id',
+        'normalized_performer',
         'created_at',
         'updated_at',
       ];
