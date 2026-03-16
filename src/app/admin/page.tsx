@@ -3,6 +3,7 @@ import { count, desc, eq, max, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { venues, scrape_sources, discovered_sources, discovery_runs } from '@/lib/db/schema';
 import RefreshButton from './_components/RefreshButton';
+import TriggerActions from './_components/TriggerActions';
 
 export const dynamic = 'force-dynamic';
 
@@ -246,6 +247,9 @@ export default async function AdminDashboardPage() {
           </div>
         </Link>
       </div>
+
+      {/* Manual trigger actions */}
+      <TriggerActions />
 
       {/* Source Health table */}
       <h2 className="text-lg font-semibold text-gray-900 mb-3">Source Health</h2>
