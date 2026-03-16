@@ -48,8 +48,8 @@ function makeEvent(
       lat: overrides.lat !== undefined ? overrides.lat : 44.65,
       lng: overrides.lng !== undefined ? overrides.lng : -63.57,
       website: null,
-      phone: null,
       venue_type: null,
+      google_place_id: null,
       created_at: new Date(),
     },
   };

@@ -39,7 +39,6 @@ function makeMockSource(overrides: Partial<{
   address: string | null;
   google_place_id: string | null;
   place_types: string | null;
-  phone: string | null;
   discovery_score: number | null;
 }> = {}) {
   return {
@@ -60,7 +59,6 @@ function makeMockSource(overrides: Partial<{
     address: null,
     google_place_id: null,
     place_types: null,
-    phone: null,
     discovery_score: null,
     ...overrides,
   };

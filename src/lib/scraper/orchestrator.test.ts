@@ -84,8 +84,8 @@ const mockVenue = {
   lat: 46.0878,
   lng: -64.7782,
   website: 'https://testvenue.com',
-  phone: null,
   venue_type: 'pub',
+  google_place_id: null,
   created_at: new Date(),
 };
 

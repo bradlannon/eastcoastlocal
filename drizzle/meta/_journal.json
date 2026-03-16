@@ -71,6 +71,13 @@
       "when": 1773664611944,
       "tag": "0009_large_stryfe",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1773668802870,
+      "tag": "0010_purple_pandemic",
+      "breakpoints": true
     }
   ]
 }

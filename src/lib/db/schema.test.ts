@@ -13,7 +13,6 @@ describe('Database Schema Structure', () => {
         'lat',
         'lng',
         'website',
-        'phone',
         'venue_type',
         'google_place_id',
         'created_at',
@@ -114,7 +113,6 @@ describe('Database Schema Structure', () => {
         'address',
         'google_place_id',
         'place_types',
-        'phone',
       ];
       for (const col of expected) {
         expect(columns).toContain(col);
