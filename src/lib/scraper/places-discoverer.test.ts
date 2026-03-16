@@ -7,7 +7,149 @@ import {
   GEMINI_AUTO_APPROVE,
   isVenueRelevant,
   scorePlacesCandidate,
+  searchCity,
 } from './places-discoverer';
+
+// ---------------------------------------------------------------------------
+// searchCity tests
+// ---------------------------------------------------------------------------
+
+describe('searchCity', () => {
+  const originalEnv = process.env;
+
+  beforeEach(() => {
+    jest.resetAllMocks();
+    process.env = { ...originalEnv, GOOGLE_MAPS_API_KEY: 'test-key', PLACES_THROTTLE_MS: '0' };
+    jest.spyOn(global, 'fetch').mockImplementation(jest.fn());
+  });
+
+  afterEach(() => {
+    process.env = originalEnv;
+  });
+
+  it('calls Places API with correct URL, headers, and textQuery', async () => {
+    const mockFetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        places: [
+          { id: 'place1', displayName: { text: 'The Seahorse', languageCode: 'en' }, types: ['bar'] },
+        ],
+      }),
+    } as Response);
+
+    await searchCity('Halifax', 'NS');
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const [url, opts] = mockFetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('https://places.googleapis.com/v1/places:searchText');
+    expect((opts.headers as Record<string, string>)['X-Goog-Api-Key']).toBe('test-key');
+    expect((opts.headers as Record<string, string>)['X-Goog-FieldMask']).toContain('nextPageToken');
+    expect((opts.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    const body = JSON.parse(opts.body as string);
+    expect(body.textQuery).toContain('Halifax');
+    expect(body.textQuery).toContain('NS');
+  });
+
+  it('follows nextPageToken through multiple pages and stops when absent', async () => {
+    const mockFetch = jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          places: [{ id: 'p1', displayName: { text: 'Bar One', languageCode: 'en' }, types: ['bar'] }],
+          nextPageToken: 'token-page-2',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          places: [{ id: 'p2', displayName: { text: 'Bar Two', languageCode: 'en' }, types: ['bar'] }],
+          nextPageToken: 'token-page-3',
+        }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          places: [{ id: 'p3', displayName: { text: 'Bar Three', languageCode: 'en' }, types: ['bar'] }],
+          // no nextPageToken — stop
+        }),
+      } as Response);
+
+    const results = await searchCity('Halifax', 'NS');
+
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(results).toHaveLength(3);
+
+    // Second call should have pageToken in body
+    const body2 = JSON.parse((mockFetch.mock.calls[1] as [string, RequestInit])[1].body as string);
+    expect(body2.pageToken).toBe('token-page-2');
+
+    const body3 = JSON.parse((mockFetch.mock.calls[2] as [string, RequestInit])[1].body as string);
+    expect(body3.pageToken).toBe('token-page-3');
+  });
+
+  it('filters out non-venue types (restaurant, grocery_store)', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        places: [
+          { id: 'p1', displayName: { text: 'Bar One', languageCode: 'en' }, types: ['bar'] },
+          { id: 'p2', displayName: { text: 'Grocery Store', languageCode: 'en' }, types: ['grocery_store', 'food'] },
+          { id: 'p3', displayName: { text: 'Restaurant', languageCode: 'en' }, types: ['restaurant', 'food'] },
+          { id: 'p4', displayName: { text: 'Concert Hall', languageCode: 'en' }, types: ['concert_hall'] },
+        ],
+      }),
+    } as Response);
+
+    const results = await searchCity('Halifax', 'NS');
+    expect(results).toHaveLength(2);
+    expect(results.map(r => r.id)).toEqual(['p1', 'p4']);
+  });
+
+  it('throws on non-2xx response', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: false,
+      status: 403,
+      text: async () => 'Forbidden',
+    } as Response);
+
+    await expect(searchCity('Halifax', 'NS')).rejects.toThrow(/403/);
+  });
+
+  it('applies throttle delay between pages', async () => {
+    process.env.PLACES_THROTTLE_MS = '100';
+
+    jest.spyOn(global, 'fetch')
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ places: [], nextPageToken: 'tok' }),
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ places: [] }),
+      } as Response);
+
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockImplementation((fn: TimerHandler) => {
+      if (typeof fn === 'function') fn();
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    });
+
+    await searchCity('Halifax', 'NS');
+
+    // setTimeout called at least once with 100ms delay between pages
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 100);
+    setTimeoutSpy.mockRestore();
+  });
+
+  it('returns empty array when places is undefined in response', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({}),
+    } as Response);
+
+    const results = await searchCity('Halifax', 'NS');
+    expect(results).toEqual([]);
+  });
+});
 
 describe('PLACES_CITIES', () => {
   it('has all 4 Atlantic provinces as keys', () => {

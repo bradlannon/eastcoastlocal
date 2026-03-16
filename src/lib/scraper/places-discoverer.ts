@@ -1,9 +1,9 @@
 /**
- * Places API discovery foundation.
+ * Places API discovery engine.
  *
  * Exports TypeScript interfaces, Atlantic Canada city list, tier-based scoring,
- * venue type filtering, and threshold constants used by the Places discovery
- * pipeline (cron endpoints, staging logic).
+ * venue type filtering, threshold constants, and the core discovery functions:
+ * searchCity, processPlaceResult, enrichVenue, runPlacesDiscovery.
  */
 
 // ---------------------------------------------------------------------------
@@ -144,3 +144,91 @@ export const PLACES_CITIES: Record<string, Array<{ city: string; province: strin
     { city: 'Labrador City', province: 'NL' },
   ],
 };
+
+// ---------------------------------------------------------------------------
+// HTTP helpers
+// ---------------------------------------------------------------------------
+
+const PLACES_API_URL = 'https://places.googleapis.com/v1/places:searchText';
+const FIELD_MASK =
+  'places.id,places.displayName,places.websiteUri,places.formattedAddress,places.location,places.types,nextPageToken';
+
+/**
+ * Simple delay helper — pauses execution for `ms` milliseconds.
+ */
+export function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * POSTs to the Places API Text Search endpoint and returns the parsed response.
+ * Throws on non-2xx status.
+ */
+async function fetchPlacesPage(
+  body: Record<string, unknown>
+): Promise<PlacesSearchResponse> {
+  const apiKey = process.env.GOOGLE_MAPS_API_KEY;
+  const response = await fetch(PLACES_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': apiKey ?? '',
+      'X-Goog-FieldMask': FIELD_MASK,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Places API error: ${response.status} — ${text.slice(0, 200)}`
+    );
+  }
+
+  return response.json() as Promise<PlacesSearchResponse>;
+}
+
+// ---------------------------------------------------------------------------
+// searchCity
+// ---------------------------------------------------------------------------
+
+/**
+ * Searches the Places API for venue-relevant places in a city and returns
+ * filtered results. Follows nextPageToken pagination until exhausted.
+ */
+export async function searchCity(
+  city: string,
+  province: string
+): Promise<PlaceResult[]> {
+  const throttleMs = parseInt(process.env.PLACES_THROTTLE_MS ?? '500', 10);
+  const textQuery = `bars nightclubs live music venues in ${city} ${province}`;
+
+  const all: PlaceResult[] = [];
+  let pageToken: string | undefined = undefined;
+  let isFirstPage = true;
+
+  do {
+    if (!isFirstPage) {
+      await delay(throttleMs);
+    }
+    isFirstPage = false;
+
+    const body: Record<string, unknown> = { textQuery };
+    if (pageToken) {
+      body.pageToken = pageToken;
+    }
+
+    const data = await fetchPlacesPage(body);
+    const places = data.places ?? [];
+    all.push(...places);
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  const filtered = all.filter((p) => isVenueRelevant(p.types ?? []));
+
+  console.log(
+    `Places: ${city} ${province} — ${all.length} raw, ${filtered.length} venue-relevant`
+  );
+
+  return filtered;
+}
