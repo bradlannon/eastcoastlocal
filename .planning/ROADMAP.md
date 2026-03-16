@@ -90,7 +90,7 @@
 
 </details>
 
-### 🚧 v2.2 Event Data Quality (In Progress)
+### v2.2 Event Data Quality (In Progress)
 
 **Milestone Goal:** Make event data trustworthy by handling recurring events as grouped series and archiving past events to keep the UI fresh.
 
@@ -113,7 +113,7 @@
   5. The Gemini extraction Zod schema accepts an optional recurrence_pattern hint field
 **Plans:** 1/1 plans complete
 Plans:
-- [ ] 29-01-PLAN.md — Schema additions (archived_at, series_id, recurring_series table) + Zod recurrence_pattern field
+- [x] 29-01-PLAN.md — Schema additions (archived_at, series_id, recurring_series table) + Zod recurrence_pattern field
 
 ### Phase 30: Archival
 **Goal**: Past events disappear from the public map and list automatically each day, without destroying dedup anchors or unarchiving events that get re-scraped
@@ -124,7 +124,10 @@ Plans:
   2. A daily cron at /api/cron/archive archives past events using Atlantic timezone threshold (not UTC midnight)
   3. Re-scraping an already-archived event leaves archived_at unchanged (COALESCE guard in upsertEvent ON CONFLICT clause)
   4. Admin can view a dedicated archived events tab showing all soft-archived events
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 30-01-PLAN.md — Archive cron, public API filter, upsert guard (ARCH-02, ARCH-03, ARCH-04)
+- [ ] 30-02-PLAN.md — Admin archived events tab with pagination (ARCH-05)
 
 ### Phase 31: Series Detection
 **Goal**: Recurring performer-at-venue patterns are detected automatically after each scrape and tagged on event rows, with all existing events backfilled on first run
@@ -180,7 +183,7 @@ Plans:
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 29. Schema Foundation | 1/1 | Complete    | 2026-03-16 | - |
-| 30. Archival | v2.2 | 0/? | Not started | - |
+| 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
+| 30. Archival | v2.2 | 0/2 | Not started | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
