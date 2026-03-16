@@ -67,7 +67,7 @@ export const SECONDARY_VENUE_TYPES = new Set<string>([
 export const PLACES_AUTO_APPROVE = 0.8;
 
 /** Gemini+Search candidates with score >= this value are auto-approved. */
-export const GEMINI_AUTO_APPROVE = 0.9;
+export const GEMINI_AUTO_APPROVE = parseFloat(process.env.GEMINI_AUTO_APPROVE ?? '0.9');
 
 // ---------------------------------------------------------------------------
 // Pure functions
