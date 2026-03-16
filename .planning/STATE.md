@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
-status: completed
-stopped_at: Completed 25-03-PLAN.md — Phase 25 plans 01-03 complete
-last_updated: "2026-03-16T12:20:11.702Z"
-last_activity: "2026-03-16 — Completed 25-03: Last Discovery stat card and Recent Discovery Runs table on admin dashboard"
+status: archived
+stopped_at: Milestone v2.0 completed and archived
+last_updated: "2026-03-16T13:00:00.000Z"
+last_activity: "2026-03-16 — Milestone v2.0 archived; all 4 phases shipped"
 progress:
   total_phases: 4
   completed_phases: 4
@@ -18,19 +18,15 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-15)
+See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** v2.0 Mass Venue Discovery — Phase 25: Admin Scale Tooling
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 25 of 25 (Admin Scale Tooling) — Complete
-Plan: 3 of 3 complete
-Status: Complete
-Last activity: 2026-03-16 — Completed 25-03: Last Discovery stat card and Recent Discovery Runs table on admin dashboard
-
-Progress: [██████████] 100%
+Milestone v2.0 Mass Venue Discovery — Archived
+All 25 phases across 7 milestones shipped.
 
 ## Accumulated Context
 
@@ -38,44 +34,18 @@ Progress: [██████████] 100%
 
 Full decision log in PROJECT.md Key Decisions table.
 
-Recent decisions affecting v2.0:
-- Places discovery runs as its own isolated cron endpoint (separate from Gemini+Search) to avoid 60s timeout
-- Per-method auto-approve thresholds: google_places = 0.8, reddit_gemini = 0.9
-- No-website Places venues staged as status=no_website rather than discarded (dedup anchors for Ticketmaster)
-- Admin review for all sources remains on single /admin/discovery page (filter chip, not new page)
-- [Phase 22-schema-foundation]: Placed google_place_id before created_at in venues; used nullable unique index pattern for optional dedup anchors
-- [Phase 22-schema-foundation]: Conditional spread for nullable optional Drizzle insert fields: omits keys entirely for legacy nulls rather than passing explicit null
-- [Phase 22-schema-foundation]: promoteSource prefers staged.address; falls back to city/province/Canada placeholder for legacy sources
-- [Phase 22-schema-foundation]: Status guard (pending-only) unchanged in promoteSource; no_website promotion path deferred to Phase 23
-- [Phase 23-01]: VENUE_PLACE_TYPES restricted to 7 types; tier scoring: core=0.85 auto-approve, secondary=0.70 admin review
-- [Phase 23-01]: no_website promotion creates venue-only stub, skips scrape_sources insert; status guard allows pending|no_website, throws for approved|rejected
-- [Phase 23]: Synthetic URL for no_website venues is places:{google_place_id} — unique, stable, readable key for Ticketmaster dedup anchoring
-- [Phase 23]: Two-step dedup: google_place_id fast-path (exact match) then fuzzy name+geo loop; staged_review counts toward stagedPending in DiscoveryRunResult
-- [Phase 23-places-api-discovery]: Per-province cron isolation: each province runs as its own cron endpoint (Mon-Thu 9am UTC) to avoid 60s Vercel timeout for full Atlantic scan
-- [Phase 23-places-api-discovery]: GEMINI_AUTO_APPROVE env var renamed from AUTO_APPROVE_THRESHOLD; default raised to 0.9 to distinguish from google_places threshold (0.8)
-- [Phase 24-reddit-discovery]: No-URL Reddit candidates use synthetic reddit:t3_{postId} URL as status=pending (NOT no_website) — admin reviews noisy Reddit names
-- [Phase 24-reddit-discovery]: Auto-approve only triggers for Reddit candidates with real website URLs at score >= 0.9 GEMINI_AUTO_APPROVE threshold
-- [Phase 24-reddit-discovery]: Reddit post ID dedup via raw_context LIKE 'reddit:t3_%' query at run start — no separate column needed
-- [Phase 24-reddit-discovery]: Friday 9am UTC (0 9 * * 5) schedule for Reddit discovery cron — distinct day from Places province crons (Mon-Thu)
-- [Phase 25-admin-scale-tooling]: discovery_runs has no indexes beyond PK — table is small (~350 rows/year) and only queried ORDER BY completed_at DESC LIMIT 10
-- [Phase 25-admin-scale-tooling]: Error-path db.insert wrapped in nested try/catch to prevent DB logging failure from masking the original cron error
-- [Phase 25-admin-scale-tooling]: Promise.allSettled (not Promise.all) for batch approve — individual failures don't abort the batch, logged with count
-- [Phase 25-admin-scale-tooling]: Batch approve checkbox column restricted to pending tab only — no bulk actions on approved/rejected
-- [Phase 25-admin-scale-tooling]: Batch approve verified end-to-end: checkbox column pending-tab-only, Promise.allSettled for resilient multi-promote, useFormStatus for loading state
+### Tech Debt (cumulative)
 
-### Tech Debt (from v1.5 audit)
-
+From v1.5:
 - venue-dedup-backfill.ts --execute mode does not use performVenueMerge (FK violation risk)
 - 2 ticketmaster.test.ts unit tests broken (incomplete .limit() mock)
 - EventCard attribution uses source_url string-match instead of event_sources.source_type
-- Nyquist VALIDATION.md files all draft across 8 phases
 
-### Research Flags
-
-- Phase 23: Verify Places API (New) is separately enabled on GCP key before implementing places-discoverer.ts
-- Phase 23: Confirm X-Goog-FieldMask field names against current official docs (MEDIUM confidence)
-- Phase 23: Decide p-limit necessity based on final ATLANTIC_CITIES count (threshold ~15 cities)
-- Phase 24: Spot-check targeted subreddits for actual post volume before committing to all
+From v2.0:
+- phone column on discovered_sources and venues never populated by any discoverer
+- GEMINI_AUTO_APPROVE hardcoded in places-discoverer; not env-overridable like Gemini/Reddit copies
+- no_website tab missing from /admin/discovery — stubs invisible to admin
+- Nyquist VALIDATION.md files all draft across 12 phases
 
 ### Blockers/Concerns
 
@@ -83,6 +53,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T12:16:51.007Z
-Stopped at: Completed 25-03-PLAN.md — Phase 25 plans 01-03 complete
+Last session: 2026-03-16
+Stopped at: Milestone v2.0 archived
 Resume file: None

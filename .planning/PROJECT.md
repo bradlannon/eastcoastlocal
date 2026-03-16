@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A public-facing web app that helps people discover events across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping and the Ticketmaster Discovery API to automatically extract event data from venue websites and event platforms, then displays upcoming events on an interactive map with pin clusters and a heatmap timelapse mode. Events are automatically categorized by type, duplicate venues and events are merged across sources, and an admin dashboard provides full control over scraping, discovery, and venue management.
+A public-facing web app that helps people discover events across Atlantic Canada (New Brunswick, Nova Scotia, PEI, and Newfoundland & Labrador). It uses AI-powered web scraping, Ticketmaster Discovery API, Google Maps Places API, and Reddit mining via Gemini to automatically discover venues and extract event data, then displays upcoming events on an interactive map with pin clusters and a heatmap timelapse mode. Events are automatically categorized by type, duplicate venues and events are merged across sources, and an admin dashboard provides full control over scraping, discovery, batch approval, and venue management.
 
 ## Core Value
 
@@ -72,22 +72,28 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Zoom-to-location button on event cards — v1.5
 - ✓ Category filter chips visible in timelapse mode — v1.5
 
-## Current Milestone: v2.0 Mass Venue Discovery
-
-**Goal:** Scale event coverage from ~26 curated venues to hundreds across Atlantic Canada by adding bulk venue discovery via Google Maps Places API, Reddit mining via Gemini, expanded geographic coverage, and aggressive auto-approval.
-
-**Target features:**
-- Google Maps Places API bulk venue discovery across all 4 provinces
-- Reddit event/venue mining via Gemini (r/halifax, r/fredericton, r/stjohnsnl, etc.)
-- Expanded geographic coverage beyond 6 cities to smaller towns
-- Aggressive auto-approval pipeline for high-confidence discovered venues
-- Scalable onboarding flow for venues without scrapeable websites
+- ✓ Google Maps Places API bulk venue discovery across all 4 provinces — v2.0
+- ✓ Places API filtering by 7 venue-relevant place types — v2.0
+- ✓ Rate limiting and configurable throttle for Places API — v2.0
+- ✓ google_place_id deduplication across discovered_sources and venues — v2.0
+- ✓ No-website venue stubs with pre-geocoded coordinates — v2.0
+- ✓ Geographic coverage of ~41 communities across all 4 Atlantic provinces — v2.0
+- ✓ Per-province cron isolation (Mon-Thu) within 60s Vercel timeout — v2.0
+- ✓ Per-channel cron scheduling (Places, Gemini, Reddit on separate days) — v2.0
+- ✓ Reddit subreddit mining for venue/event mentions via Gemini extraction — v2.0
+- ✓ Province-specific subreddit mapping with configurable targets — v2.0
+- ✓ Reddit candidates flow through existing discovered_sources pipeline — v2.0
+- ✓ Per-method auto-approve thresholds (Places 0.8, Reddit/Gemini 0.9) — v2.0
+- ✓ discovery_method tracking on all discovered sources — v2.0
+- ✓ Admin batch-approve multiple discovered sources in one action — v2.0
+- ✓ Discovery run metrics logging (candidates found, auto-approved, queued, errors) — v2.0
+- ✓ Admin dashboard discovery run summary with stat card and recent runs table — v2.0
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-(Requirements to be defined)
+(Requirements to be defined for next milestone)
 
 ### Out of Scope
 
@@ -105,22 +111,25 @@ Users can instantly see what events are happening near them on a map — where, 
 - Facebook Events integration — requires headless browser, blocked by Vercel Hobby 50MB limit
 - Fully automated venue merge with no review path — false positives corrupt data; two-signal gate + admin review for borderline cases
 - Fuzzy event matching independent of venue — title similarity across different venues produces false positives
-- Real-time dedup during user requests — fuzzy matching is O(n²); daily cron only
+- Real-time dedup during user requests — fuzzy matching is O(n^2); daily cron only
+- Storing raw Reddit post text — large, legally ambiguous (Reddit TOS); store extracted structured data only
+- Geocoding Reddit venues during discovery — Reddit-extracted names are noisy; geocode only after promotion to venues table
 
 ## Context
 
 - Geographic scope: All four Atlantic Canadian provinces (NB, NS, PEI, NL)
-- Event sources: 26 configured venues across all 4 provinces (pubs, bars, breweries, theatres) + automated discovery of new sources
+- Event sources: ~41 cities covered by Places API discovery + 10 subreddits + Gemini search grounding + Ticketmaster API + manually curated venues
 - Event types: 8 categories — live music, comedy, theatre, arts, sports, festival, community, other
 - Scraping approach: AI-powered extraction using Gemini LLM to parse event data from arbitrary page formats — no brittle CSS selectors
-- Discovery: Weekly Gemini + Google Search grounding scans 6 Atlantic Canada cities for new venue websites, stages for human review
-- The app is hands-off once configured — daily scrape cron and weekly discovery cron run automatically via Vercel
+- Discovery channels: Google Maps Places API (Mon-Thu, per-province), Reddit subreddit mining via Gemini (Friday), Gemini + Google Search grounding (Monday), daily scrape cron
+- The app is hands-off once configured — 7 cron endpoints run automatically via Vercel
 - Public app accessible to anyone in the region
 - Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
-- v1.5 shipped: 11,774 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
-- Admin UI at /admin with JWT auth, dashboard, venue management, discovery review, and merge review
+- v2.0 shipped: 14,697 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- Admin UI at /admin with JWT auth, dashboard, venue management, discovery review (with batch approve), merge review, and discovery run metrics
 - Ticketmaster Discovery API integration sourcing major ticketed events across all 4 provinces
 - Venue deduplication via two-signal scoring (name similarity + geocoordinate proximity) with admin merge review for borderline cases
+- Places API two-step dedup: google_place_id exact match then fuzzy name+geo scoring
 - Event source tracking via event_sources join table; non-destructive COALESCE for source_url and ticket_link
 - Deployed at eastcoastlocal.bradlannon.ca
 
@@ -131,6 +140,7 @@ Users can instantly see what events are happening near them on a map — where, 
 - **Cost**: AI extraction costs managed via batch processing (daily cron, not real-time per-request)
 - **Geography**: Google Maps Geocoding API for accurate Canadian addresses; rejects APPROXIMATE precision
 - **Vercel Hobby**: 60s function timeout (maxDuration=60); 50MB function size limit rules out Playwright/Puppeteer
+- **Places API**: Separate per-province cron endpoints to stay within 60s timeout for ~41 cities
 
 ## Key Decisions
 
@@ -155,7 +165,7 @@ Users can instantly see what events are happening near them on a map — where, 
 | Fixed 8-value category taxonomy via pgEnum | Structured filtering, Zod enum validation at extraction time | ✓ Good — clean chip UI, predictable DB values |
 | Gemini + Google Search grounding for discovery | No new packages; reuses existing AI SDK integration | ✓ Good — finds venue websites directly from search results |
 | CLI-only source promotion (no admin UI) | Keeps v1.2 scope tight; admin UI deferred | ✓ Good — replaced by web UI in v1.3 |
-| discovered_sources.status as plain text | Flexible status values without migration for each new state | ✓ Good — pending/approved/rejected without enum constraints |
+| discovered_sources.status as plain text | Flexible status values without migration for each new state | ✓ Good — pending/approved/rejected/no_website without enum constraints |
 | SHA-256 via Web Crypto (not bcrypt) for admin auth | Edge-compatible, no native dependency | ✓ Good — single-admin credential, no performance concern |
 | jose library for JWT (not jsonwebtoken) | ESM-native, Edge runtime compatible | ✓ Good — works with Vercel Edge middleware |
 | Auto-geocode venues on save | Reuse existing Google Maps API integration | ✓ Good — venues get lat/lng automatically when created/edited |
@@ -170,6 +180,15 @@ Users can instantly see what events are happening near them on a map — where, 
 | COALESCE for source_url and ticket_link in upsertEvent | First source to set a link wins; subsequent nulls cannot overwrite | ✓ Good — non-destructive cross-source attribution |
 | Drizzle alias() for venue self-join in merge review | Side-by-side venue_a/venue_b comparison in single query | ✓ Good — clean pattern for self-referencing FK joins |
 | NavLinks extracted as client component | Admin layout can be async server component (fetches pending count) | ✓ Good — server/client boundary clean |
+| Per-province Places API cron endpoints | Full Atlantic scan exceeds 60s Vercel timeout | ✓ Good — each province runs Mon-Thu with isolated timeout budget |
+| 7 venue-relevant place types for Places filtering | Reduce false positives from restaurants/cafes/stores | ✓ Good — core types (0.85) auto-approve; secondary types (0.70) go to admin review |
+| Two-step Places dedup (google_place_id + fuzzy) | Exact match first (O(1)), fuzzy loop only for new candidates | ✓ Good — efficient; enriches existing venues with place_id |
+| no_website status for Places venues without URLs | Preserves dedup anchors for Ticketmaster cross-referencing | ✓ Good — synthetic places:{id} URL is stable and unique |
+| Reddit public JSON API (no OAuth) | Simpler auth, no app registration needed | ✓ Good — custom User-Agent sufficient for read-only access |
+| Keyword pre-filter before Gemini for Reddit | Reduce unnecessary LLM API calls on irrelevant posts | ✓ Good — 20-term venue/event keyword list catches relevant posts |
+| GEMINI_AUTO_APPROVE threshold at 0.9 for Gemini/Reddit | Higher bar for noisier data sources vs Places (0.8) | ✓ Good — structured Places data is more reliable than text extraction |
+| discovery_runs table for cron instrumentation | Audit trail for pipeline health without external monitoring | ✓ Good — dashboard shows last run + recent 10 at a glance |
+| Promise.allSettled for batch approve | Individual failures don't abort entire batch | ✓ Good — resilient; logs failure count for admin visibility |
 
 ---
-*Last updated: 2026-03-15 after v2.0 milestone started*
+*Last updated: 2026-03-16 after v2.0 milestone*

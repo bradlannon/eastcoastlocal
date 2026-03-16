@@ -1,5 +1,21 @@
 # Milestones
 
+## v2.0 Mass Venue Discovery (Shipped: 2026-03-16)
+
+**Phases completed:** 4 phases, 10 plans
+**Timeline:** ~12 hours (2026-03-15 → 2026-03-16)
+**Stats:** 14,697 LOC TypeScript, 57 files changed, +9,364 lines
+
+**Key accomplishments:**
+- Database schema extended with google_place_id, coordinates, and address columns for structured discovery data across discovered_sources and venues
+- Google Maps Places API discoverer scanning 41 communities across all 4 Atlantic provinces with per-province cron isolation (Mon-Thu)
+- Reddit subreddit mining via Gemini extraction covering 10 Atlantic Canada subreddits with keyword pre-filtering and post ID dedup
+- Two-step venue deduplication (google_place_id fast-path + fuzzy name+geo scoring) preventing re-staging of known venues
+- Admin batch approve with checkbox selection, Promise.allSettled resilience, and discovery run metrics logging to discovery_runs table
+- Dashboard "Last Discovery" stat card and "Recent Discovery Runs" table for at-a-glance pipeline health
+
+---
+
 ## v1.5 Event Dedup & UX Polish (Shipped: 2026-03-15)
 
 **Phases completed:** 8 phases, 14 plans

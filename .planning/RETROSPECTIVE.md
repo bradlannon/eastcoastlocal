@@ -2,6 +2,58 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v2.0 — Mass Venue Discovery
+
+**Shipped:** 2026-03-16
+**Phases:** 4 | **Plans:** 10
+
+### What Was Built
+- Database schema extended with google_place_id, coordinates, address, place_types, and phone columns on discovered_sources and venues
+- Google Maps Places API discoverer with 7 venue-type filter, per-city pagination, two-step dedup (place_id + fuzzy), and auto-approve at 0.8
+- 41-city coverage across all 4 Atlantic provinces via per-province cron isolation (Mon-Thu)
+- Reddit subreddit mining (10 subs, 4 provinces) with keyword pre-filter, Gemini structured extraction, and 0.9 auto-approve threshold
+- No-website venue stubs with synthetic places:{id} URLs for Ticketmaster dedup anchoring
+- discovery_runs table with all 6 cron routes instrumented for pipeline health tracking
+- Admin batch approve with checkbox selection, Promise.allSettled resilience, and useFormStatus loading
+- Dashboard "Last Discovery" stat card and "Recent Discovery Runs" table
+
+### What Worked
+- Schema-first gating (Phase 22) gave Phase 23/24/25 stable columns to import — zero schema changes mid-milestone
+- Two-step Places dedup pattern (google_place_id O(1) fast-path + fuzzy O(n) fallback) is efficient and reusable
+- Per-province cron isolation solved the 60s timeout constraint cleanly — each province is an independent endpoint
+- Integration checker at milestone level caught the no_website admin UI visibility gap and the GEMINI_AUTO_APPROVE inconsistency
+- All 22 requirements passed 3-source cross-reference (VERIFICATION + SUMMARY + traceability) — no orphans
+- promoteSource() expanded cleanly to handle no_website status — existing callers unaffected
+
+### What Was Inefficient
+- SUMMARY frontmatter `one_liner` field missing from all SUMMARYs — accumulating frontmatter population gap
+- Nyquist VALIDATION.md files all false/false across all 4 phases — same pattern as every prior milestone
+- phone column added to schema in Phase 22 but never populated by any discoverer — dead weight requiring future cleanup or documentation
+- GEMINI_AUTO_APPROVE threshold defined independently in 3 files (hardcoded in places-discoverer, env-overridable in orchestrator and reddit-discoverer) — behavioral inconsistency
+- no_website discovered sources invisible in admin UI — secondary-type venues scoring 0.70 (below 0.8 auto-approve) accumulate silently
+
+### Patterns Established
+- Two-step dedup: exact-match fast-path (google_place_id) then fuzzy loop (name+geo) — avoids unnecessary scoring
+- `onConflictDoNothing()` for idempotent staging — re-runs produce same result with no duplicate rows
+- Per-province cron isolation for staying within 60s Vercel timeout with large city lists
+- Keyword pre-filter before LLM call (Reddit) — reduces API costs on irrelevant posts
+- Cron instrumentation pattern: capture startedAt before call, insert success row after, nested try/catch for error-path insert
+- `Promise.allSettled` for batch mutations — individual failures don't abort batch; report failure count
+
+### Key Lessons
+1. Per-method auto-approve thresholds (Places 0.8 vs Reddit/Gemini 0.9) correctly reflect data quality tiers — structured Places data is more reliable than text extraction
+2. Schema columns added speculatively (phone) become dead weight — only add columns when a consumer is planned in the same milestone
+3. Integration checker catches cross-phase wiring gaps that individual phase verifiers miss — the no_website UI gap was invisible to Phase 23 and Phase 25 verifiers individually
+4. Constants that look phase-local but have cross-phase significance (GEMINI_AUTO_APPROVE) should be centralized — independent definitions drift
+5. Reddit public JSON API with custom User-Agent is sufficient for read-only subreddit access — no OAuth needed
+
+### Cost Observations
+- Model mix: orchestrator on opus, executor/verifier/researcher/planner/checker on sonnet, integration checker on sonnet
+- ~12 hours from Phase 22 start to all 4 phases shipped
+- Notable: Reddit discoverer (Phase 24) was the fastest implementation — reused existing scoreCandidate + promoteSource patterns with only the fetch + extract layer being new
+
+---
+
 ## Milestone: v1.5 — Event Dedup & UX Polish
 
 **Shipped:** 2026-03-15
@@ -191,6 +243,7 @@
 | v1.2 | 4 | 6 | Schema-first gating; parallel plan execution; integration checker at milestone level |
 | v1.3 | 4 | 6 | Research disabled; single-wave plans; admin CRUD patterns established |
 | v1.5 | 8 | 14 | Milestone audit as completion gate; gap-closure phase from audit findings; pure-function scoring modules |
+| v2.0 | 4 | 10 | Multi-channel discovery (Places + Reddit); per-province cron isolation; two-step dedup pattern; batch admin operations |
 
 ### Cumulative Quality
 
@@ -200,6 +253,7 @@
 | v1.2 | 95+ | 6,172 | 132 |
 | v1.3 | 95+ | 7,983 | 153 |
 | v1.5 | 269+ | 11,774 | 219 |
+| v2.0 | 350+ | 14,697 | 276 |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -212,3 +266,5 @@
 7. Milestone audit as a gate before completion catches real integration gaps — creates targeted cleanup phases
 8. Pure-function modules (zero DB imports) make scoring/matching logic fully testable and composable
 9. Backfill scripts must adopt canonical utilities — duplicate logic diverges as the utility evolves
+10. Constants with cross-phase significance should be centralized — independent definitions drift silently
+11. Only add schema columns when a consumer is planned in the same milestone — speculative columns become dead weight
