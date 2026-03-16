@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: planning
-stopped_at: Phase 23 context gathered
-last_updated: "2026-03-16T00:52:35.059Z"
-last_activity: 2026-03-15 — v2.0 roadmap created, 22/22 requirements mapped
+stopped_at: "Completed 23-01-PLAN.md"
+last_updated: "2026-03-16T01:15:16Z"
+last_activity: 2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
-  percent: 0
+  total_plans: 3
+  completed_plans: 3
+  percent: 8
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 22 of 25 (Schema Foundation)
-Plan: —
-Status: Ready to plan
-Last activity: 2026-03-15 — v2.0 roadmap created, 22/22 requirements mapped
+Phase: 23 of 25 (Places API Discovery)
+Plan: 1 of 3 complete
+Status: Executing
+Last activity: 2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [█░░░░░░░░░] 8%
 
 ## Accumulated Context
 
@@ -47,6 +47,8 @@ Recent decisions affecting v2.0:
 - [Phase 22-schema-foundation]: Conditional spread for nullable optional Drizzle insert fields: omits keys entirely for legacy nulls rather than passing explicit null
 - [Phase 22-schema-foundation]: promoteSource prefers staged.address; falls back to city/province/Canada placeholder for legacy sources
 - [Phase 22-schema-foundation]: Status guard (pending-only) unchanged in promoteSource; no_website promotion path deferred to Phase 23
+- [Phase 23-01]: VENUE_PLACE_TYPES restricted to 7 types; tier scoring: core=0.85 auto-approve, secondary=0.70 admin review
+- [Phase 23-01]: no_website promotion creates venue-only stub, skips scrape_sources insert; status guard allows pending|no_website, throws for approved|rejected
 
 ### Tech Debt (from v1.5 audit)
 
@@ -68,6 +70,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T00:52:35.053Z
-Stopped at: Phase 23 context gathered
-Resume file: .planning/phases/23-places-api-discovery/23-CONTEXT.md
+Last session: 2026-03-16T01:15:16Z
+Stopped at: Completed 23-01-PLAN.md
+Resume file: .planning/phases/23-places-api-discovery/23-01-SUMMARY.md

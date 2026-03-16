@@ -10,16 +10,16 @@ Requirements for Mass Venue Discovery milestone. Each maps to roadmap phases.
 ### Places API Discovery
 
 - [ ] **PLACES-01**: System discovers venues via Google Maps Places API Text Search across configured cities
-- [ ] **PLACES-02**: System filters Places results by venue-relevant place types (bar, night_club, concert_hall, performing_arts_theater, comedy_club, community_center, stadium)
+- [x] **PLACES-02**: System filters Places results by venue-relevant place types (bar, night_club, concert_hall, performing_arts_theater, comedy_club, community_center, stadium)
 - [ ] **PLACES-03**: System respects Places API rate limits with configurable throttle
 - [ ] **PLACES-04**: System deduplicates Places-discovered venues against existing venues before staging
 - [ ] **PLACES-05**: System extracts website URLs from Places results for scrape source promotion
-- [ ] **PLACES-06**: System creates no-website venue stubs with coordinates for venues without websiteUri
+- [x] **PLACES-06**: System creates no-website venue stubs with coordinates for venues without websiteUri
 - [ ] **PLACES-07**: System stores google_place_id on discovered sources and venues for cross-source dedup
 
 ### Geographic Expansion
 
-- [ ] **GEO-01**: System covers ~30 population centers across all 4 Atlantic provinces
+- [x] **GEO-01**: System covers ~30 population centers across all 4 Atlantic provinces
 - [ ] **GEO-02**: Discovery jobs run as chunked crons (per-province or per-region) to stay within 60s timeout
 - [ ] **GEO-03**: Each discovery channel (Places, Gemini, Reddit) runs on its own cron schedule
 
@@ -32,9 +32,9 @@ Requirements for Mass Venue Discovery milestone. Each maps to roadmap phases.
 
 ### Auto-Approval & Scoring
 
-- [ ] **SCORE-01**: System uses Places-specific scoring with higher auto-approve confidence (structured data bonus)
+- [x] **SCORE-01**: System uses Places-specific scoring with higher auto-approve confidence (structured data bonus)
 - [ ] **SCORE-02**: System uses higher threshold for Reddit-sourced venues (lower data quality)
-- [ ] **SCORE-03**: System tracks discovery_method on all discovered sources for per-method scoring
+- [x] **SCORE-03**: System tracks discovery_method on all discovered sources for per-method scoring
 
 ### Admin Tooling
 
@@ -81,18 +81,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCHEMA-01 | Phase 22 | Complete |
 | SCHEMA-02 | Phase 22 | Complete |
 | PLACES-01 | Phase 23 | Pending |
-| PLACES-02 | Phase 23 | Pending |
+| PLACES-02 | Phase 23 | Complete |
 | PLACES-03 | Phase 23 | Pending |
 | PLACES-04 | Phase 23 | Pending |
 | PLACES-05 | Phase 23 | Pending |
-| PLACES-06 | Phase 23 | Pending |
+| PLACES-06 | Phase 23 | Complete |
 | PLACES-07 | Phase 23 | Pending |
-| GEO-01 | Phase 23 | Pending |
+| GEO-01 | Phase 23 | Complete |
 | GEO-02 | Phase 23 | Pending |
 | GEO-03 | Phase 23 | Pending |
-| SCORE-01 | Phase 23 | Pending |
+| SCORE-01 | Phase 23 | Complete |
 | SCORE-02 | Phase 23 | Pending |
-| SCORE-03 | Phase 23 | Pending |
+| SCORE-03 | Phase 23 | Complete |
 | REDDIT-01 | Phase 24 | Pending |
 | REDDIT-02 | Phase 24 | Pending |
 | REDDIT-03 | Phase 24 | Pending |
