@@ -25,10 +25,10 @@ Requirements for Mass Venue Discovery milestone. Each maps to roadmap phases.
 
 ### Reddit Mining
 
-- [ ] **REDDIT-01**: System mines Atlantic Canada subreddits for venue and event mentions
-- [ ] **REDDIT-02**: System uses Gemini to extract structured venue data from Reddit posts
-- [ ] **REDDIT-03**: System targets province-specific subreddits with configurable mapping
-- [ ] **REDDIT-04**: Reddit-discovered venues flow through existing discovered_sources pipeline
+- [x] **REDDIT-01**: System mines Atlantic Canada subreddits for venue and event mentions
+- [x] **REDDIT-02**: System uses Gemini to extract structured venue data from Reddit posts
+- [x] **REDDIT-03**: System targets province-specific subreddits with configurable mapping
+- [x] **REDDIT-04**: Reddit-discovered venues flow through existing discovered_sources pipeline
 
 ### Auto-Approval & Scoring
 
@@ -93,10 +93,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SCORE-01 | Phase 23 | Complete |
 | SCORE-02 | Phase 23 | Complete |
 | SCORE-03 | Phase 23 | Complete |
-| REDDIT-01 | Phase 24 | Pending |
-| REDDIT-02 | Phase 24 | Pending |
-| REDDIT-03 | Phase 24 | Pending |
-| REDDIT-04 | Phase 24 | Pending |
+| REDDIT-01 | Phase 24 | Complete |
+| REDDIT-02 | Phase 24 | Complete |
+| REDDIT-03 | Phase 24 | Complete |
+| REDDIT-04 | Phase 24 | Complete |
 | ADMIN-01 | Phase 25 | Pending |
 | ADMIN-02 | Phase 25 | Pending |
 | ADMIN-03 | Phase 25 | Pending |

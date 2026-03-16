@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: executing
-stopped_at: Phase 24 context gathered
-last_updated: "2026-03-16T02:28:54.842Z"
-last_activity: "2026-03-15 — Completed 23-03: Province cron endpoints (NS/NB/PEI/NL), vercel.json schedules, GEMINI_AUTO_APPROVE threshold 0.9"
+stopped_at: "Completed 24-01: Reddit discovery module (reddit-discoverer.ts)"
+last_updated: "2026-03-16T02:49:35.542Z"
+last_activity: "2026-03-15 — Completed 24-01: Reddit discovery module (reddit-discoverer.ts), 16 tests pass"
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_plans: 7
+  completed_plans: 6
+  percent: 86
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 23 of 25 (Places API Discovery) — COMPLETE
-Plan: 3 of 3 complete
+Phase: 24 of 25 (Reddit Discovery) — In Progress
+Plan: 1 of 2 complete
 Status: Executing
-Last activity: 2026-03-15 — Completed 23-03: Province cron endpoints (NS/NB/PEI/NL), vercel.json schedules, GEMINI_AUTO_APPROVE threshold 0.9
+Last activity: 2026-03-15 — Completed 24-01: Reddit discovery module (reddit-discoverer.ts), 16 tests pass
 
-Progress: [██████████] 100%
+Progress: [█████████░] 86%
 
 ## Accumulated Context
 
@@ -53,6 +53,9 @@ Recent decisions affecting v2.0:
 - [Phase 23]: Two-step dedup: google_place_id fast-path (exact match) then fuzzy name+geo loop; staged_review counts toward stagedPending in DiscoveryRunResult
 - [Phase 23-places-api-discovery]: Per-province cron isolation: each province runs as its own cron endpoint (Mon-Thu 9am UTC) to avoid 60s Vercel timeout for full Atlantic scan
 - [Phase 23-places-api-discovery]: GEMINI_AUTO_APPROVE env var renamed from AUTO_APPROVE_THRESHOLD; default raised to 0.9 to distinguish from google_places threshold (0.8)
+- [Phase 24-reddit-discovery]: No-URL Reddit candidates use synthetic reddit:t3_{postId} URL as status=pending (NOT no_website) — admin reviews noisy Reddit names
+- [Phase 24-reddit-discovery]: Auto-approve only triggers for Reddit candidates with real website URLs at score >= 0.9 GEMINI_AUTO_APPROVE threshold
+- [Phase 24-reddit-discovery]: Reddit post ID dedup via raw_context LIKE 'reddit:t3_%' query at run start — no separate column needed
 
 ### Tech Debt (from v1.5 audit)
 
@@ -74,6 +77,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T02:28:54.838Z
-Stopped at: Phase 24 context gathered
-Resume file: .planning/phases/24-reddit-discovery/24-CONTEXT.md
+Last session: 2026-03-16T02:49:28.138Z
+Stopped at: Completed 24-01: Reddit discovery module (reddit-discoverer.ts)
+Resume file: None
