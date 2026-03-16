@@ -84,7 +84,7 @@
 
 - [x] **Phase 26: Data Fixes** - Fix FK violation risk in dedup backfill, EventCard attribution, and remove dead phone column (completed 2026-03-16)
 - [x] **Phase 27: Admin & Config** - Add no_website tab to discovery admin and make GEMINI_AUTO_APPROVE env-overridable (completed 2026-03-16)
-- [ ] **Phase 28: Tests & Validation** - Fix broken Ticketmaster unit tests and finalize Nyquist VALIDATION.md files
+- [x] **Phase 28: Tests & Validation** - Fix broken Ticketmaster unit tests and finalize Nyquist VALIDATION.md files (completed 2026-03-16)
 
 ## Phase Details
 
@@ -123,7 +123,7 @@ Plans:
   1. Running the test suite produces zero failures in ticketmaster.test.ts — the .limit() mock chain resolves correctly
   2. All 21 Nyquist VALIDATION.md files are finalized (not draft) with accurate pass/fail assessments
   3. CI test run exits with code 0 — no skipped or broken tests remain in the Ticketmaster test file
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 28-01-PLAN.md — Fix broken .limit() mock chain in ticketmaster.test.ts
@@ -160,4 +160,4 @@ Plans:
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
-| 28. Tests & Validation | 1/2 | In Progress|  | - |
+| 28. Tests & Validation | 2/2 | Complete   | 2026-03-16 | - |

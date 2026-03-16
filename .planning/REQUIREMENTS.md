@@ -21,7 +21,7 @@ Requirements for tech debt cleanup. Each maps to roadmap phases.
 ### Tests & Validation
 
 - [x] **TEST-01**: 2 broken ticketmaster.test.ts unit tests fixed (incomplete .limit() mock)
-- [ ] **TEST-02**: Nyquist VALIDATION.md files finalized across 12 phases
+- [x] **TEST-02**: Nyquist VALIDATION.md files finalized across 12 phases
 
 ## Future Requirements
 
@@ -46,7 +46,7 @@ None — this is a cleanup milestone.
 | ADMIN-01 | Phase 27 | Complete |
 | ADMIN-02 | Phase 27 | Complete |
 | TEST-01 | Phase 28 | Complete |
-| TEST-02 | Phase 28 | Pending |
+| TEST-02 | Phase 28 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 7 total
