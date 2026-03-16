@@ -163,5 +163,5 @@ Plans:
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 23. Places API Discovery | 3/3 | Complete    | 2026-03-16 | - |
-| 24. Reddit Discovery | 2/2 | Complete   | 2026-03-16 | - |
+| 24. Reddit Discovery | 2/2 | Complete    | 2026-03-16 | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
