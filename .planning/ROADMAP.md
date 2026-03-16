@@ -94,7 +94,7 @@
 
 **Milestone Goal:** Make event data trustworthy by handling recurring events as grouped series and archiving past events to keep the UI fresh.
 
-- [ ] **Phase 29: Schema Foundation** - Add archived_at and series_id columns to events; create recurring_series table
+- [x] **Phase 29: Schema Foundation** - Add archived_at and series_id columns to events; create recurring_series table (completed 2026-03-16)
 - [ ] **Phase 30: Archival** - Daily cron soft-archives past events; API excludes archived events; upsert guards against unarchival
 - [ ] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events
 - [ ] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence
@@ -111,7 +111,7 @@
   3. The recurring_series table exists with (venue_id, normalized_performer) unique index enforcing venue-scoped series at the DB level
   4. Drizzle InferSelectModel propagates archived_at and series_id to the TypeScript Event type automatically
   5. The Gemini extraction Zod schema accepts an optional recurrence_pattern hint field
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 Plans:
 - [ ] 29-01-PLAN.md — Schema additions (archived_at, series_id, recurring_series table) + Zod recurrence_pattern field
 
@@ -180,7 +180,7 @@ Plans:
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 29. Schema Foundation | v2.2 | 0/1 | Not started | - |
+| 29. Schema Foundation | 1/1 | Complete   | 2026-03-16 | - |
 | 30. Archival | v2.2 | 0/? | Not started | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |

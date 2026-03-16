@@ -9,7 +9,7 @@ Requirements for event data quality. Each maps to roadmap phases.
 
 ### Archival
 
-- [ ] **ARCH-01**: Events past their date are soft-archived via archived_at timestamp (not deleted)
+- [x] **ARCH-01**: Events past their date are soft-archived via archived_at timestamp (not deleted)
 - [ ] **ARCH-02**: Daily cron archives past events using Atlantic timezone threshold
 - [ ] **ARCH-03**: Events API excludes archived events from public map and list
 - [ ] **ARCH-04**: Re-scraping an archived event does not unarchive it (COALESCE guard in upsert)
@@ -17,7 +17,7 @@ Requirements for event data quality. Each maps to roadmap phases.
 
 ### Series Detection
 
-- [ ] **SER-01**: recurring_series table stores series metadata scoped to (venue_id, normalized_performer)
+- [x] **SER-01**: recurring_series table stores series metadata scoped to (venue_id, normalized_performer)
 - [ ] **SER-02**: Post-scrape enrichment detects recurring patterns (same performer + venue + regular weekday interval)
 - [ ] **SER-03**: Keyword heuristic detects explicit recurrence signals ("every", "weekly", "open mic", etc.)
 - [ ] **SER-04**: Fuzzy name matching (~20% Levenshtein) groups minor name variations into same series
@@ -50,12 +50,12 @@ None — focused data quality milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | Phase 29 | Pending |
+| ARCH-01 | Phase 29 | Complete |
 | ARCH-02 | Phase 30 | Pending |
 | ARCH-03 | Phase 30 | Pending |
 | ARCH-04 | Phase 30 | Pending |
 | ARCH-05 | Phase 30 | Pending |
-| SER-01 | Phase 29 | Pending |
+| SER-01 | Phase 29 | Complete |
 | SER-02 | Phase 31 | Pending |
 | SER-03 | Phase 31 | Pending |
 | SER-04 | Phase 31 | Pending |

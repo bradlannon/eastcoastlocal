@@ -2,15 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Event Data Quality
-status: Ready to plan
-stopped_at: Phase 29
-last_updated: "2026-03-16T18:00:00.000Z"
+status: planning
+stopped_at: Completed 29-01-PLAN.md
+last_updated: "2026-03-16T20:37:06.375Z"
 last_activity: 2026-03-16 — Roadmap created for v2.2 (4 phases, 13 requirements)
 progress:
   total_phases: 4
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  completed_phases: 1
+  total_plans: 1
+  completed_plans: 1
+  percent: 0
 ---
 
 # Project State
@@ -52,6 +53,9 @@ Recent decisions affecting v2.2:
 - series-detector.ts scoped to (venue_id, normalized_performer) — unique index at schema level prevents cross-venue grouping
 - COALESCE guard in upsertEvent ON CONFLICT is highest-risk integration point — must be confirmed against normalizer.ts before archival cron is scheduled
 - Detection thresholds (~20% Levenshtein, min 3 occurrences in 90 days) are estimates — validate with dry-run against live events before committing
+- [Phase 29-schema-foundation]: archived_at uses TIMESTAMPTZ (withTimezone: true) per ARCH-01 — avoids explicit Atlantic offset in application code
+- [Phase 29-schema-foundation]: recurring_series table placed before events in schema.ts to resolve Drizzle forward-reference in series_id FK
+- [Phase 29-schema-foundation]: recurrence_pattern uses .optional() not .nullable() — Gemini output omits absent fields, undefined is correct
 
 ### Tech Debt (cumulative)
 
@@ -66,6 +70,6 @@ From v2.1 audit (non-blocking):
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Roadmap created — ready to plan Phase 29
+Last session: 2026-03-16T20:37:06.371Z
+Stopped at: Completed 29-01-PLAN.md
 Resume file: None
