@@ -5,9 +5,9 @@ import DiscoveryList from './_components/DiscoveryList';
 
 export const dynamic = 'force-dynamic';
 
-type Status = 'pending' | 'approved' | 'rejected';
+type Status = 'pending' | 'approved' | 'rejected' | 'no_website';
 
-const VALID_STATUSES: Status[] = ['pending', 'approved', 'rejected'];
+const VALID_STATUSES: Status[] = ['pending', 'approved', 'rejected', 'no_website'];
 
 function isValidStatus(s: string): s is Status {
   return VALID_STATUSES.includes(s as Status);
@@ -22,7 +22,7 @@ export default async function DiscoveryPage({
   const rawStatus = params.status ?? 'pending';
   const status: Status = isValidStatus(rawStatus) ? rawStatus : 'pending';
 
-  const [candidates, pendingResult, approvedResult, rejectedResult] =
+  const [candidates, pendingResult, approvedResult, rejectedResult, noWebsiteResult] =
     await Promise.all([
       db
         .select()
@@ -41,12 +41,17 @@ export default async function DiscoveryPage({
         .select({ count: count() })
         .from(discovered_sources)
         .where(eq(discovered_sources.status, 'rejected')),
+      db
+        .select({ count: count() })
+        .from(discovered_sources)
+        .where(eq(discovered_sources.status, 'no_website')),
     ]);
 
   const counts = {
     pending: pendingResult[0]?.count ?? 0,
     approved: approvedResult[0]?.count ?? 0,
     rejected: rejectedResult[0]?.count ?? 0,
+    no_website: noWebsiteResult[0]?.count ?? 0,
   };
 
   return (

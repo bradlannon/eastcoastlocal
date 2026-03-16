@@ -26,7 +26,7 @@ interface DiscoveryListProps {
     reviewed_at: Date | null;
     discovery_score: number | null;
   }>;
-  counts: { pending: number; approved: number; rejected: number };
+  counts: { pending: number; approved: number; rejected: number; no_website: number };
   activeStatus: string;
 }
 
@@ -34,6 +34,7 @@ const TABS = [
   { status: 'pending', label: 'Pending' },
   { status: 'approved', label: 'Approved' },
   { status: 'rejected', label: 'Rejected' },
+  { status: 'no_website', label: 'No Website' },
 ] as const;
 
 function formatDate(date: Date): string {
@@ -145,6 +146,8 @@ export default function DiscoveryList({
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  const isActionableTab = activeStatus === 'pending' || activeStatus === 'no_website';
+
   useEffect(() => {
     setSelectedIds(new Set());
   }, [activeStatus]);
@@ -198,8 +201,8 @@ export default function DiscoveryList({
         })}
       </div>
 
-      {/* Batch approve button (pending tab only, shown when selections exist) */}
-      {activeStatus === 'pending' && selectedIds.size > 0 && (
+      {/* Batch approve button (pending/no_website tabs, shown when selections exist) */}
+      {isActionableTab && selectedIds.size > 0 && (
         <div className="mb-3">
           <form action={batchApproveCandidate}>
             <input
@@ -222,7 +225,7 @@ export default function DiscoveryList({
           <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {activeStatus === 'pending' && (
+                {isActionableTab && (
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
                     <input
                       type="checkbox"
@@ -260,7 +263,7 @@ export default function DiscoveryList({
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleRowClick(candidate.id)}
                   >
-                    {activeStatus === 'pending' && (
+                    {isActionableTab && (
                       <td
                         className="px-4 py-3 w-10"
                         onClick={(e) => {
@@ -301,7 +304,7 @@ export default function DiscoveryList({
                   {expandedId === candidate.id && (
                     <tr>
                       <td
-                        colSpan={activeStatus === 'pending' ? 6 : 5}
+                        colSpan={isActionableTab ? 6 : 5}
                         className="px-4 py-4 bg-gray-50 border-t border-gray-200"
                       >
                         <div className="space-y-3">
@@ -336,7 +339,7 @@ export default function DiscoveryList({
                           </div>
 
                           {/* Action area */}
-                          {activeStatus === 'pending' ? (
+                          {isActionableTab ? (
                             <div className="mt-3">
                               {/* Approve + open-reject buttons */}
                               <div className="flex gap-2">
