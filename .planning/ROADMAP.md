@@ -83,7 +83,7 @@
 **v2.1 Tech Debt Cleanup (Phases 26-28)**
 
 - [x] **Phase 26: Data Fixes** - Fix FK violation risk in dedup backfill, EventCard attribution, and remove dead phone column (completed 2026-03-16)
-- [ ] **Phase 27: Admin & Config** - Add no_website tab to discovery admin and make GEMINI_AUTO_APPROVE env-overridable
+- [x] **Phase 27: Admin & Config** - Add no_website tab to discovery admin and make GEMINI_AUTO_APPROVE env-overridable (completed 2026-03-16)
 - [ ] **Phase 28: Tests & Validation** - Fix broken Ticketmaster unit tests and finalize Nyquist VALIDATION.md files
 
 ## Phase Details
@@ -110,7 +110,7 @@ Plans:
   1. Admin navigating to /admin/discovery sees a "No Website" tab listing Places API venue stubs with no_website status
   2. The no_website tab shows the correct count of stubs and supports approve/reject actions
   3. GEMINI_AUTO_APPROVE threshold in places-discoverer reads from an environment variable with the existing hardcoded value as the fallback default
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 27-01-PLAN.md — Add no_website tab and make GEMINI_AUTO_APPROVE env-overridable
@@ -155,5 +155,5 @@ Plans:
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 27. Admin & Config | v2.1 | 0/1 | Not started | - |
+| 27. Admin & Config | 1/1 | Complete   | 2026-03-16 | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |

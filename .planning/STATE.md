@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Roadmap ready, awaiting plan-phase
-stopped_at: Completed 26-data-fixes 26-01-PLAN.md
-last_updated: "2026-03-16T13:54:46.820Z"
+stopped_at: Completed 27-admin-config 27-01-PLAN.md
+last_updated: "2026-03-16T14:18:03.600Z"
 last_activity: 2026-03-16 — Roadmap created for v2.1
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 2
-  completed_plans: 2
+  completed_phases: 2
+  total_plans: 3
+  completed_plans: 3
 ---
 
 # Project State
@@ -38,6 +38,8 @@ Full decision log in PROJECT.md Key Decisions table.
 - [Phase 26-data-fixes]: Removed anchor link from Ticketmaster attribution badge; badge visibility decoupled from source_url, driven by source_type enum
 - [Phase 26-data-fixes]: Insert venueMergeCandidates row (status=merged) before calling performVenueMerge to obtain valid candidateId
 - [Phase 26-data-fixes]: phone column removed from venues and discovered_sources; migration generated via drizzle-kit
+- [Phase 27-admin-config]: Extracted isActionableTab helper for DRY condition reuse across 5 JSX locations in DiscoveryList
+- [Phase 27-admin-config]: GEMINI_AUTO_APPROVE uses parseFloat env pattern matching discovery-orchestrator.ts and reddit-discoverer.ts
 
 ### Tech Debt (cumulative)
 
@@ -58,6 +60,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T13:50:51.783Z
-Stopped at: Completed 26-data-fixes 26-01-PLAN.md
+Last session: 2026-03-16T14:18:03.596Z
+Stopped at: Completed 27-admin-config 27-01-PLAN.md
 Resume file: None

@@ -15,8 +15,8 @@ Requirements for tech debt cleanup. Each maps to roadmap phases.
 
 ### Admin & Config
 
-- [ ] **ADMIN-01**: /admin/discovery shows no_website tab for Places API venue stubs
-- [ ] **ADMIN-02**: GEMINI_AUTO_APPROVE threshold in places-discoverer is env-overridable
+- [x] **ADMIN-01**: /admin/discovery shows no_website tab for Places API venue stubs
+- [x] **ADMIN-02**: GEMINI_AUTO_APPROVE threshold in places-discoverer is env-overridable
 
 ### Tests & Validation
 
@@ -43,8 +43,8 @@ None — this is a cleanup milestone.
 | DATA-01 | Phase 26 | Complete |
 | DATA-02 | Phase 26 | Complete |
 | DATA-03 | Phase 26 | Complete |
-| ADMIN-01 | Phase 27 | Pending |
-| ADMIN-02 | Phase 27 | Pending |
+| ADMIN-01 | Phase 27 | Complete |
+| ADMIN-02 | Phase 27 | Complete |
 | TEST-01 | Phase 28 | Pending |
 | TEST-02 | Phase 28 | Pending |
 
