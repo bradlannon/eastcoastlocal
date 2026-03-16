@@ -6,6 +6,13 @@ import { db } from '@/lib/db/client';
 import { discovered_sources, scrape_sources } from '@/lib/db/schema';
 import { promoteSource } from './promote-source';
 
+export interface DiscoveryJobResult {
+  candidatesFound: number;
+  autoApproved: number;
+  queuedPending: number;
+  errors: number;
+}
+
 const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
   { city: 'Halifax', province: 'NS' },
   { city: 'Moncton', province: 'NB' },
@@ -51,7 +58,7 @@ export function scoreCandidate(candidate: {
   return Math.max(0, Math.min(score, 1.0));
 }
 
-export async function runDiscoveryJob(): Promise<void> {
+export async function runDiscoveryJob(): Promise<DiscoveryJobResult> {
   // Step 1: Fetch all existing domains for deduplication
   const existingSources = await db.select({ url: scrape_sources.url }).from(scrape_sources);
   const existingStaged = await db.select({ url: discovered_sources.url }).from(discovered_sources);
@@ -175,4 +182,11 @@ For each venue return: url (full URL with https://), name, province ("${province
   console.log(
     `Discovery complete: ${totalInserted} new candidates staged, ${autoApproved} auto-approved`
   );
+
+  return {
+    candidatesFound: totalInserted,
+    autoApproved,
+    queuedPending: totalInserted - autoApproved,
+    errors: 0,
+  };
 }
