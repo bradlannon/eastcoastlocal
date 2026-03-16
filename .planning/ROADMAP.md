@@ -111,7 +111,9 @@
   3. The recurring_series table exists with (venue_id, normalized_performer) unique index enforcing venue-scoped series at the DB level
   4. Drizzle InferSelectModel propagates archived_at and series_id to the TypeScript Event type automatically
   5. The Gemini extraction Zod schema accepts an optional recurrence_pattern hint field
-**Plans**: TBD
+**Plans:** 1 plan
+Plans:
+- [ ] 29-01-PLAN.md — Schema additions (archived_at, series_id, recurring_series table) + Zod recurrence_pattern field
 
 ### Phase 30: Archival
 **Goal**: Past events disappear from the public map and list automatically each day, without destroying dedup anchors or unarchiving events that get re-scraped
@@ -178,7 +180,7 @@
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 29. Schema Foundation | v2.2 | 0/? | Not started | - |
+| 29. Schema Foundation | v2.2 | 0/1 | Not started | - |
 | 30. Archival | v2.2 | 0/? | Not started | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
