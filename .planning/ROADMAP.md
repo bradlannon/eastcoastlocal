@@ -154,7 +154,7 @@ Plans:
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
-| 22. Schema Foundation | 2/2 | Complete   | 2026-03-16 | - |
+| 22. Schema Foundation | 2/2 | Complete    | 2026-03-16 | - |
 | 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
