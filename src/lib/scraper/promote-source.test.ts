@@ -34,6 +34,13 @@ function makeMockSource(overrides: Partial<{
   discovered_at: Date;
   reviewed_at: Date | null;
   added_to_sources_at: Date | null;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
+  google_place_id: string | null;
+  place_types: string | null;
+  phone: string | null;
+  discovery_score: number | null;
 }> = {}) {
   return {
     id: 1,
@@ -48,6 +55,13 @@ function makeMockSource(overrides: Partial<{
     discovered_at: new Date('2026-01-01'),
     reviewed_at: null,
     added_to_sources_at: null,
+    lat: null,
+    lng: null,
+    address: null,
+    google_place_id: null,
+    place_types: null,
+    phone: null,
+    discovery_score: null,
     ...overrides,
   };
 }
@@ -188,5 +202,85 @@ describe('promoteSource', () => {
 
     const venueValues = venueInsertMock.values.mock.calls[0][0];
     expect(venueValues.address).toBe('Halifax, NS, Canada');
+  });
+
+  it('Test 8: when staged.address is present, venue address uses it instead of placeholder', async () => {
+    const source = makeMockSource({ address: '1234 Barrington St, Halifax, NS B3J 1Y9' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 10 }]) };
+    const scrapeSourceInsertMock = { values: jest.fn().mockResolvedValue([]) };
+    mockDb.insert
+      .mockReturnValueOnce(venueInsertMock)
+      .mockReturnValueOnce(scrapeSourceInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    const venueValues = venueInsertMock.values.mock.calls[0][0];
+    expect(venueValues.address).toBe('1234 Barrington St, Halifax, NS B3J 1Y9');
+  });
+
+  it('Test 9: when staged has lat/lng/google_place_id, they are carried to venue insert', async () => {
+    const source = makeMockSource({ lat: 44.6488, lng: -63.5752, google_place_id: 'ChIJfake123' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 11 }]) };
+    const scrapeSourceInsertMock = { values: jest.fn().mockResolvedValue([]) };
+    mockDb.insert
+      .mockReturnValueOnce(venueInsertMock)
+      .mockReturnValueOnce(scrapeSourceInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    const venueValues = venueInsertMock.values.mock.calls[0][0];
+    expect(venueValues.lat).toBe(44.6488);
+    expect(venueValues.lng).toBe(-63.5752);
+    expect(venueValues.google_place_id).toBe('ChIJfake123');
+  });
+
+  it('Test 10: when staged has place_types, it maps to venue_type', async () => {
+    const source = makeMockSource({ place_types: '["bar","night_club"]' });
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 12 }]) };
+    const scrapeSourceInsertMock = { values: jest.fn().mockResolvedValue([]) };
+    mockDb.insert
+      .mockReturnValueOnce(venueInsertMock)
+      .mockReturnValueOnce(scrapeSourceInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    const venueValues = venueInsertMock.values.mock.calls[0][0];
+    expect(venueValues.venue_type).toBe('["bar","night_club"]');
+  });
+
+  it('Test 11: legacy source without new fields omits them from venue insert', async () => {
+    const source = makeMockSource(); // all new fields null
+    mockDb.query.discovered_sources.findFirst.mockResolvedValue(source);
+
+    const venueInsertMock = { values: jest.fn().mockReturnThis(), returning: jest.fn().mockResolvedValue([{ id: 13 }]) };
+    const scrapeSourceInsertMock = { values: jest.fn().mockResolvedValue([]) };
+    mockDb.insert
+      .mockReturnValueOnce(venueInsertMock)
+      .mockReturnValueOnce(scrapeSourceInsertMock);
+
+    const updateMock = { set: jest.fn().mockReturnThis(), where: jest.fn().mockResolvedValue([]) };
+    mockDb.update.mockReturnValue(updateMock);
+
+    await promoteSource(1);
+
+    const venueValues = venueInsertMock.values.mock.calls[0][0];
+    expect(venueValues.lat).toBeUndefined();
+    expect(venueValues.lng).toBeUndefined();
+    expect(venueValues.google_place_id).toBeUndefined();
   });
 });

@@ -28,11 +28,12 @@ export async function promoteSource(discoveredId: number): Promise<void> {
   }
 
   // Step 3: Create venue row
-  // lat/lng omitted (null by default) — geocoded on first scrape per orchestrator pattern
+  // Phase 23: expand to allow 'no_website' status for stub promotion
   const venueName = staged.source_name ?? staged.domain;
   const city = staged.city ?? '';
   const province = staged.province ?? '';
-  const address = `${city}, ${province}, Canada`.trim();
+  // Prefer structured address from Places API; fall back to placeholder
+  const address = staged.address ?? `${city}, ${province}, Canada`.trim();
 
   const [venue] = await db
     .insert(venues)
@@ -41,6 +42,10 @@ export async function promoteSource(discoveredId: number): Promise<void> {
       address,
       city,
       province,
+      ...(staged.lat != null ? { lat: staged.lat } : {}),
+      ...(staged.lng != null ? { lng: staged.lng } : {}),
+      ...(staged.google_place_id != null ? { google_place_id: staged.google_place_id } : {}),
+      ...(staged.place_types != null ? { venue_type: staged.place_types } : {}),
     })
     .returning({ id: venues.id });
 
