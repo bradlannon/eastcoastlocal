@@ -40,7 +40,7 @@ Requirements for Mass Venue Discovery milestone. Each maps to roadmap phases.
 
 - [x] **ADMIN-01**: Admin can batch-approve multiple discovered sources in one action
 - [x] **ADMIN-02**: System logs discovery run metrics (candidates found, auto-approved, queued, errors)
-- [ ] **ADMIN-03**: Admin dashboard shows last discovery run summary with counts
+- [x] **ADMIN-03**: Admin dashboard shows last discovery run summary with counts
 
 ### Schema
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REDDIT-04 | Phase 24 | Complete |
 | ADMIN-01 | Phase 25 | Complete |
 | ADMIN-02 | Phase 25 | Complete |
-| ADMIN-03 | Phase 25 | Pending |
+| ADMIN-03 | Phase 25 | Complete |
 
 **Coverage:**
 - v2.0 requirements: 22 total
