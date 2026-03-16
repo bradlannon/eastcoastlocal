@@ -5,6 +5,11 @@
  * venue type filtering, threshold constants, and the core discovery functions:
  * searchCity, processPlaceResult, enrichVenue, runPlacesDiscovery.
  */
+import { db } from '@/lib/db/client';
+import { venues, discovered_sources } from '@/lib/db/schema';
+import { eq, inArray, and, gte } from 'drizzle-orm';
+import { scoreVenueCandidate } from './venue-dedup';
+import { promoteSource } from './promote-source';
 
 // ---------------------------------------------------------------------------
 // TypeScript interfaces
@@ -231,4 +236,262 @@ export async function searchCity(
   );
 
   return filtered;
+}
+
+// ---------------------------------------------------------------------------
+// VenueRow type (subset of schema.venues needed for dedup)
+// ---------------------------------------------------------------------------
+
+export interface VenueRow {
+  id: number;
+  name: string;
+  lat: number | null;
+  lng: number | null;
+  google_place_id: string | null;
+  province: string;
+}
+
+// ---------------------------------------------------------------------------
+// enrichVenue
+// ---------------------------------------------------------------------------
+
+/**
+ * Backfills google_place_id and address on an existing venue row from a
+ * Places API result. Only updates if the data is richer (non-null).
+ */
+export async function enrichVenue(venueId: number, place: PlaceResult): Promise<void> {
+  await db
+    .update(venues)
+    .set({
+      ...(place.id ? { google_place_id: place.id } : {}),
+      ...(place.formattedAddress ? { address: place.formattedAddress } : {}),
+      ...(place.location ? { lat: place.location.latitude, lng: place.location.longitude } : {}),
+    })
+    .where(eq(venues.id, venueId));
+
+  console.log(`Enriched venue ${venueId} with Places data (${place.id})`);
+}
+
+// ---------------------------------------------------------------------------
+// processPlaceResult
+// ---------------------------------------------------------------------------
+
+export type ProcessResult =
+  | 'enriched'
+  | 'staged_pending'
+  | 'staged_no_website'
+  | 'staged_review'
+  | 'skipped';
+
+/**
+ * Handles a single Places API result: deduplicates against existing venues,
+ * stages new candidates, and enriches existing venues with Places data.
+ */
+export async function processPlaceResult(
+  place: PlaceResult,
+  province: string,
+  city: string,
+  provinceVenues: VenueRow[]
+): Promise<ProcessResult> {
+  // Step 1 — google_place_id fast-path
+  // Check discovered_sources first — if already staged, skip
+  const existingStaged = await db.query.discovered_sources.findFirst({
+    where: eq(discovered_sources.google_place_id, place.id),
+  });
+  if (existingStaged) {
+    return 'skipped';
+  }
+
+  // Check venues by google_place_id
+  const existingVenue = await db.query.venues.findFirst({
+    where: and(
+      eq(venues.google_place_id, place.id),
+      eq(venues.province, province)
+    ),
+  });
+  if (existingVenue) {
+    await enrichVenue(existingVenue.id, place);
+    return 'enriched';
+  }
+
+  // Step 2 — fuzzy dedup against province venues
+  const incoming = {
+    name: place.displayName.text,
+    lat: place.location?.latitude ?? null,
+    lng: place.location?.longitude ?? null,
+  };
+
+  for (const candidate of provinceVenues) {
+    const decision = scoreVenueCandidate(incoming, {
+      name: candidate.name,
+      lat: candidate.lat,
+      lng: candidate.lng,
+    });
+
+    if (decision.action === 'merge') {
+      await enrichVenue(candidate.id, place);
+      return 'enriched';
+    }
+
+    if (decision.action === 'review') {
+      // Stage as pending with near-match context
+      await stageCandidate(place, province, city, 'pending', `near-match: ${candidate.name}`);
+      return 'staged_review';
+    }
+    // keep_separate: continue loop
+  }
+
+  // Step 3 — no match; stage based on websiteUri presence
+  if (place.websiteUri) {
+    await stageCandidate(place, province, city, 'pending', null);
+    return 'staged_pending';
+  } else {
+    await stageCandidate(place, province, city, 'no_website', null);
+    return 'staged_no_website';
+  }
+}
+
+/**
+ * Inserts a place into discovered_sources with all required fields.
+ * Uses onConflictDoNothing for idempotency (url unique constraint).
+ */
+async function stageCandidate(
+  place: PlaceResult,
+  province: string,
+  city: string,
+  status: 'pending' | 'no_website',
+  rawContext: string | null
+): Promise<void> {
+  const url = place.websiteUri ?? `places:${place.id}`;
+  const domain = place.websiteUri
+    ? new URL(place.websiteUri).hostname
+    : 'google-places';
+  const discoveryScore = scorePlacesCandidate(place.types ?? []);
+
+  await db
+    .insert(discovered_sources)
+    .values({
+      url,
+      domain,
+      source_name: place.displayName.text,
+      province,
+      city,
+      status,
+      discovery_method: 'google_places',
+      google_place_id: place.id,
+      lat: place.location?.latitude ?? null,
+      lng: place.location?.longitude ?? null,
+      address: place.formattedAddress ?? null,
+      place_types: place.types ? JSON.stringify(place.types) : null,
+      discovery_score: discoveryScore,
+      raw_context: rawContext,
+    })
+    .onConflictDoNothing();
+}
+
+// ---------------------------------------------------------------------------
+// runPlacesDiscovery
+// ---------------------------------------------------------------------------
+
+export interface DiscoveryRunResult {
+  citiesSearched: number;
+  candidatesFound: number;
+  enriched: number;
+  stagedPending: number;
+  stagedNoWebsite: number;
+  autoApproved: number;
+  errors: number;
+}
+
+/**
+ * Main orchestrator: searches each city, deduplicates, and stages candidates.
+ * Per-city errors are caught and logged; execution continues to next city.
+ * After all cities, runs auto-approve for pending records scoring >= PLACES_AUTO_APPROVE.
+ */
+export async function runPlacesDiscovery(
+  cities: Array<{ city: string; province: string }>
+): Promise<DiscoveryRunResult> {
+  const throttleMs = parseInt(process.env.PLACES_THROTTLE_MS ?? '500', 10);
+
+  const result: DiscoveryRunResult = {
+    citiesSearched: 0,
+    candidatesFound: 0,
+    enriched: 0,
+    stagedPending: 0,
+    stagedNoWebsite: 0,
+    autoApproved: 0,
+    errors: 0,
+  };
+
+  // Load province venues once upfront (all distinct provinces)
+  const distinctProvinces = [...new Set(cities.map((c) => c.province))];
+  const provinceVenues = await db
+    .select({
+      id: venues.id,
+      name: venues.name,
+      lat: venues.lat,
+      lng: venues.lng,
+      google_place_id: venues.google_place_id,
+      province: venues.province,
+    })
+    .from(venues)
+    .where(inArray(venues.province, distinctProvinces));
+
+  // Process each city
+  for (let i = 0; i < cities.length; i++) {
+    const { city, province } = cities[i];
+
+    if (i > 0) {
+      await delay(throttleMs);
+    }
+
+    result.citiesSearched++;
+
+    try {
+      const places = await searchCity(city, province);
+      result.candidatesFound += places.length;
+
+      const venuesForProvince = provinceVenues.filter((v) => v.province === province);
+
+      for (const place of places) {
+        const outcome = await processPlaceResult(place, province, city, venuesForProvince);
+        if (outcome === 'enriched') result.enriched++;
+        else if (outcome === 'staged_pending' || outcome === 'staged_review') result.stagedPending++;
+        else if (outcome === 'staged_no_website') result.stagedNoWebsite++;
+        // 'skipped' increments nothing
+      }
+    } catch (err) {
+      result.errors++;
+      console.error(`Places discovery error for ${city} ${province}:`, err);
+    }
+  }
+
+  // Auto-approve: query pending google_places records scoring >= threshold
+  const autoApproveCandidates = await db
+    .select({ id: discovered_sources.id })
+    .from(discovered_sources)
+    .where(
+      and(
+        eq(discovered_sources.status, 'pending'),
+        eq(discovered_sources.discovery_method, 'google_places'),
+        gte(discovered_sources.discovery_score, PLACES_AUTO_APPROVE)
+      )
+    );
+
+  for (const candidate of autoApproveCandidates) {
+    try {
+      await promoteSource(candidate.id);
+      result.autoApproved++;
+    } catch (err) {
+      console.error(`Auto-approve failed for discovered_source ${candidate.id}:`, err);
+    }
+  }
+
+  console.log(
+    `Places discovery complete: ${result.citiesSearched} cities, ${result.candidatesFound} candidates, ` +
+    `${result.enriched} enriched, ${result.stagedPending} pending, ${result.stagedNoWebsite} stubs, ` +
+    `${result.autoApproved} auto-approved, ${result.errors} errors`
+  );
+
+  return result;
 }
