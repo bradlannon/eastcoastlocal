@@ -74,7 +74,7 @@
 **Milestone Goal:** Scale venue coverage from ~26 curated venues to hundreds across Atlantic Canada via Google Maps Places API bulk discovery, Reddit mining, expanded geographic coverage, and aggressive auto-approval.
 
 - [x] **Phase 22: Schema Foundation** - Migrate schema to support google_place_id and pre-geocoded coordinates across the discovery pipeline (completed 2026-03-16)
-- [ ] **Phase 23: Places API Discovery** - Build and wire the Places API discoverer with expanded city coverage, per-method scoring, and production cron scheduling
+- [x] **Phase 23: Places API Discovery** - Build and wire the Places API discoverer with expanded city coverage, per-method scoring, and production cron scheduling (completed 2026-03-16)
 - [ ] **Phase 24: Reddit Discovery** - Add Reddit subreddit mining as a supplemental discovery channel with Gemini extraction
 - [ ] **Phase 25: Admin Scale Tooling** - Reduce admin review friction with batch approve, discovery run metrics, and dashboard summary
 
@@ -104,7 +104,7 @@ Plans:
   3. Venues already in the database are not re-staged as duplicates
   4. Venues without a website are staged with status no_website rather than discarded
   5. Places candidates auto-approve at 0.8 threshold; Reddit-sourced candidates use 0.9; each discovery channel runs on its own cron schedule within the 60-second limit
-**Plans:** 2/3 plans executed
+**Plans:** 3/3 plans complete
 Plans:
 - [ ] 23-01-PLAN.md — Types, city list, scoring/filtering functions, promoteSource no_website update
 - [ ] 23-02-PLAN.md — Core discoverer: searchCity, pagination, dedup, staging, runPlacesDiscovery
@@ -159,6 +159,6 @@ Plans:
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 23. Places API Discovery | 2/3 | In Progress|  | - |
+| 23. Places API Discovery | 3/3 | Complete   | 2026-03-16 | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |

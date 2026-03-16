@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: executing
-stopped_at: Completed 23-02-PLAN.md
-last_updated: "2026-03-16T01:23:15.992Z"
-last_activity: "2026-03-15 — Completed 23-01: Places API foundation (types, city list, scoring, no_website promotion)"
+stopped_at: Completed 23-03-PLAN.md
+last_updated: "2026-03-16T01:28:04.366Z"
+last_activity: "2026-03-15 — Completed 23-03: Province cron endpoints (NS/NB/PEI/NL), vercel.json 6 crons, GEMINI_AUTO_APPROVE=0.9"
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 5
-  completed_plans: 4
-  percent: 8
+  completed_plans: 5
+  percent: 80
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-03-15)
 
 ## Current Position
 
-Phase: 23 of 25 (Places API Discovery)
-Plan: 2 of 3 complete
+Phase: 23 of 25 (Places API Discovery) — COMPLETE
+Plan: 3 of 3 complete
 Status: Executing
-Last activity: 2026-03-15 — Completed 23-02: Places API core discovery engine (searchCity, processPlaceResult, enrichVenue, runPlacesDiscovery)
+Last activity: 2026-03-15 — Completed 23-03: Province cron endpoints (NS/NB/PEI/NL), vercel.json schedules, GEMINI_AUTO_APPROVE threshold 0.9
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100%
 
 ## Accumulated Context
 
@@ -51,6 +51,8 @@ Recent decisions affecting v2.0:
 - [Phase 23-01]: no_website promotion creates venue-only stub, skips scrape_sources insert; status guard allows pending|no_website, throws for approved|rejected
 - [Phase 23]: Synthetic URL for no_website venues is places:{google_place_id} — unique, stable, readable key for Ticketmaster dedup anchoring
 - [Phase 23]: Two-step dedup: google_place_id fast-path (exact match) then fuzzy name+geo loop; staged_review counts toward stagedPending in DiscoveryRunResult
+- [Phase 23-places-api-discovery]: Per-province cron isolation: each province runs as its own cron endpoint (Mon-Thu 9am UTC) to avoid 60s Vercel timeout for full Atlantic scan
+- [Phase 23-places-api-discovery]: GEMINI_AUTO_APPROVE env var renamed from AUTO_APPROVE_THRESHOLD; default raised to 0.9 to distinguish from google_places threshold (0.8)
 
 ### Tech Debt (from v1.5 audit)
 
@@ -72,6 +74,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T01:23:15.987Z
-Stopped at: Completed 23-02-PLAN.md
-Resume file: .planning/phases/23-places-api-discovery/23-02-SUMMARY.md
+Last session: 2026-03-16T01:28:04.363Z
+Stopped at: Completed 23-03-PLAN.md
+Resume file: None
