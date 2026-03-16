@@ -50,6 +50,20 @@
       "when": 1773597690792,
       "tag": "0006_skinny_sentry",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1773619465112,
+      "tag": "0007_glamorous_psylocke",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1773662004155,
+      "tag": "0008_stiff_pretty_boy",
+      "breakpoints": true
     }
   ]
 }

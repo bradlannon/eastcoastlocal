@@ -167,3 +167,17 @@ export const discovered_sources = pgTable(
     uniqueIndex('discovered_sources_google_place_id_key').on(table.google_place_id),
   ]
 );
+
+export const discovery_runs = pgTable('discovery_runs', {
+  id: serial('id').primaryKey(),
+  discovery_method: text('discovery_method').notNull(), // 'google_places' | 'gemini_google_search' | 'reddit_gemini'
+  province: text('province'), // null for Reddit and Gemini; 'NS'/'NB'/'PEI'/'NL' for Places
+  started_at: timestamp('started_at').notNull(),
+  completed_at: timestamp('completed_at').notNull(),
+  candidates_found: integer('candidates_found').notNull().default(0),
+  auto_approved: integer('auto_approved').notNull().default(0),
+  queued_pending: integer('queued_pending').notNull().default(0),
+  skipped_dedup: integer('skipped_dedup').notNull().default(0),
+  errors: integer('errors').notNull().default(0),
+  error_detail: text('error_detail'),
+});
