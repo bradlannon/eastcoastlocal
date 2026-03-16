@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: planning
-stopped_at: Completed 22-01-PLAN.md
-last_updated: "2026-03-16T00:05:47.718Z"
+stopped_at: Completed 22-02-PLAN.md
+last_updated: "2026-03-16T00:08:54.121Z"
 last_activity: 2026-03-15 — v2.0 roadmap created, 22/22 requirements mapped
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -44,6 +44,9 @@ Recent decisions affecting v2.0:
 - No-website Places venues staged as status=no_website rather than discarded (dedup anchors for Ticketmaster)
 - Admin review for all sources remains on single /admin/discovery page (filter chip, not new page)
 - [Phase 22-schema-foundation]: Placed google_place_id before created_at in venues; used nullable unique index pattern for optional dedup anchors
+- [Phase 22-schema-foundation]: Conditional spread for nullable optional Drizzle insert fields: omits keys entirely for legacy nulls rather than passing explicit null
+- [Phase 22-schema-foundation]: promoteSource prefers staged.address; falls back to city/province/Canada placeholder for legacy sources
+- [Phase 22-schema-foundation]: Status guard (pending-only) unchanged in promoteSource; no_website promotion path deferred to Phase 23
 
 ### Tech Debt (from v1.5 audit)
 
@@ -65,6 +68,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T00:05:47.713Z
-Stopped at: Completed 22-01-PLAN.md
+Last session: 2026-03-16T00:08:54.117Z
+Stopped at: Completed 22-02-PLAN.md
 Resume file: None

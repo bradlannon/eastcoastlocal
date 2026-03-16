@@ -73,7 +73,7 @@
 
 **Milestone Goal:** Scale venue coverage from ~26 curated venues to hundreds across Atlantic Canada via Google Maps Places API bulk discovery, Reddit mining, expanded geographic coverage, and aggressive auto-approval.
 
-- [ ] **Phase 22: Schema Foundation** - Migrate schema to support google_place_id and pre-geocoded coordinates across the discovery pipeline
+- [x] **Phase 22: Schema Foundation** - Migrate schema to support google_place_id and pre-geocoded coordinates across the discovery pipeline (completed 2026-03-16)
 - [ ] **Phase 23: Places API Discovery** - Build and wire the Places API discoverer with expanded city coverage, per-method scoring, and production cron scheduling
 - [ ] **Phase 24: Reddit Discovery** - Add Reddit subreddit mining as a supplemental discovery channel with Gemini extraction
 - [ ] **Phase 25: Admin Scale Tooling** - Reduce admin review friction with batch approve, discovery run metrics, and dashboard summary
@@ -89,7 +89,7 @@
   2. venues rows have a google_place_id column available for dedup anchoring
   3. Migration runs cleanly against the Neon Postgres instance with no data loss to existing rows
   4. Existing pipeline (insert, promote, score) continues to work after migration
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 - [ ] 22-01-PLAN.md — Add columns and indexes to schema, generate and apply migration 0007
 - [ ] 22-02-PLAN.md — Update promoteSource() to carry structured data through to venues
@@ -154,7 +154,7 @@ Plans:
 | 19. UX Polish & Source Attribution | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 20. Admin Merge Review | v1.5 | 2/2 | Complete | 2026-03-15 |
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
-| 22. Schema Foundation | 1/2 | In Progress|  | - |
+| 22. Schema Foundation | 2/2 | Complete   | 2026-03-16 | - |
 | 23. Places API Discovery | v2.0 | 0/TBD | Not started | - |
 | 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
