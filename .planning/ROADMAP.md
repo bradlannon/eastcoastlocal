@@ -184,6 +184,6 @@ Plans:
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
-| 30. Archival | 2/2 | Complete   | 2026-03-16 | - |
+| 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
