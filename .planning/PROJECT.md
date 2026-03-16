@@ -89,22 +89,19 @@ Users can instantly see what events are happening near them on a map — where, 
 - ✓ Discovery run metrics logging (candidates found, auto-approved, queued, errors) — v2.0
 - ✓ Admin dashboard discovery run summary with stat card and recent runs table — v2.0
 
+- ✓ FK-safe venue dedup backfill via performVenueMerge — v2.1
+- ✓ EventCard attribution via source_type enum, not URL string matching — v2.1
+- ✓ Dead phone column removed from venues and discovered_sources — v2.1
+- ✓ No Website tab on /admin/discovery for Places API venue stubs — v2.1
+- ✓ GEMINI_AUTO_APPROVE threshold env-overridable in places-discoverer — v2.1
+- ✓ Ticketmaster .limit() mock chain fixed (33/33 tests passing) — v2.1
+- ✓ 21 Nyquist VALIDATION.md files finalized across v1.0-v2.0 — v2.1
+
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-## Current Milestone: v2.1 Tech Debt Cleanup
-
-**Goal:** Fix accumulated tech debt from v1.5 and v2.0 — broken tests, missing UI, hardcoded config, and data integrity risks.
-
-**Target fixes:**
-- venue-dedup-backfill.ts --execute mode FK violation risk
-- 2 broken ticketmaster.test.ts unit tests
-- EventCard attribution using string-match instead of event_sources.source_type
-- phone column never populated by any discoverer
-- GEMINI_AUTO_APPROVE hardcoded in places-discoverer
-- no_website tab missing from /admin/discovery
-- Nyquist VALIDATION.md files all draft across 12 phases
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -136,7 +133,7 @@ Users can instantly see what events are happening near them on a map — where, 
 - The app is hands-off once configured — 7 cron endpoints run automatically via Vercel
 - Public app accessible to anyone in the region
 - Map has two modes: pin clustering (default) and heatmap timelapse with 6-hour block steps
-- v2.0 shipped: 14,697 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
+- v2.1 shipped: 15,293 LOC TypeScript, Next.js 16 + Neon Postgres + Drizzle ORM + leaflet.heat
 - Admin UI at /admin with JWT auth, dashboard, venue management, discovery review (with batch approve), merge review, and discovery run metrics
 - Ticketmaster Discovery API integration sourcing major ticketed events across all 4 provinces
 - Venue deduplication via two-signal scoring (name similarity + geocoordinate proximity) with admin merge review for borderline cases
@@ -200,6 +197,10 @@ Users can instantly see what events are happening near them on a map — where, 
 | GEMINI_AUTO_APPROVE threshold at 0.9 for Gemini/Reddit | Higher bar for noisier data sources vs Places (0.8) | ✓ Good — structured Places data is more reliable than text extraction |
 | discovery_runs table for cron instrumentation | Audit trail for pipeline health without external monitoring | ✓ Good — dashboard shows last run + recent 10 at a glance |
 | Promise.allSettled for batch approve | Individual failures don't abort entire batch | ✓ Good — resilient; logs failure count for admin visibility |
+| Supplementary query pattern for event sources | Avoid JOIN row duplication from Drizzle's select-all with multiple source rows | ✓ Good — 2 DB round-trips + Map merge, clean EventWithVenue type |
+| Thenable mock pattern for Drizzle chains | Object.assign(Promise.resolve(value), { limit: jest.fn() }) for db.select chain | ✓ Good — 33/33 tests passing, no test framework hacks |
+| isActionableTab helper in DiscoveryList | DRY condition reuse across 5 JSX locations | ✓ Good — single source of truth for tab-specific action rendering |
+| parseFloat env pattern for GEMINI_AUTO_APPROVE | Match existing env-overridable pattern in discovery-orchestrator.ts and reddit-discoverer.ts | ✓ Good — consistent threshold configuration across all discoverers |
 
 ---
-*Last updated: 2026-03-16 after v2.1 milestone start*
+*Last updated: 2026-03-16 after v2.1 milestone*

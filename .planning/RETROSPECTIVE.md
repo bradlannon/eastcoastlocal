@@ -2,6 +2,50 @@
 
 *A living document updated after each milestone. Lessons feed forward into future planning.*
 
+## Milestone: v2.1 — Tech Debt Cleanup
+
+**Shipped:** 2026-03-16
+**Phases:** 3 | **Plans:** 5
+
+### What Was Built
+- FK-safe venue dedup backfill refactored to use performVenueMerge
+- EventCard attribution driven by source_type enum via supplementary query pattern
+- Dead phone column removed from venues and discovered_sources (migration 0010)
+- No Website tab on /admin/discovery for Places API venue stubs
+- GEMINI_AUTO_APPROVE threshold made env-overridable in places-discoverer
+- Ticketmaster .limit() mock chain fixed (33/33 tests passing)
+- All 21 Nyquist VALIDATION.md files finalized across v1.0-v2.0
+
+### What Worked
+- Milestone audit before v2.1 identified all 7 tech debt items from v1.5 and v2.0 — every item became a requirement
+- Cleanup milestone with no research needed executed quickly — 3 days from start to completion
+- Thenable mock pattern (Object.assign + Promise.resolve) cleanly solved Drizzle chain mocking without test framework hacks
+- Supplementary query pattern (2 DB round-trips + Map merge) avoided JOIN row duplication while keeping the EventWithVenue type clean
+- isActionableTab helper extracted DRY condition for 5 JSX locations in DiscoveryList
+
+### What Was Inefficient
+- event detail page (src/app/event/[id]/page.tsx) still uses old source_url?.includes('ticketmaster.com') pattern — DATA-02 only scoped to EventCard, not all attribution locations
+- SUMMARY frontmatter one_liner field still missing from all SUMMARYs — accumulating gap across milestones
+- 27-01-SUMMARY.md missing requirements_completed — documentation gap persists
+
+### Patterns Established
+- Thenable mock: `Object.assign(Promise.resolve(value), { method: jest.fn() })` for Drizzle chain testing
+- Supplementary query pattern: separate DB query for aggregated related rows, merged via Map, avoids JOIN duplication
+- `parseFloat(process.env.X ?? 'default')` as standard pattern for env-overridable numeric thresholds
+
+### Key Lessons
+1. Tech debt milestones are fast when scoped to items already identified by milestone audits — all 7 items were pre-documented
+2. Research can be safely disabled for cleanup work with known solutions — no novel implementation decisions needed
+3. Test mock patterns for ORMs require careful chain simulation — .limit() returning a thenable is not obvious from types alone
+4. Attribution logic should be centralized — fixing EventCard but not event detail page shows scope creep risk in targeted fixes
+
+### Cost Observations
+- Model mix: orchestrator on opus, executor/verifier/planner/checker on sonnet
+- 3 days from milestone start to shipped
+- Notable: Phase 28 (validation finalization) was largely documentation — 21 files updated with status changes only
+
+---
+
 ## Milestone: v2.0 — Mass Venue Discovery
 
 **Shipped:** 2026-03-16
@@ -244,6 +288,7 @@
 | v1.3 | 4 | 6 | Research disabled; single-wave plans; admin CRUD patterns established |
 | v1.5 | 8 | 14 | Milestone audit as completion gate; gap-closure phase from audit findings; pure-function scoring modules |
 | v2.0 | 4 | 10 | Multi-channel discovery (Places + Reddit); per-province cron isolation; two-step dedup pattern; batch admin operations |
+| v2.1 | 3 | 5 | Research disabled for cleanup; all items pre-identified by audit; supplementary query pattern; thenable mock pattern |
 
 ### Cumulative Quality
 
@@ -254,6 +299,7 @@
 | v1.3 | 95+ | 7,983 | 153 |
 | v1.5 | 269+ | 11,774 | 219 |
 | v2.0 | 350+ | 14,697 | 276 |
+| v2.1 | 350+ | 15,293 | 276 |
 
 ### Top Lessons (Verified Across Milestones)
 
@@ -268,3 +314,5 @@
 9. Backfill scripts must adopt canonical utilities — duplicate logic diverges as the utility evolves
 10. Constants with cross-phase significance should be centralized — independent definitions drift silently
 11. Only add schema columns when a consumer is planned in the same milestone — speculative columns become dead weight
+12. Tech debt milestones are fastest when every item is pre-documented by a prior milestone audit — zero discovery overhead
+13. Targeted fixes should scope all instances of a pattern, not just the first — partial fixes leave inconsistency (e.g., EventCard fixed but event detail page not)

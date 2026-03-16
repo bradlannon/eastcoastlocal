@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Roadmap ready, awaiting plan-phase
-stopped_at: Completed 28-tests-and-validation 28-02-PLAN.md
-last_updated: "2026-03-16T15:23:10.854Z"
-last_activity: 2026-03-16 — Roadmap created for v2.1
+milestone: v2.1
+milestone_name: Tech Debt Cleanup
+status: Milestone complete — awaiting next milestone
+stopped_at: v2.1 milestone archived
+last_updated: "2026-03-16T17:30:00.000Z"
+last_activity: 2026-03-16 — v2.1 Tech Debt Cleanup milestone completed
 progress:
   total_phases: 3
   completed_phases: 3
@@ -20,41 +20,26 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** v2.1 Tech Debt Cleanup — Phase 26 next
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 26 (Data Fixes) — not started
+Phase: — (milestone complete)
 Plan: —
-Status: Roadmap ready, awaiting plan-phase
-Last activity: 2026-03-16 — Roadmap created for v2.1
+Status: Milestone v2.1 complete — awaiting next milestone
+Last activity: 2026-03-16 — v2.1 Tech Debt Cleanup archived
 
 ## Accumulated Context
 
 ### Decisions
 
 Full decision log in PROJECT.md Key Decisions table.
-- [Phase 26-data-fixes]: Used supplementary query pattern (2 DB round-trips + Map merge) instead of LEFT JOIN in events API to avoid row duplication from Drizzle's select-all with multiple source rows
-- [Phase 26-data-fixes]: Removed anchor link from Ticketmaster attribution badge; badge visibility decoupled from source_url, driven by source_type enum
-- [Phase 26-data-fixes]: Insert venueMergeCandidates row (status=merged) before calling performVenueMerge to obtain valid candidateId
-- [Phase 26-data-fixes]: phone column removed from venues and discovered_sources; migration generated via drizzle-kit
-- [Phase 27-admin-config]: Extracted isActionableTab helper for DRY condition reuse across 5 JSX locations in DiscoveryList
-- [Phase 27-admin-config]: GEMINI_AUTO_APPROVE uses parseFloat env pattern matching discovery-orchestrator.ts and reddit-discoverer.ts
-- [Phase 28-tests-and-validation]: Thenable mock pattern: Object.assign(Promise.resolve(value), { limit: jest.fn() }) for db.select chain
-- [Phase 28-tests-and-validation]: All 21 VALIDATION.md files finalized retroactively — per-task statuses set to pass since all phases shipped
 
 ### Tech Debt (cumulative)
 
-From v1.5:
-- venue-dedup-backfill.ts --execute mode does not use performVenueMerge (FK violation risk) → DATA-01 (Phase 26)
-- 2 ticketmaster.test.ts unit tests broken (incomplete .limit() mock) → TEST-01 (Phase 28)
-- EventCard attribution uses source_url string-match instead of event_sources.source_type → DATA-02 (Phase 26)
-
-From v2.0:
-- phone column on discovered_sources and venues never populated by any discoverer → DATA-03 (Phase 26)
-- GEMINI_AUTO_APPROVE hardcoded in places-discoverer; not env-overridable like Gemini/Reddit copies → ADMIN-02 (Phase 27)
-- no_website tab missing from /admin/discovery — stubs invisible to admin → ADMIN-01 (Phase 27)
-- Nyquist VALIDATION.md files all draft across 12 phases → TEST-02 (Phase 28)
+From v2.1 audit (non-blocking):
+- src/app/event/[id]/page.tsx line 200 still uses source_url?.includes('ticketmaster.com') for attribution — DATA-02 only scoped to EventCard, not event detail page
+- 27-01-SUMMARY.md frontmatter missing requirements_completed for ADMIN-01 and ADMIN-02 — documentation gap only
 
 ### Blockers/Concerns
 
@@ -62,6 +47,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T15:18:51.294Z
-Stopped at: Completed 28-tests-and-validation 28-02-PLAN.md
+Last session: 2026-03-16
+Stopped at: v2.1 milestone archived
 Resume file: None

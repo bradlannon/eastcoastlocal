@@ -1,5 +1,22 @@
 # Milestones
 
+## v2.1 Tech Debt Cleanup (Shipped: 2026-03-16)
+
+**Phases completed:** 3 phases, 5 plans
+**Timeline:** 3 days (2026-03-13 → 2026-03-16)
+**Stats:** 15,293 LOC TypeScript, 57 files changed, +3,390 / -499 lines
+
+**Key accomplishments:**
+- FK-safe venue dedup backfill — refactored to use performVenueMerge, eliminating FK violation risk in --execute mode
+- EventCard attribution driven by source_type enum via supplementary query pattern, replacing brittle URL string-matching
+- Dead phone column removed from venues and discovered_sources tables (migration 0010)
+- No Website tab added to /admin/discovery for Places API venue stubs with approve/reject actions
+- GEMINI_AUTO_APPROVE threshold made env-overridable in places-discoverer
+- Test suite restored to green — fixed .limit() mock chain in ticketmaster.test.ts (33/33 passing)
+- All 21 Nyquist VALIDATION.md files finalized across milestones v1.0-v2.0
+
+---
+
 ## v2.0 Mass Venue Discovery (Shipped: 2026-03-16)
 
 **Phases completed:** 4 phases, 10 plans
