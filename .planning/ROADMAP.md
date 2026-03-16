@@ -155,5 +155,5 @@ Plans:
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
-| 27. Admin & Config | 1/1 | Complete   | 2026-03-16 | - |
+| 27. Admin & Config | 1/1 | Complete    | 2026-03-16 | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |

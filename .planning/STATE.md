@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: Roadmap ready, awaiting plan-phase
 stopped_at: Completed 27-admin-config 27-01-PLAN.md
-last_updated: "2026-03-16T14:18:03.600Z"
+last_updated: "2026-03-16T14:21:23.018Z"
 last_activity: 2026-03-16 — Roadmap created for v2.1
 progress:
   total_phases: 3
