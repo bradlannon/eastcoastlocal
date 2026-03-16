@@ -96,9 +96,12 @@ beforeEach(() => {
   (mockDb.query.venues.findFirst as jest.Mock).mockResolvedValue(null);
 
   // Default: select returns empty city venues (no fuzzy candidates)
+  const mockWhereResultDefault = Object.assign(Promise.resolve([]), {
+    limit: jest.fn().mockResolvedValue([]),
+  });
   (mockDb.select as jest.Mock) = jest.fn().mockReturnValue({
     from: jest.fn().mockReturnValue({
-      where: jest.fn().mockResolvedValue([]),
+      where: jest.fn().mockReturnValue(mockWhereResultDefault),
     }),
   });
 
@@ -443,9 +446,12 @@ describe('findOrCreateVenue', () => {
     const cityVenues = [
       { id: 55, name: 'Scotiabank Centre', lat: 44.6488, lng: -63.5752, city: 'Halifax' },
     ];
+    const mockWhereResultCityVenues = Object.assign(Promise.resolve(cityVenues), {
+      limit: jest.fn().mockResolvedValue([]),
+    });
     (mockDb.select as jest.Mock) = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue(cityVenues),
+        where: jest.fn().mockReturnValue(mockWhereResultCityVenues),
       }),
     });
 
@@ -492,7 +498,9 @@ describe('findOrCreateVenue', () => {
       from: jest.fn().mockReturnValue({
         where: jest.fn().mockImplementation((...args) => {
           whereCapture.push(...args);
-          return Promise.resolve([]); // no city venues → keep_separate → insert new
+          return Object.assign(Promise.resolve([]), {
+            limit: jest.fn().mockResolvedValue([]),
+          });
         }),
       }),
     });
@@ -515,9 +523,12 @@ describe('findOrCreateVenue', () => {
     const cityVenues = [
       { id: 77, name: 'Scotiabank Centre', lat: 44.6488, lng: -63.5752, city: 'Halifax' },
     ];
+    const mockWhereResultReview = Object.assign(Promise.resolve(cityVenues), {
+      limit: jest.fn().mockResolvedValue([]),
+    });
     (mockDb.select as jest.Mock) = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue(cityVenues),
+        where: jest.fn().mockReturnValue(mockWhereResultReview),
       }),
     });
 
@@ -542,9 +553,12 @@ describe('findOrCreateVenue', () => {
   it('creates new venue without fuzzy log when no candidates found in city', async () => {
     (mockDb.query.venues.findFirst as jest.Mock).mockResolvedValue(null);
 
+    const mockWhereResultEmpty = Object.assign(Promise.resolve([]), {
+      limit: jest.fn().mockResolvedValue([]),
+    });
     (mockDb.select as jest.Mock) = jest.fn().mockReturnValue({
       from: jest.fn().mockReturnValue({
-        where: jest.fn().mockResolvedValue([]), // no other venues in city
+        where: jest.fn().mockReturnValue(mockWhereResultEmpty),
       }),
     });
 
