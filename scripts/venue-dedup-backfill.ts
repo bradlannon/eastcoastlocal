@@ -11,13 +11,14 @@ import 'dotenv/config';
  *   1. Load all venues grouped by city
  *   2. For each city group with 2+ venues, compare every pair using scoreVenueCandidate
  *   3. Dry-run: print summary table and totals
- *   4. Execute: merge duplicates, reassign events/scrape_sources, delete duplicates, log merges
+ *   4. Execute: merge duplicates via performVenueMerge (handles FK cleanup safely)
  */
 
 import { db } from '@/lib/db/client';
-import { venues, events, scrape_sources, venueMergeLog, venueMergeCandidates } from '@/lib/db/schema';
+import { venues, venueMergeCandidates } from '@/lib/db/schema';
 import { scoreVenueCandidate, venueNameRatio } from '@/lib/scraper/venue-dedup';
-import { eq, sql } from 'drizzle-orm';
+import { performVenueMerge } from '@/lib/db/merge-venue';
+import { eq } from 'drizzle-orm';
 
 // ─── Types ────────────────────────────────────────────────────────────────
 
@@ -182,7 +183,7 @@ async function main() {
     return;
   }
 
-  // Step 5: Execute merges
+  // Step 5: Execute merges via performVenueMerge (handles FK cleanup correctly)
   console.log('\n--- Executing merges ---');
 
   let mergedCount = 0;
@@ -194,50 +195,32 @@ async function main() {
 
     console.log(`  Merging venue ${duplicateId} ("${m.venueA.name}") → ${canonicalId} ("${m.venueB.name}")`);
 
-    // 5a. Reassign events from duplicate to canonical (handle unique constraint violations)
-    const dupeEvents = await db.select({ id: events.id }).from(events).where(eq(events.venue_id, duplicateId));
+    // Insert a venueMergeCandidates row with status 'merged' to get a candidateId
+    // (performVenueMerge requires a candidateId to update the candidates table)
+    const [candidate] = await db
+      .insert(venueMergeCandidates)
+      .values({
+        venue_a_id: duplicateId,
+        venue_b_id: canonicalId,
+        name_score: m.nameScore,
+        distance_meters: m.distanceM,
+        reason: 'backfill_auto_merge',
+        status: 'merged',
+        reviewed_at: new Date(),
+      })
+      .returning({ id: venueMergeCandidates.id });
 
-    let eventsReassigned = 0;
-    let eventsDropped = 0;
-
-    for (const evt of dupeEvents) {
-      try {
-        await db
-          .update(events)
-          .set({ venue_id: canonicalId })
-          .where(eq(events.id, evt.id));
-        eventsReassigned++;
-      } catch (err: unknown) {
-        // Unique constraint violation (event already exists on canonical) — delete orphan
-        const errMsg = err instanceof Error ? err.message : String(err);
-        if (errMsg.includes('unique') || errMsg.includes('duplicate')) {
-          await db.delete(events).where(eq(events.id, evt.id));
-          eventsDropped++;
-        } else {
-          throw err;
-        }
-      }
-    }
-
-    // 5b. Reassign scrape_sources from duplicate to canonical
-    await db
-      .update(scrape_sources)
-      .set({ venue_id: canonicalId })
-      .where(eq(scrape_sources.venue_id, duplicateId));
-
-    // 5c. Delete the duplicate venue row
-    await db.delete(venues).where(eq(venues.id, duplicateId));
-
-    // 5d. Log to venue_merge_log
-    await db.insert(venueMergeLog).values({
-      canonical_venue_id: canonicalId,
-      merged_venue_name: m.venueA.name,
-      merged_venue_city: m.venueA.city,
-      name_score: m.nameScore,
-      distance_meters: m.distanceM,
+    const result = await performVenueMerge({
+      canonicalId,
+      duplicateId,
+      candidateId: candidate.id,
+      nameScore: m.nameScore,
+      distanceMeters: m.distanceM,
+      duplicateName: m.venueA.name,
+      duplicateCity: m.venueA.city,
     });
 
-    console.log(`    Events reassigned: ${eventsReassigned}, dropped (conflict): ${eventsDropped}`);
+    console.log(`    Events reassigned: ${result.eventsReassigned}, dropped (conflict): ${result.eventsDropped}`);
     mergedCount++;
   }
 
