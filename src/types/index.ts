@@ -12,4 +12,5 @@ export type NewScrapeSource = InferInsertModel<typeof scrape_sources>;
 export type EventWithVenue = {
   events: Event;
   venues: Venue;
+  source_types?: string[];  // from event_sources.source_type -- optional for backward compat
 };
