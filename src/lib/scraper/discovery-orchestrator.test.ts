@@ -67,12 +67,12 @@ function mockUpdateChain() {
 beforeAll(() => {
   // Set throttle to 0 so delay() calls resolve immediately in tests
   process.env.DISCOVERY_THROTTLE_MS = '0';
-  process.env.AUTO_APPROVE_THRESHOLD = '0.8';
+  process.env.GEMINI_AUTO_APPROVE = '0.9';
 });
 
 afterAll(() => {
   delete process.env.DISCOVERY_THROTTLE_MS;
-  delete process.env.AUTO_APPROVE_THRESHOLD;
+  delete process.env.GEMINI_AUTO_APPROVE;
 });
 
 beforeEach(() => {
@@ -313,7 +313,7 @@ describe('runDiscoveryJob', () => {
     expect(mockGenerateText).toHaveBeenCalledTimes(6);
   });
 
-  it('Test 8: promoteSource is called when a candidate scores >= 0.8', async () => {
+  it('Test 8: promoteSource is called when a candidate scores >= 0.9', async () => {
     const fromFn = jest.fn().mockResolvedValue([]);
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
@@ -335,7 +335,7 @@ describe('runDiscoveryJob', () => {
     expect(mockPromoteSource).toHaveBeenCalledWith(42);
   });
 
-  it('Test 9: promoteSource is NOT called when score < 0.8', async () => {
+  it('Test 9: promoteSource is NOT called when score < 0.9', async () => {
     const fromFn = jest.fn().mockResolvedValue([]);
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 

@@ -17,7 +17,7 @@ const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
 
 const AGGREGATOR_DOMAINS = ['eventbrite.com', 'bandsintown.com', 'facebook.com', 'ticketmaster.com'];
 
-const AUTO_APPROVE_THRESHOLD = parseFloat(process.env.AUTO_APPROVE_THRESHOLD ?? '0.8');
+const GEMINI_AUTO_APPROVE = parseFloat(process.env.GEMINI_AUTO_APPROVE ?? '0.9');
 
 const CandidateSchema = z.object({
   candidates: z.array(
@@ -159,7 +159,7 @@ For each venue return: url (full URL with https://), name, province ("${province
       .where(eq(discovered_sources.url, candidate.url));
 
     // Auto-promote if score meets threshold
-    if (score >= AUTO_APPROVE_THRESHOLD) {
+    if (score >= GEMINI_AUTO_APPROVE) {
       const staged = await db.query.discovered_sources.findFirst({
         where: eq(discovered_sources.url, candidate.url),
       });
