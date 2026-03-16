@@ -1,9 +1,9 @@
 ---
 phase: 1
 slug: foundation
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-13
 ---
 
@@ -38,10 +38,10 @@ created: 2026-03-13
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 01-01-01 | 01 | 1 | INFR-01 | smoke | `curl -f $VERCEL_URL/api/health` | ❌ W0 | ⬜ pending |
-| 01-01-02 | 01 | 1 | INFR-01 | integration | `npm run db:migrate` exits 0 | ❌ W0 | ⬜ pending |
-| 01-01-03 | 01 | 1 | SCRP-05 | integration | `npx jest src/lib/db/seed.test.ts` | ❌ W0 | ⬜ pending |
-| 01-01-04 | 01 | 1 | SCRP-06 | integration | `npx jest src/lib/db/schema.test.ts` | ❌ W0 | ⬜ pending |
+| 01-01-01 | 01 | 1 | INFR-01 | smoke | `curl -f $VERCEL_URL/api/health` | N/A | ✅ pass |
+| 01-01-02 | 01 | 1 | INFR-01 | integration | `npm run db:migrate` exits 0 | N/A | ✅ pass |
+| 01-01-03 | 01 | 1 | SCRP-05 | integration | `npx jest src/lib/db/seed.test.ts` | N/A | ✅ pass |
+| 01-01-04 | 01 | 1 | SCRP-06 | integration | `npx jest src/lib/db/schema.test.ts` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -49,10 +49,10 @@ created: 2026-03-13
 
 ## Wave 0 Requirements
 
-- [ ] `jest.config.ts` + `jest.setup.ts` — Jest configured for Next.js + TypeScript
-- [ ] `src/lib/db/schema.test.ts` — verifies all three tables exist with correct columns
-- [ ] `src/lib/db/seed.test.ts` — verifies seed inserts rows into scrape_sources and venues
-- [ ] Framework install: `npm install -D jest @types/jest ts-jest jest-environment-node`
+- [x] `jest.config.ts` + `jest.setup.ts` — Jest configured for Next.js + TypeScript
+- [x] `src/lib/db/schema.test.ts` — verifies all three tables exist with correct columns
+- [x] `src/lib/db/seed.test.ts` — verifies seed inserts rows into scrape_sources and venues
+- [x] Framework install: `npm install -D jest @types/jest ts-jest jest-environment-node`
 
 ---
 
@@ -66,11 +66,11 @@ created: 2026-03-13
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

@@ -1,9 +1,9 @@
 ---
 phase: 8
 slug: category-filter-ui
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-14
 ---
 
@@ -38,9 +38,9 @@ created: 2026-03-14
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 08-01-01 | 01 | 1 | FILT-01 | unit | `npm test -- --testPathPattern=filter-utils` | ❌ W0 (extend existing) | ⬜ pending |
-| 08-01-02 | 01 | 1 | FILT-01, FILT-02, FILT-03 | unit + manual | `npm test -- --testPathPattern=filter-utils` | ❌ W0 | ⬜ pending |
-| 08-01-03 | 01 | 1 | FILT-01 | manual | `npm run build` | ✅ | ⬜ pending |
+| 08-01-01 | 01 | 1 | FILT-01 | unit | `npm test -- --testPathPattern=filter-utils` | N/A | ✅ pass |
+| 08-01-02 | 01 | 1 | FILT-01, FILT-02, FILT-03 | unit + manual | `npm test -- --testPathPattern=filter-utils` | N/A | ✅ pass |
+| 08-01-03 | 01 | 1 | FILT-01 | manual | `npm run build` | ✅ | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,8 +48,8 @@ created: 2026-03-14
 
 ## Wave 0 Requirements
 
-- [ ] Add `filterByCategory` tests to `src/lib/filter-utils.test.ts` — covers FILT-01, FILT-02
-- [ ] Extend `makeEvent` helper in `filter-utils.test.ts` to support `event_category` override
+- [x] Add `filterByCategory` tests to `src/lib/filter-utils.test.ts` — covers FILT-01, FILT-02
+- [x] Extend `makeEvent` helper in `filter-utils.test.ts` to support `event_category` override
 
 *No new test file needed — extend existing `filter-utils.test.ts`*
 
@@ -69,11 +69,11 @@ created: 2026-03-14
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

@@ -1,9 +1,9 @@
 ---
 phase: 2
 slug: data-pipeline
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-13
 ---
 
@@ -38,14 +38,14 @@ created: 2026-03-13
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 02-01-01 | 01 | 1 | SCRP-01 | unit | `npm test -- --testPathPattern=fetcher` | ❌ W0 | ⬜ pending |
-| 02-01-02 | 01 | 1 | SCRP-03 | unit | `npm test -- --testPathPattern=fetcher` | ❌ W0 | ⬜ pending |
-| 02-01-03 | 01 | 1 | SCRP-02 | unit | `npm test -- --testPathPattern=extractor` | ❌ W0 | ⬜ pending |
-| 02-01-04 | 01 | 1 | SCRP-04 | unit | `npm test -- --testPathPattern=normalizer` | ❌ W0 | ⬜ pending |
-| 02-01-05 | 01 | 1 | SCRP-08 | unit | `npm test -- --testPathPattern=geocoder` | ❌ W0 | ⬜ pending |
-| 02-01-06 | 01 | 1 | SCRP-07 | integration | `npm test -- --testPathPattern=upsert` | ❌ W0 | ⬜ pending |
-| 02-01-07 | 01 | 1 | SCRP-09 | unit | `npm test -- --testPathPattern=cron` | ❌ W0 | ⬜ pending |
-| 02-01-08 | 01 | 1 | SCRP-10 | unit | `npm test -- --testPathPattern=eventbrite\|bandsintown` | ❌ W0 | ⬜ pending |
+| 02-01-01 | 01 | 1 | SCRP-01 | unit | `npm test -- --testPathPattern=fetcher` | N/A | ✅ pass |
+| 02-01-02 | 01 | 1 | SCRP-03 | unit | `npm test -- --testPathPattern=fetcher` | N/A | ✅ pass |
+| 02-01-03 | 01 | 1 | SCRP-02 | unit | `npm test -- --testPathPattern=extractor` | N/A | ✅ pass |
+| 02-01-04 | 01 | 1 | SCRP-04 | unit | `npm test -- --testPathPattern=normalizer` | N/A | ✅ pass |
+| 02-01-05 | 01 | 1 | SCRP-08 | unit | `npm test -- --testPathPattern=geocoder` | N/A | ✅ pass |
+| 02-01-06 | 01 | 1 | SCRP-07 | integration | `npm test -- --testPathPattern=upsert` | N/A | ✅ pass |
+| 02-01-07 | 01 | 1 | SCRP-09 | unit | `npm test -- --testPathPattern=cron` | N/A | ✅ pass |
+| 02-01-08 | 01 | 1 | SCRP-10 | unit | `npm test -- --testPathPattern=eventbrite\|bandsintown` | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -53,13 +53,13 @@ created: 2026-03-13
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/scraper/fetcher.test.ts` — covers SCRP-01, SCRP-03 (mock fetch, test cheerio stripping)
-- [ ] `src/lib/scraper/extractor.test.ts` — covers SCRP-02, SCRP-04 (mock AI SDK generateText)
-- [ ] `src/lib/scraper/normalizer.test.ts` — covers SCRP-04 (normalizePerformer, date rejection, past-event filtering)
-- [ ] `src/lib/scraper/geocoder.test.ts` — covers SCRP-08 (mock fetch to Maps API)
-- [ ] `src/lib/scraper/eventbrite.test.ts` — covers SCRP-10 Eventbrite adapter
-- [ ] `src/lib/scraper/bandsintown.test.ts` — covers SCRP-10 Bandsintown adapter
-- [ ] `src/app/api/cron/scrape/route.test.ts` — covers SCRP-09 (401 without secret, 200 with)
+- [x] `src/lib/scraper/fetcher.test.ts` — covers SCRP-01, SCRP-03 (mock fetch, test cheerio stripping)
+- [x] `src/lib/scraper/extractor.test.ts` — covers SCRP-02, SCRP-04 (mock AI SDK generateText)
+- [x] `src/lib/scraper/normalizer.test.ts` — covers SCRP-04 (normalizePerformer, date rejection, past-event filtering)
+- [x] `src/lib/scraper/geocoder.test.ts` — covers SCRP-08 (mock fetch to Maps API)
+- [x] `src/lib/scraper/eventbrite.test.ts` — covers SCRP-10 Eventbrite adapter
+- [x] `src/lib/scraper/bandsintown.test.ts` — covers SCRP-10 Bandsintown adapter
+- [x] `src/app/api/cron/scrape/route.test.ts` — covers SCRP-09 (401 without secret, 200 with)
 
 *LLM tests mock the `ai` package — no actual Gemini API calls in CI.*
 
@@ -76,11 +76,11 @@ created: 2026-03-13
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 10s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 10s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16

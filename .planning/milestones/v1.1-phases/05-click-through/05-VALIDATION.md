@@ -1,9 +1,9 @@
 ---
 phase: 5
 slug: click-through
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: final
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-14
 ---
 
@@ -38,9 +38,9 @@ created: 2026-03-14
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| TBD | TBD | TBD | HEAT-03 | unit | `npm test -- timelapse-utils` | ❌ W0 | ⬜ pending |
-| TBD | TBD | TBD | HEAT-03 | manual | Click hotspot, verify popup | N/A | ⬜ pending |
-| TBD | TBD | TBD | HEAT-03 | manual | Click overlapping venues, verify grouped popup | N/A | ⬜ pending |
+| TBD | TBD | TBD | HEAT-03 | unit | `npm test -- timelapse-utils` | N/A | ✅ pass |
+| TBD | TBD | TBD | HEAT-03 | manual | Click hotspot, verify popup | N/A | ✅ pass |
+| TBD | TBD | TBD | HEAT-03 | manual | Click overlapping venues, verify grouped popup | N/A | ✅ pass |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -48,7 +48,7 @@ created: 2026-03-14
 
 ## Wave 0 Requirements
 
-- [ ] `findNearbyVenues` unit tests added to `src/lib/timelapse-utils.test.ts` — spatial proximity query logic
+- [x] `findNearbyVenues` unit tests added to `src/lib/timelapse-utils.test.ts` — spatial proximity query logic
 
 *Existing test infrastructure covers framework needs.*
 
@@ -67,11 +67,11 @@ created: 2026-03-14
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 5s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 5s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** finalized 2026-03-16
