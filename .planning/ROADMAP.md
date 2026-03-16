@@ -124,7 +124,7 @@ Plans:
   2. A daily cron at /api/cron/archive archives past events using Atlantic timezone threshold (not UTC midnight)
   3. Re-scraping an already-archived event leaves archived_at unchanged (COALESCE guard in upsertEvent ON CONFLICT clause)
   4. Admin can view a dedicated archived events tab showing all soft-archived events
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 Plans:
 - [ ] 30-01-PLAN.md — Archive cron, public API filter, upsert guard (ARCH-02, ARCH-03, ARCH-04)
 - [ ] 30-02-PLAN.md — Admin archived events tab with pagination (ARCH-05)
@@ -184,6 +184,6 @@ Plans:
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
-| 30. Archival | v2.2 | 0/2 | Not started | - |
+| 30. Archival | 1/2 | In Progress|  | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |

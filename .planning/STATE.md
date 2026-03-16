@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Event Data Quality
 status: planning
-stopped_at: Phase 30 context gathered
-last_updated: "2026-03-16T20:58:51.345Z"
+stopped_at: "Completed 30-02-PLAN.md — awaiting checkpoint:human-verify for /admin/archived"
+last_updated: "2026-03-16T21:27:01.507Z"
 last_activity: 2026-03-16 — Roadmap created for v2.2 (4 phases, 13 requirements)
 progress:
   total_phases: 4
   completed_phases: 1
-  total_plans: 1
-  completed_plans: 1
+  total_plans: 3
+  completed_plans: 2
   percent: 0
 ---
 
@@ -56,6 +56,7 @@ Recent decisions affecting v2.2:
 - [Phase 29-schema-foundation]: archived_at uses TIMESTAMPTZ (withTimezone: true) per ARCH-01 — avoids explicit Atlantic offset in application code
 - [Phase 29-schema-foundation]: recurring_series table placed before events in schema.ts to resolve Drizzle forward-reference in series_id FK
 - [Phase 29-schema-foundation]: recurrence_pattern uses .optional() not .nullable() — Gemini output omits absent fields, undefined is correct
+- [Phase 30-archival]: Server component queries DB directly (not via API route) for admin list pages
 
 ### Tech Debt (cumulative)
 
@@ -70,6 +71,6 @@ From v2.1 audit (non-blocking):
 
 ## Session Continuity
 
-Last session: 2026-03-16T20:58:51.338Z
-Stopped at: Phase 30 context gathered
-Resume file: .planning/phases/30-archival/30-CONTEXT.md
+Last session: 2026-03-16T21:27:01.503Z
+Stopped at: Completed 30-02-PLAN.md — awaiting checkpoint:human-verify for /admin/archived
+Resume file: None

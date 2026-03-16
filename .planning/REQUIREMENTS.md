@@ -13,7 +13,7 @@ Requirements for event data quality. Each maps to roadmap phases.
 - [ ] **ARCH-02**: Daily cron archives past events using Atlantic timezone threshold
 - [ ] **ARCH-03**: Events API excludes archived events from public map and list
 - [ ] **ARCH-04**: Re-scraping an archived event does not unarchive it (COALESCE guard in upsert)
-- [ ] **ARCH-05**: Admin can view archived events in a dedicated tab
+- [x] **ARCH-05**: Admin can view archived events in a dedicated tab
 
 ### Series Detection
 
@@ -54,7 +54,7 @@ None — focused data quality milestone.
 | ARCH-02 | Phase 30 | Pending |
 | ARCH-03 | Phase 30 | Pending |
 | ARCH-04 | Phase 30 | Pending |
-| ARCH-05 | Phase 30 | Pending |
+| ARCH-05 | Phase 30 | Complete |
 | SER-01 | Phase 29 | Complete |
 | SER-02 | Phase 31 | Pending |
 | SER-03 | Phase 31 | Pending |
