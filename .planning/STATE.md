@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Event Data Quality
 status: planning
-stopped_at: Phase 33 context gathered
-last_updated: "2026-03-16T22:48:00.749Z"
+stopped_at: "Completed 33-01-PLAN.md (checkpoint:human-verify Task 3 pending)"
+last_updated: "2026-03-16T23:09:14.166Z"
 last_activity: 2026-03-16 — Roadmap created for v2.2 (4 phases, 13 requirements)
 progress:
   total_phases: 5
-  completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  completed_phases: 3
+  total_plans: 4
+  completed_plans: 4
   percent: 0
 ---
 
@@ -60,6 +60,8 @@ Recent decisions affecting v2.2:
 - [Phase 30-archival]: No maxDuration on archive cron — fast SQL UPDATE doesn't need the 60s extension
 - [Phase 30-archival]: Pre-fetch venue IDs by province (two SELECT queries) rather than subquery to avoid Drizzle subquery pitfall
 - [Phase 30-archival]: archived_at omission from ON CONFLICT SET is the upsert guard — re-scraping cannot unarchive events (ARCH-04)
+- [Phase 33-admin-manual-triggers]: Admin trigger route uses admin session cookie auth (verifyToken), not CRON_SECRET — cron secret stays server-only
+- [Phase 33-admin-manual-triggers]: Discovery manual triggers insert discovery_runs rows matching cron route pattern so Recent Discovery Runs dashboard table updates
 
 ### Roadmap Evolution
 
@@ -78,6 +80,6 @@ From v2.1 audit (non-blocking):
 
 ## Session Continuity
 
-Last session: 2026-03-16T22:48:00.744Z
-Stopped at: Phase 33 context gathered
-Resume file: .planning/phases/33-admin-manual-triggers/33-CONTEXT.md
+Last session: 2026-03-16T23:09:14.162Z
+Stopped at: Completed 33-01-PLAN.md (checkpoint:human-verify Task 3 pending)
+Resume file: None
