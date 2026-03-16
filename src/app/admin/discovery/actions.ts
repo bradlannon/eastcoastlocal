@@ -7,6 +7,27 @@ import { db } from '@/lib/db/client';
 import { discovered_sources, scrape_sources } from '@/lib/db/schema';
 import { promoteSource } from '@/lib/scraper/promote-source';
 
+export async function batchApproveCandidate(formData: FormData): Promise<void> {
+  const raw = formData.get('ids');
+  const ids = String(raw ?? '')
+    .split(',')
+    .map(Number)
+    .filter((n) => !isNaN(n) && n > 0);
+
+  if (ids.length === 0) return;
+
+  const results = await Promise.allSettled(ids.map((id) => promoteSource(id)));
+  const failures = results.filter((r) => r.status === 'rejected');
+  if (failures.length > 0) {
+    console.error(
+      `[batchApproveCandidate] ${failures.length} of ${ids.length} failed`
+    );
+  }
+
+  revalidatePath('/admin/discovery');
+  redirect('/admin/discovery');
+}
+
 export async function approveCandidate(formData: FormData): Promise<void> {
   const raw = formData.get('id');
   const id = parseInt(String(raw ?? ''), 10);

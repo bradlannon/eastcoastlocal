@@ -1,10 +1,15 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import { useActionState } from 'react';
 import { useFormStatus } from 'react-dom';
 import Link from 'next/link';
-import { approveCandidate, rejectCandidate, revokeCandidate } from '../actions';
+import {
+  approveCandidate,
+  batchApproveCandidate,
+  rejectCandidate,
+  revokeCandidate,
+} from '../actions';
 
 interface DiscoveryListProps {
   candidates: Array<{
@@ -85,6 +90,19 @@ function RevokeSubmitButton() {
   );
 }
 
+function BatchApproveButton({ count }: { count: number }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white px-4 py-2 rounded text-sm font-medium transition-colors"
+    >
+      {pending ? 'Approving...' : `Batch Approve (${count})`}
+    </button>
+  );
+}
+
 function RejectForm({
   candidateId,
   onCancel,
@@ -125,11 +143,36 @@ export default function DiscoveryList({
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [revokingId, setRevokingId] = useState<number | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [activeStatus]);
 
   function handleRowClick(id: number) {
     setExpandedId((prev) => (prev === id ? null : id));
     // Close reject form if collapsing row
     if (expandedId === id) setRejectingId(null);
+  }
+
+  function toggleRow(id: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (selectedIds.size === candidates.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(candidates.map((c) => c.id)));
+    }
   }
 
   return (
@@ -155,6 +198,20 @@ export default function DiscoveryList({
         })}
       </div>
 
+      {/* Batch approve button (pending tab only, shown when selections exist) */}
+      {activeStatus === 'pending' && selectedIds.size > 0 && (
+        <div className="mb-3">
+          <form action={batchApproveCandidate}>
+            <input
+              type="hidden"
+              name="ids"
+              value={Array.from(selectedIds).join(',')}
+            />
+            <BatchApproveButton count={selectedIds.size} />
+          </form>
+        </div>
+      )}
+
       {/* Table or empty state */}
       {candidates.length === 0 ? (
         <div className="bg-white rounded-lg shadow-sm border p-12 text-center text-gray-500">
@@ -165,6 +222,20 @@ export default function DiscoveryList({
           <table className="w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                {activeStatus === 'pending' && (
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        candidates.length > 0 &&
+                        selectedIds.size === candidates.length
+                      }
+                      onChange={toggleAll}
+                      className="rounded"
+                      aria-label="Select all"
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Name
                 </th>
@@ -189,6 +260,23 @@ export default function DiscoveryList({
                     className="cursor-pointer hover:bg-gray-50 transition-colors"
                     onClick={() => handleRowClick(candidate.id)}
                   >
+                    {activeStatus === 'pending' && (
+                      <td
+                        className="px-4 py-3 w-10"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleRow(candidate.id);
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(candidate.id)}
+                          onChange={() => toggleRow(candidate.id)}
+                          className="rounded"
+                          aria-label={`Select ${candidate.source_name ?? candidate.domain}`}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-sm font-medium text-gray-900 whitespace-nowrap">
                       {candidate.source_name ?? candidate.domain}
                     </td>
@@ -213,7 +301,7 @@ export default function DiscoveryList({
                   {expandedId === candidate.id && (
                     <tr>
                       <td
-                        colSpan={5}
+                        colSpan={activeStatus === 'pending' ? 6 : 5}
                         className="px-4 py-4 bg-gray-50 border-t border-gray-200"
                       >
                         <div className="space-y-3">
