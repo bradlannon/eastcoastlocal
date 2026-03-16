@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Roadmap ready, awaiting plan-phase
-stopped_at: Completed 27-admin-config 27-01-PLAN.md
-last_updated: "2026-03-16T14:21:23.018Z"
+stopped_at: Completed 28-tests-and-validation 28-01-PLAN.md
+last_updated: "2026-03-16T15:13:47.524Z"
 last_activity: 2026-03-16 — Roadmap created for v2.1
 progress:
   total_phases: 3
   completed_phases: 2
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 5
+  completed_plans: 4
 ---
 
 # Project State
@@ -40,6 +40,7 @@ Full decision log in PROJECT.md Key Decisions table.
 - [Phase 26-data-fixes]: phone column removed from venues and discovered_sources; migration generated via drizzle-kit
 - [Phase 27-admin-config]: Extracted isActionableTab helper for DRY condition reuse across 5 JSX locations in DiscoveryList
 - [Phase 27-admin-config]: GEMINI_AUTO_APPROVE uses parseFloat env pattern matching discovery-orchestrator.ts and reddit-discoverer.ts
+- [Phase 28-tests-and-validation]: Thenable mock pattern: Object.assign(Promise.resolve(value), { limit: jest.fn() }) for db.select chain
 
 ### Tech Debt (cumulative)
 
@@ -60,6 +61,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T14:18:03.596Z
-Stopped at: Completed 27-admin-config 27-01-PLAN.md
+Last session: 2026-03-16T15:13:47.520Z
+Stopped at: Completed 28-tests-and-validation 28-01-PLAN.md
 Resume file: None
