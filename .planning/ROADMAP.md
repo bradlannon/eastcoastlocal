@@ -10,6 +10,7 @@
 - ✅ **v1.5 Event Dedup & UX Polish** — Phases 18-21 (shipped 2026-03-15)
 - ✅ **v2.0 Mass Venue Discovery** — Phases 22-25 (shipped 2026-03-16)
 - ✅ **v2.1 Tech Debt Cleanup** — Phases 26-28 (shipped 2026-03-16)
+- 🚧 **v2.2 Event Data Quality** — Phases 29-32 (in progress)
 
 ## Phases
 
@@ -89,6 +90,62 @@
 
 </details>
 
+### 🚧 v2.2 Event Data Quality (In Progress)
+
+**Milestone Goal:** Make event data trustworthy by handling recurring events as grouped series and archiving past events to keep the UI fresh.
+
+- [ ] **Phase 29: Schema Foundation** - Add archived_at and series_id columns to events; create recurring_series table
+- [ ] **Phase 30: Archival** - Daily cron soft-archives past events; API excludes archived events; upsert guards against unarchival
+- [ ] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events
+- [ ] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence
+
+## Phase Details
+
+### Phase 29: Schema Foundation
+**Goal**: The database has the structural columns and table that all v2.2 features depend on — deployed non-destructively with no existing queries broken
+**Depends on**: Phase 28
+**Requirements**: ARCH-01, SER-01
+**Success Criteria** (what must be TRUE):
+  1. The events table has an archived_at nullable TIMESTAMPTZ column (default NULL, no existing rows affected)
+  2. The events table has a series_id nullable FK column referencing recurring_series
+  3. The recurring_series table exists with (venue_id, normalized_performer) unique index enforcing venue-scoped series at the DB level
+  4. Drizzle InferSelectModel propagates archived_at and series_id to the TypeScript Event type automatically
+  5. The Gemini extraction Zod schema accepts an optional recurrence_pattern hint field
+**Plans**: TBD
+
+### Phase 30: Archival
+**Goal**: Past events disappear from the public map and list automatically each day, without destroying dedup anchors or unarchiving events that get re-scraped
+**Depends on**: Phase 29
+**Requirements**: ARCH-02, ARCH-03, ARCH-04, ARCH-05
+**Success Criteria** (what must be TRUE):
+  1. The public map and event list show no events whose date has passed (archived_at IS NULL guard in /api/events)
+  2. A daily cron at /api/cron/archive archives past events using Atlantic timezone threshold (not UTC midnight)
+  3. Re-scraping an already-archived event leaves archived_at unchanged (COALESCE guard in upsertEvent ON CONFLICT clause)
+  4. Admin can view a dedicated archived events tab showing all soft-archived events
+**Plans**: TBD
+
+### Phase 31: Series Detection
+**Goal**: Recurring performer-at-venue patterns are detected automatically after each scrape and tagged on event rows, with all existing events backfilled on first run
+**Depends on**: Phase 30
+**Requirements**: SER-02, SER-03, SER-04, SER-05, SER-06
+**Success Criteria** (what must be TRUE):
+  1. After a scrape completes, events for the same performer at the same venue appearing on multiple same-weekday dates are linked to a recurring_series row via series_id
+  2. Events whose performer name contains explicit recurrence keywords ("every", "weekly", "open mic", "trivia", "bingo") are tagged regardless of occurrence count
+  3. Minor name variations (~20% Levenshtein tolerance) are grouped into the same series rather than creating separate series
+  4. Gemini extraction produces a recurrence_pattern hint that the detector uses as a signal
+  5. All existing events in the database are backfilled with series_id on the first detection run
+**Plans**: TBD
+
+### Phase 32: Series UI
+**Goal**: Users see a visual trust signal on recurring events and the event list collapses weekly series so the same performer does not occupy multiple rows
+**Depends on**: Phase 31
+**Requirements**: UI-01, UI-02
+**Success Criteria** (what must be TRUE):
+  1. EventCard displays a "Recurring" badge when the event's series_id is not null
+  2. The event list shows one card per series (the next upcoming occurrence) rather than a separate card for every future date
+  3. The collapsed series card shows how many upcoming occurrences exist in the series
+**Plans**: TBD
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -121,3 +178,7 @@
 | 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 27. Admin & Config | v2.1 | 1/1 | Complete | 2026-03-16 |
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 29. Schema Foundation | v2.2 | 0/? | Not started | - |
+| 30. Archival | v2.2 | 0/? | Not started | - |
+| 31. Series Detection | v2.2 | 0/? | Not started | - |
+| 32. Series UI | v2.2 | 0/? | Not started | - |

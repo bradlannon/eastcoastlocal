@@ -50,25 +50,25 @@ None — focused data quality milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ARCH-01 | - | Pending |
-| ARCH-02 | - | Pending |
-| ARCH-03 | - | Pending |
-| ARCH-04 | - | Pending |
-| ARCH-05 | - | Pending |
-| SER-01 | - | Pending |
-| SER-02 | - | Pending |
-| SER-03 | - | Pending |
-| SER-04 | - | Pending |
-| SER-05 | - | Pending |
-| SER-06 | - | Pending |
-| UI-01 | - | Pending |
-| UI-02 | - | Pending |
+| ARCH-01 | Phase 29 | Pending |
+| ARCH-02 | Phase 30 | Pending |
+| ARCH-03 | Phase 30 | Pending |
+| ARCH-04 | Phase 30 | Pending |
+| ARCH-05 | Phase 30 | Pending |
+| SER-01 | Phase 29 | Pending |
+| SER-02 | Phase 31 | Pending |
+| SER-03 | Phase 31 | Pending |
+| SER-04 | Phase 31 | Pending |
+| SER-05 | Phase 31 | Pending |
+| SER-06 | Phase 31 | Pending |
+| UI-01 | Phase 32 | Pending |
+| UI-02 | Phase 32 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 13 total
-- Mapped to phases: 0
-- Unmapped: 13 (awaiting roadmap)
+- Mapped to phases: 13
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-16*
-*Last updated: 2026-03-16 after initial definition*
+*Last updated: 2026-03-16 after roadmap creation*
