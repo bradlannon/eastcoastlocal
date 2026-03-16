@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: Roadmap ready, awaiting plan-phase
-stopped_at: Completed 26-data-fixes 26-02-PLAN.md
-last_updated: "2026-03-16T13:45:42.457Z"
+stopped_at: Completed 26-data-fixes 26-01-PLAN.md
+last_updated: "2026-03-16T13:50:51.787Z"
 last_activity: 2026-03-16 — Roadmap created for v2.1
 progress:
   total_phases: 3
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 2
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -36,6 +36,8 @@ Last activity: 2026-03-16 — Roadmap created for v2.1
 Full decision log in PROJECT.md Key Decisions table.
 - [Phase 26-data-fixes]: Used supplementary query pattern (2 DB round-trips + Map merge) instead of LEFT JOIN in events API to avoid row duplication from Drizzle's select-all with multiple source rows
 - [Phase 26-data-fixes]: Removed anchor link from Ticketmaster attribution badge; badge visibility decoupled from source_url, driven by source_type enum
+- [Phase 26-data-fixes]: Insert venueMergeCandidates row (status=merged) before calling performVenueMerge to obtain valid candidateId
+- [Phase 26-data-fixes]: phone column removed from venues and discovered_sources; migration generated via drizzle-kit
 
 ### Tech Debt (cumulative)
 
@@ -56,6 +58,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T13:45:42.453Z
-Stopped at: Completed 26-data-fixes 26-02-PLAN.md
+Last session: 2026-03-16T13:50:51.783Z
+Stopped at: Completed 26-data-fixes 26-01-PLAN.md
 Resume file: None

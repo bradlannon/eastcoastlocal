@@ -82,7 +82,7 @@
 
 **v2.1 Tech Debt Cleanup (Phases 26-28)**
 
-- [ ] **Phase 26: Data Fixes** - Fix FK violation risk in dedup backfill, EventCard attribution, and remove dead phone column
+- [x] **Phase 26: Data Fixes** - Fix FK violation risk in dedup backfill, EventCard attribution, and remove dead phone column (completed 2026-03-16)
 - [ ] **Phase 27: Admin & Config** - Add no_website tab to discovery admin and make GEMINI_AUTO_APPROVE env-overridable
 - [ ] **Phase 28: Tests & Validation** - Fix broken Ticketmaster unit tests and finalize Nyquist VALIDATION.md files
 
@@ -96,7 +96,7 @@
   1. Running venue-dedup-backfill.ts --execute no longer risks FK violations — merged events/sources are re-parented before the duplicate venue is deleted
   2. EventCard attribution badge derives from event_sources.source_type column, not a string-match on source_url
   3. The phone column is absent from discovered_sources and venues tables — schema migration applied, no references remain in application code
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 26-01-PLAN.md — Fix dedup backfill FK risk and drop phone column
@@ -151,6 +151,6 @@ Plans:
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
-| 26. Data Fixes | 1/2 | In Progress|  | - |
+| 26. Data Fixes | 2/2 | Complete   | 2026-03-16 | - |
 | 27. Admin & Config | v2.1 | 0/? | Not started | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |

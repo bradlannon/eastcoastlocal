@@ -9,9 +9,9 @@ Requirements for tech debt cleanup. Each maps to roadmap phases.
 
 ### Data Integrity
 
-- [ ] **DATA-01**: venue-dedup-backfill.ts --execute mode uses performVenueMerge to avoid FK violations
+- [x] **DATA-01**: venue-dedup-backfill.ts --execute mode uses performVenueMerge to avoid FK violations
 - [x] **DATA-02**: EventCard attribution uses event_sources.source_type instead of source_url string-match
-- [ ] **DATA-03**: phone column removed from discovered_sources and venues (never populated by any discoverer)
+- [x] **DATA-03**: phone column removed from discovered_sources and venues (never populated by any discoverer)
 
 ### Admin & Config
 
@@ -40,9 +40,9 @@ None — this is a cleanup milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 26 | Pending |
+| DATA-01 | Phase 26 | Complete |
 | DATA-02 | Phase 26 | Complete |
-| DATA-03 | Phase 26 | Pending |
+| DATA-03 | Phase 26 | Complete |
 | ADMIN-01 | Phase 27 | Pending |
 | ADMIN-02 | Phase 27 | Pending |
 | TEST-01 | Phase 28 | Pending |
