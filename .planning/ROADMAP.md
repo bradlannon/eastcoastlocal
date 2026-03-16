@@ -151,6 +151,6 @@ Plans:
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
-| 26. Data Fixes | 2/2 | Complete   | 2026-03-16 | - |
+| 26. Data Fixes | 2/2 | Complete    | 2026-03-16 | - |
 | 27. Admin & Config | v2.1 | 0/? | Not started | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |
