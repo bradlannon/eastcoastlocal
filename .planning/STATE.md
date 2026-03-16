@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: Mass Venue Discovery
-status: archived
-stopped_at: Milestone v2.0 completed and archived
-last_updated: "2026-03-16T13:00:00.000Z"
-last_activity: "2026-03-16 — Milestone v2.0 archived; all 4 phases shipped"
+milestone: v2.1
+milestone_name: Tech Debt Cleanup
+status: defining_requirements
+stopped_at: Defining requirements for v2.1
+last_updated: "2026-03-16T14:00:00.000Z"
+last_activity: "2026-03-16 — Milestone v2.1 started"
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 10
-  completed_plans: 10
-  percent: 100
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,12 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-16)
 
 **Core value:** Users can instantly see what events are happening near them on a map — where, when, and what type
-**Current focus:** Planning next milestone
+**Current focus:** v2.1 Tech Debt Cleanup — defining requirements
 
 ## Current Position
 
-Milestone v2.0 Mass Venue Discovery — Archived
-All 25 phases across 7 milestones shipped.
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-16 — Milestone v2.1 started
 
 ## Accumulated Context
 
@@ -54,5 +56,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-16
-Stopped at: Milestone v2.0 archived
+Stopped at: Defining requirements for v2.1
 Resume file: None

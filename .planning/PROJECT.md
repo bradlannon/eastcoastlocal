@@ -93,7 +93,18 @@ Users can instantly see what events are happening near them on a map — where, 
 
 <!-- Current scope. Building toward these. -->
 
-(Requirements to be defined for next milestone)
+## Current Milestone: v2.1 Tech Debt Cleanup
+
+**Goal:** Fix accumulated tech debt from v1.5 and v2.0 — broken tests, missing UI, hardcoded config, and data integrity risks.
+
+**Target fixes:**
+- venue-dedup-backfill.ts --execute mode FK violation risk
+- 2 broken ticketmaster.test.ts unit tests
+- EventCard attribution using string-match instead of event_sources.source_type
+- phone column never populated by any discoverer
+- GEMINI_AUTO_APPROVE hardcoded in places-discoverer
+- no_website tab missing from /admin/discovery
+- Nyquist VALIDATION.md files all draft across 12 phases
 
 ### Out of Scope
 
@@ -191,4 +202,4 @@ Users can instantly see what events are happening near them on a map — where, 
 | Promise.allSettled for batch approve | Individual failures don't abort entire batch | ✓ Good — resilient; logs failure count for admin visibility |
 
 ---
-*Last updated: 2026-03-16 after v2.0 milestone*
+*Last updated: 2026-03-16 after v2.1 milestone start*
