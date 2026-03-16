@@ -1,74 +1,74 @@
 # Architecture Research
 
-**Domain:** Event discovery app — bulk venue discovery integration (v2.0)
-**Researched:** 2026-03-15
-**Confidence:** HIGH (based on direct codebase analysis); MEDIUM on external API specifics (Places billing, Reddit API stability)
+**Domain:** Recurring event series detection + past event archival — East Coast Local v2.2
+**Researched:** 2026-03-16
+**Confidence:** HIGH — full codebase read; all integration points traced from schema through API to UI
 
 ---
 
 ## Context: What Already Exists
 
-This is a subsequent-milestone document. The architecture is not greenfield — it is a working Next.js 16 + Neon Postgres + Drizzle + Vercel Hobby app (v1.5, shipped). All design decisions must integrate with, not replace, the existing system.
+This is a subsequent-milestone document. The architecture is a working Next.js 16 + Neon Postgres + Drizzle + Vercel Hobby app (v2.1, shipped). All design decisions must integrate with, not replace, the existing system.
 
 **Core constraint: Vercel Hobby plan — 60s function timeout, no persistent processes.**
 
-Existing pipeline (v1.5 confirmed by direct code read):
+Relevant existing pipeline (confirmed by direct code read):
 
 ```
-Vercel Cron (daily @ 06:00)
-    └── /api/cron/scrape
-            └── runScrapeJob()
-                    ├── venue_website → fetchAndPreprocess → JSON-LD | Gemini → upsertEvent
-                    ├── ticketmaster  → scrapeTicketmaster → findOrCreateVenue → upsertEvent
-                    ├── eventbrite    → scrapeEventbrite → upsertEvent
-                    └── bandsintown   → scrapeBandsintown → upsertEvent
+Daily scrape cron → runScrapeJob()
+    └── for each enabled source:
+            upsertEvent(venueId, extracted, sourceUrl, scrapeSourceId, sourceType)
+                └── INSERT events ON CONFLICT DO UPDATE (dedup key: venue_id + event_date + normalized_performer)
+                └── INSERT event_sources ON CONFLICT DO UPDATE (last_seen_at)
 
-Vercel Cron (weekly @ 08:00 Mon)
-    └── /api/cron/discover
-            └── runDiscoveryJob()
-                    ├── Query Gemini+Google Search per city (6 cities × 1 prompt each)
-                    ├── Filter aggregator domains + known domains
-                    ├── Insert into discovered_sources (status='pending')
-                    └── scoreCandidate() → auto-approve if score >= AUTO_APPROVE_THRESHOLD (0.8)
+GET /api/events
+    └── SELECT events + venues WHERE event_date >= NOW()
+    └── Supplementary SELECT event_sources WHERE event_id IN [ids]
+    └── Return EventWithVenue[] (events.* + venues.* + source_types[])
+
+EventCard.tsx
+    └── Renders event.events.* fields (performer, event_date, event_category, price)
+    └── Renders series badge based on source_types ('ticketmaster' check — same pattern for series)
 ```
-
-The `discovered_sources` table is the staging funnel. Everything new in v2.0 should pour into this same funnel. No new review infrastructure is needed — the admin discovery UI already handles pending/approve/reject.
 
 ---
 
-## System Overview: v2.0 Additions
+## System Overview: v2.2 Additions
 
-Two new discovery channels feed the existing `discovered_sources` funnel. No new review UI required. New schema columns carry Places API metadata through to promotion to avoid redundant geocoding calls.
+Two features integrate with the existing system. Neither replaces anything — both are additive.
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                    Vercel Cron (weekly — Mon or new day)               │
-│               /api/cron/discover  OR  /api/cron/places-discover        │
-├────────────────────────────────────────────────────────────────────────┤
-│  ┌──────────────────────────┐    ┌────────────────────────────────┐   │
-│  │  EXISTING                │    │  NEW (v2.0)                    │   │
-│  │  Gemini + Google Search  │    │  Google Maps Places API        │   │
-│  │  (6 → N cities)          │    │  Text Search per city+type     │   │
-│  └────────────┬─────────────┘    └────────────────┬───────────────┘   │
-│               │                                   │                   │
-│               └──────────────┬────────────────────┘                   │
-│                              ▼                                         │
-│              Shared dedup (knownDomains Set)                           │
-│              db.insert(discovered_sources).onConflictDoNothing()       │
-│              scoreCandidate() [per-method threshold]                   │
-│              promoteSource() for auto-approved candidates              │
-└──────────────────────────────────────────────────────────────────────┘
-
-┌────────────────────────────────────────────────────────────────────────┐
-│              SEPARATE Vercel Cron (new — e.g. Wed)                     │
-│              /api/cron/reddit-discover                                  │
-├────────────────────────────────────────────────────────────────────────┤
-│  Reddit public JSON API (no auth required)                              │
-│  → fetch r/halifax, r/fredericton, r/stjohnsnl, r/newbrunswick, etc.   │
-│  → Gemini batch extraction: venue names + URLs from post text          │
-│  → Same discovered_sources funnel (discovery_method='reddit_gemini')   │
-│  → Higher auto-approve threshold (0.9) for lower-precision source      │
-└────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Public Frontend                            │
+│  ┌──────────────┐  ┌───────────────────────────────────────────┐   │
+│  │  EventList   │  │  EventCard                                │   │
+│  │  (no change) │  │  MODIFIED: series badge on series_id != null│  │
+│  └──────┬───────┘  └───────────────────────────────────────────┘   │
+│         └──────────── EventWithVenue[] (unchanged shape)            │
+├─────────────────────────────────────────────────────────────────────┤
+│                           API Layer                                 │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  GET /api/events                                             │   │
+│  │  MODIFIED: add isNull(events.archived_at) to WHERE clause    │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│                          Data Layer                                 │
+│  ┌─────────────────────┐  ┌──────────────────┐                     │
+│  │  events             │  │  recurring_series │                     │
+│  │  +series_id FK      │  │  NEW TABLE        │                     │
+│  │  +archived_at ts    │  │                   │                     │
+│  └─────────────────────┘  └──────────────────┘                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │  event_sources / venues / scrape_sources  (NO CHANGE)        │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────────────────┤
+│                        Background Jobs                              │
+│  ┌──────────────────────────┐  ┌────────────────────────────────┐   │
+│  │  /api/cron/scrape        │  │  /api/cron/archive  (NEW)       │   │
+│  │  MODIFIED: post-upsert   │  │  Daily. Sets archived_at on     │   │
+│  │  series detection pass   │  │  past events.                   │   │
+│  └──────────────────────────┘  └────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -79,301 +79,422 @@ Two new discovery channels feed the existing `discovered_sources` funnel. No new
 
 | Component | Type | Responsibility |
 |-----------|------|----------------|
-| `places-discoverer.ts` | NEW module | Calls Google Maps Places API Text Search per city+type combo, extracts name/address/website/lat/lng/place_id, returns `DiscoveredCandidate[]` |
-| `reddit-discoverer.ts` | NEW module | Fetches subreddit JSON, batches post text to Gemini for venue extraction, returns `DiscoveredCandidate[]` |
-| `/api/cron/reddit-discover/route.ts` | NEW cron route | Isolated endpoint for Reddit mining; same CRON_SECRET auth pattern as existing crons; `maxDuration = 60` |
+| `recurring_series` table | NEW schema object | Stores series-level metadata keyed by (venue_id, normalized_performer); events reference via nullable FK |
+| `series-detector.ts` | NEW lib module | `detectAndLinkSeries(venueId, normalizedPerformer)` — counts non-archived occurrences, upserts series row, tags event rows with series_id |
+| `archiver.ts` | NEW lib module | `archivePassedEvents()` — bulk UPDATE events SET archived_at = NOW() WHERE event_date < NOW() AND archived_at IS NULL |
+| `/api/cron/archive/route.ts` | NEW cron endpoint | CRON_SECRET-gated GET handler calling `archivePassedEvents()`; `maxDuration = 60` |
 
 ### Modified Components
 
-| Component | Change | Rationale |
-|-----------|--------|-----------|
-| `discovery-orchestrator.ts` → `runDiscoveryJob()` | Call `runPlacesDiscovery()` before or instead of Gemini+Search loop (see Pattern 2 for timing concern) | Places API is the primary new channel |
-| `scoreCandidate()` | Accept `discoveryMethod` param; apply per-method base score and auto-approve threshold | Places = higher confidence; Reddit = lower precision |
-| `promoteSource()` | Check `discovered_sources.lat/lng` and skip `geocodeAddress()` if pre-populated | Avoids redundant Geocoding API call for Places-confirmed venues |
-| `discovered_sources` table | Add `address`, `google_place_id`, `lat`, `lng` columns | Carry Places API structured data through to promotion |
-| `venues` table | Add `google_place_id` column (unique) | Dedup anchor for cross-source venue matching |
-| `vercel.json` | Add Reddit cron entry | Independent schedule |
-| `ATLANTIC_CITIES` constant | Expand from 6 to ~20 cities/towns | Geographic expansion is a config change once the machinery works |
+| Component | Change |
+|-----------|--------|
+| `schema.ts` | Add `recurring_series` table; add `series_id` nullable FK + `archived_at` nullable timestamp to `events` table |
+| `extracted-event.ts` | Add optional `recurrence_pattern: string \| null` to Zod schema |
+| `extractor.ts` | Add `recurrence_pattern` field description to Gemini prompt |
+| `orchestrator.ts` | After upsert loop per source: collect unique (venue_id, normalized_performer) pairs, call `detectAndLinkSeries()` for each |
+| `/api/events/route.ts` | Add `isNull(events.archived_at)` to WHERE clause |
+| `EventCard.tsx` | Render "Recurring" badge when `event.events.series_id !== null` |
+| `vercel.json` | Add cron entry for `/api/cron/archive` |
 
 ### Unchanged Components
 
 | Component | Notes |
 |-----------|-------|
-| Admin discovery UI (`/admin/discovery`) | All new candidates flow through existing pending/approve/reject UI; no changes needed |
-| `promoteSource()` core logic | Venue + scrape_source creation logic unchanged; only the geocode-skip optimization is added |
-| `upsertEvent()` / `normalizer.ts` | Unchanged; all discovered venues are scraped via the existing daily cron once promoted |
-| `venue-dedup.ts` / `scoreVenueCandidate()` | Unchanged; Places `google_place_id` provides a fast-path match before fuzzy scoring kicks in |
-| `findOrCreateVenue()` (ticketmaster.ts) | Consider adding `google_place_id` exact-match as a fast path, but not required for v2.0 |
+| `normalizer.ts` / `upsertEvent()` | Signature and logic unchanged — series detection runs after, not inside, upsert |
+| `EventList.tsx` | No structural change required; series collapse is optional polish, not MVP |
+| `event_sources` table | Fully unchanged — archival sets `archived_at` on `events`, not `event_sources` |
+| `types/index.ts` | `Event` type auto-updates via Drizzle `InferSelectModel` — no manual edit |
+| All discovery crons | Unaffected |
+| Admin UI (existing pages) | No required changes; archived events admin view is optional polish |
 
 ---
 
 ## Recommended Project Structure
 
-New files only (existing structure unchanged):
+Changes and additions relative to v2.1 tree:
 
 ```
 src/
 ├── lib/
-│   └── scraper/
-│       ├── places-discoverer.ts        # NEW: Google Maps Places API bulk discovery
-│       ├── places-discoverer.test.ts   # NEW: unit tests with mocked fetch
-│       ├── reddit-discoverer.ts        # NEW: Reddit JSON → Gemini venue extraction
-│       ├── reddit-discoverer.test.ts   # NEW: unit tests
-│       └── discovery-orchestrator.ts   # MODIFIED: add Places channel
+│   ├── db/
+│   │   └── schema.ts                    # MODIFIED — new table + 2 columns on events
+│   ├── scraper/
+│   │   ├── series-detector.ts           # NEW
+│   │   ├── series-detector.test.ts      # NEW
+│   │   ├── archiver.ts                  # NEW
+│   │   ├── archiver.test.ts             # NEW
+│   │   ├── orchestrator.ts              # MODIFIED — series detection pass after upserts
+│   │   └── extractor.ts                 # MODIFIED — recurrence_pattern in prompt
+│   └── schemas/
+│       └── extracted-event.ts           # MODIFIED — recurrence_pattern field
 ├── app/
 │   └── api/
 │       └── cron/
-│           └── reddit-discover/
-│               └── route.ts            # NEW: separate cron endpoint
-└── lib/
-    └── db/
-        └── schema.ts                   # MODIFIED: new columns on discovered_sources + venues
+│           └── archive/
+│               └── route.ts             # NEW — daily archival cron
+├── components/
+│   └── events/
+│       └── EventCard.tsx                # MODIFIED — series badge
+└── types/
+    └── index.ts                         # AUTO-UPDATED by Drizzle InferSelectModel
 ```
 
 ### Structure Rationale
 
-- **places-discoverer.ts**: Parallel to `discovery-orchestrator.ts` — same output contract, different source. Isolated for testing and independent development.
-- **reddit-discoverer.ts**: Completely different input flow (Reddit HTTP → Gemini NLP). Separate module keeps concerns clean.
-- **Separate `/api/cron/reddit-discover` route**: Reddit mining requires multiple subreddit fetches + multiple Gemini calls. Runs on its own schedule to avoid timeout competition with Places discovery.
-- No new admin routes: the existing `/admin/discovery` handles all new candidates without modification.
+- **`series-detector.ts` in `lib/scraper/`:** Series detection is a post-scrape data enrichment step. Placing it alongside `normalizer.ts` and `orchestrator.ts` follows the established module boundary for all scrape-pipeline logic.
+- **`archiver.ts` in `lib/scraper/`:** Archive logic is a scheduled DB maintenance operation. Same module grouping as the scrape orchestrator — all cron-driven data operations live in `lib/scraper/`.
+- **`/api/cron/archive/`:** Follows the established pattern (one directory + `route.ts` per cron job, CRON_SECRET auth, `maxDuration = 60`).
 
 ---
 
 ## Architectural Patterns
 
-### Pattern 1: Discovery Channel Protocol (Shared Output Contract)
+### Pattern 1: New Table for Series (not column-only)
 
-**What:** Each discovery channel (Gemini+Search, Places API, Reddit) produces the same `DiscoveredCandidate` shape. The shared dedup + insert + score flow in the orchestrator is channel-agnostic.
+**What:** A separate `recurring_series` table holds series-level metadata. Events reference it via nullable FK `series_id`. The series is keyed by a unique index on `(venue_id, normalized_performer)`.
 
-**When to use:** Any new discovery source added in the future.
+**When to use:** When grouped entities need their own metadata (recurrence_label, occurrence_count, first_seen_at) that doesn't belong on individual rows.
 
-**Trade-offs:** Channel-specific metadata (e.g., `google_place_id`) must be optional fields in the shared type. Orchestrator stays clean; each channel develops independently.
+**Trade-offs:** One extra table and FK. The alternative — a `series_key TEXT` column on events with no separate table — is simpler but can't store series-level metadata without denormalization. At this scale the extra table is negligible overhead.
 
 **Example:**
 ```typescript
-// Extend the existing inline candidate type to a shared interface:
-interface DiscoveredCandidate {
-  url: string | null;           // null = venue confirmed but no scrapeable website
-  name: string | null;
-  province: string | null;
-  city: string | null;
-  rawContext: string | null;
-  address: string | null;       // formattedAddress from Places API
-  googlePlaceId: string | null; // Places API place_id for dedup
-  lat: number | null;           // pre-geocoded from Places API
-  lng: number | null;
-  discoveryMethod: 'gemini_google_search' | 'google_places' | 'reddit_gemini';
-}
-```
-
-### Pattern 2: Segmented Cron Jobs (60s Timeout Mitigation)
-
-**What:** Each discovery channel runs as its own cron endpoint on a separate schedule rather than stacking in one 60s window.
-
-**When to use:** Any discovery channel that needs more than ~15s of its own budget, or when stacking two channels risks exceeding 60s.
-
-**Trade-offs:** More entries in `vercel.json`, but each job is independently observable, retryable, and measurable. Failure in one channel doesn't block others.
-
-**Recommended schedule:**
-```json
-{
-  "crons": [
-    { "path": "/api/cron/scrape",          "schedule": "0 6 * * *" },
-    { "path": "/api/cron/discover",        "schedule": "0 8 * * 1" },
-    { "path": "/api/cron/reddit-discover", "schedule": "0 8 * * 3" }
+// schema.ts addition
+export const recurring_series = pgTable(
+  'recurring_series',
+  {
+    id: serial('id').primaryKey(),
+    venue_id: integer('venue_id').references(() => venues.id).notNull(),
+    normalized_performer: text('normalized_performer').notNull(),
+    recurrence_label: text('recurrence_label'),  // "weekly", "monthly", "bi-weekly", etc.
+    first_seen_at: timestamp('first_seen_at').defaultNow().notNull(),
+    occurrence_count: integer('occurrence_count').notNull().default(1),
+    created_at: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex('recurring_series_venue_performer').on(
+      table.venue_id,
+      table.normalized_performer
+    ),
   ]
+);
+
+// events table additions (two new nullable columns)
+series_id: integer('series_id').references(() => recurring_series.id),
+archived_at: timestamp('archived_at'),
+```
+
+### Pattern 2: archived_at Nullable Timestamp (Soft Delete)
+
+**What:** A nullable `archived_at` timestamp on the `events` table. NULL means active; non-null means archived. The public `/api/events` route adds `isNull(events.archived_at)` to its WHERE clause. Admin queries intentionally omit this guard to see archived records.
+
+**When to use:** When records should disappear from the public view but be preserved for audit integrity. Avoids hard deletes that would orphan `event_sources` rows or break FK constraints.
+
+**Trade-offs:** All public-facing queries touching events need the `isNull` guard. This is only one call site (`/api/events`) — the guard is surgical.
+
+**Example:**
+```typescript
+// /api/events route — modified WHERE clause
+.where(
+  and(
+    gte(events.event_date, new Date()),
+    isNull(events.archived_at)
+  )
+)
+```
+
+### Pattern 3: Post-Upsert Series Detection (Separate Pass)
+
+**What:** Series detection runs after `upsertEvent()` completes for a source, not inside it. The orchestrator collects a `Set` of unique `(venue_id, normalized_performer)` pairs during the upsert loop, then calls `detectAndLinkSeries()` for each unique pair once per scrape run.
+
+**When to use:** When a classification step needs to look at aggregate state ("how many occurrences of X at Y exist?") rather than a single row. Running inside upsert would mean each event only sees itself.
+
+**Trade-offs:** One extra DB round-trip per unique venue+performer pair after scraping. At Atlantic Canada scale (dozens of sources, few recurring performers per venue) this is negligible. The dedup also prevents redundant detection calls when the same performer appears across multiple sources in one run.
+
+**Example:**
+```typescript
+// orchestrator.ts modification
+const seriesKeys = new Set<string>();
+
+for (const source of sources) {
+  // ... existing upsert logic ...
+  for (const event of extracted) {
+    await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
+    if (event.performer) {
+      const key = `${source.venue_id}:${normalizePerformer(event.performer)}`;
+      seriesKeys.add(key);
+    }
+  }
+}
+
+// Series detection pass — after all upserts complete
+for (const key of seriesKeys) {
+  const [venueIdStr, ...parts] = key.split(':');
+  await detectAndLinkSeries(parseInt(venueIdStr), parts.join(':'));
 }
 ```
 
-The Monday `discover` cron is modified to run Places API discovery (either instead of or alongside the existing Gemini+Search). Reddit runs Wednesday independently.
+### Pattern 4: Gemini Recurrence Hint (Advisory Only)
 
-### Pattern 3: Places API as Pre-Geocoded Venue Factory
+**What:** Add an optional `recurrence_pattern` field to the Gemini extraction prompt and Zod schema. Gemini can detect phrases like "every Friday" or "weekly open mic" in page content and surface them as a text hint. This is advisory — the series detector makes the final call based on occurrence count in the DB.
 
-**What:** Google Maps Places API Text Search returns `displayName`, `formattedAddress`, `websiteUri`, `nationalPhoneNumber`, `location` (lat/lng), and `id` (place_id) in a single call. This is structurally richer than Gemini+Search output.
+**When to use:** When the LLM is already processing content that may contain recurrence signals. Zero additional API cost.
 
-**When to use:** Primary discovery channel for structured bulk venue discovery.
+**Trade-offs:** Gemini may hallucinate recurrence on one-off events. Acceptable because the detector only creates a series when >= 2 real occurrences exist in the DB. The hint is stored as `recurrence_label` on the series row but never drives the series-creation decision.
 
-**Trade-offs:** Per-request billing (Text Search costs ~$0.017/request — MEDIUM confidence, verify current pricing before finalizing the city+type query plan). For ~50 queries/week = ~$0.85/week = ~$3.50/month. Well within budget at this scale. `websiteUri` is populated for approximately 60-70% of bars/venues in Atlantic Canada (MEDIUM confidence based on regional data density — smaller towns may have lower coverage).
+**Example:**
+```typescript
+// extracted-event.ts — Zod schema addition
+recurrence_pattern: z.string().nullable().optional(),
+// e.g. "weekly", "every Friday", "monthly", "bi-weekly"
 
-**Implementation note — venues without `websiteUri`:** Insert with `url = null` and `status = 'no_website'`. These venues are valuable as dedup anchors (Ticketmaster may later create a venue with the same name). They cannot be scraped but the `google_place_id` provides a future cross-reference.
-
-**Recommended query strategy:**
-```
-For each city in ATLANTIC_CITIES:
-  For each type in ['bar', 'pub', 'live music venue', 'comedy club',
-                    'theater', 'concert hall', 'community center']:
-    POST /v1/places:searchText
-    body: { textQuery: "{type} in {city}, {province}, Canada",
-            locationRestriction: { circle: { center: {cityLatLng}, radius: 15000 } } }
-    headers: { "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,
-                                     places.websiteUri,places.location" }
+// extractor.ts — prompt field addition
+`- recurrence_pattern: if this appears to be a recurring event series (weekly open mic,
+   monthly trivia night, etc.), describe the pattern (e.g. "weekly", "every Friday",
+   "monthly"); otherwise null`
 ```
 
-7 type queries × 20 cities = 140 requests/week maximum. With `onConflictDoNothing()` on `google_place_id`, duplicate places across type queries cost nothing in DB operations.
-
-### Pattern 4: Reddit Mining via Public JSON (No OAuth)
-
-**What:** Reddit exposes a public JSON API at `https://www.reddit.com/r/{subreddit}/new.json?limit=100` — no authentication, no OAuth. Post `selftext` + `title` are batched and sent to Gemini with a structured extraction prompt.
-
-**When to use:** Supplementary discovery of informal venues that lack Google Places data (house venues, community halls, breweries that post events on Reddit but are not well-indexed).
-
-**Trade-offs:** Lower precision than Places API. Gemini will sometimes extract event descriptions, not venues. Mitigate with a higher auto-approve threshold (0.9 vs 0.8) for `discovery_method = 'reddit_gemini'`. The `url` field will frequently be null or point to Facebook/Eventbrite — filter these with the existing `AGGREGATOR_DOMAINS` check.
-
-**Target subreddits:** r/halifax, r/fredericton, r/saintjohn, r/newbrunswick, r/pei, r/newfoundland, r/stjohnsnl
-
-**Rate limit:** Reddit public JSON allows ~60 requests/minute without auth. 7 subreddits = 7 requests. Well within limits. Set `User-Agent: eastcoastlocal/2.0` header to avoid bot-detection blocks.
-
-**Gemini prompt approach:**
-```
-Feed 100 post titles+bodies per subreddit as one batch to Gemini.
-Ask for: venue name, address/city, province, website URL, and a confidence score.
-Filter output: drop any where confidence < 0.6.
-Map to DiscoveredCandidate[].
-```
+The extracted `recurrence_pattern` can be passed to `detectAndLinkSeries()` and stored on `recurring_series.recurrence_label` when the series is first created.
 
 ---
 
 ## Data Flow
 
-### Places API Discovery Flow
+### Archival Cron Flow (New)
 
 ```
-/api/cron/discover (Monday, extended) or /api/cron/places-discover
+Vercel cron (daily, e.g. 0 6 * * *)
     ↓
-runPlacesDiscovery(cities: CityConfig[])
+GET /api/cron/archive
+    ↓ CRON_SECRET check (Bearer token, same as all crons)
+archivePassedEvents()
     ↓
-For each city × venue_type combo:
-    POST https://places.googleapis.com/v1/places:searchText
-    [throttle: ~200ms between requests to stay within rate limits]
+UPDATE events
+  SET archived_at = NOW()
+  WHERE event_date < NOW()
+    AND archived_at IS NULL
     ↓
-    Receive: places[].id, displayName, formattedAddress, websiteUri, location
+Return count of archived rows
     ↓
-    For each place:
-        Extract hostname from websiteUri (if present)
-        Skip if hostname in knownDomains Set
-        Skip if place.id in knownPlaceIds Set (intra-run dedup)
-        Map to DiscoveredCandidate
-    ↓
-    Return candidates[]
-    ↓
-Back in orchestrator:
-    db.insert(discovered_sources).values({...}).onConflictDoNothing()
-    [conflict on: url (existing unique constraint) OR google_place_id (new unique constraint)]
-    ↓
-    scoreCandidate(candidate, method='google_places')
-    → base score: 0.6 (structured data, confirmed address)
-    → +0.15 if city populated, +0.15 if province populated, +0.1 if name
-    → auto-approve threshold: 0.8
-    ↓
-    if score >= 0.8: promoteSource(staged.id)
+Response: { success: true, archived: N, timestamp: "..." }
 ```
 
-### Promotion Flow (Modified for Pre-Geocoded Venues)
+### Series Detection Flow (Modified Scrape Path)
 
 ```
-promoteSource(discoveredId)
+runScrapeJob() [existing]
+    ↓ for each enabled source
+upsertEvent() [existing — no change to this function]
+    ↓ collect unique (venue_id, normalized_performer) pairs via Set
+-- after upsert loop for this source --
+detectAndLinkSeries(venueId, normalizedPerformer) [new, per unique pair]
     ↓
-    Fetch discovered_sources row
+SELECT id, event_date FROM events
+  WHERE venue_id = ? AND normalized_performer = ? AND archived_at IS NULL
+    ↓ if count < 2: return (not yet a series)
+    ↓ if count >= 2:
+INSERT recurring_series (venue_id, normalized_performer, occurrence_count)
+  ON CONFLICT (venue_id, normalized_performer)
+  DO UPDATE SET occurrence_count = excluded.occurrence_count
+RETURNING id
     ↓
-    if row.lat IS NOT NULL AND row.lng IS NOT NULL:
-        → use row.lat, row.lng directly in venue INSERT
-        → skip geocodeAddress() call entirely
-    else if row.address IS NOT NULL:
-        → geocodeAddress(row.address) [existing logic, better input than city+province only]
-    else:
-        → geocodeAddress(`${city}, ${province}, Canada`) [existing fallback]
-    ↓
-    INSERT venues (name, address, city, province, lat, lng, google_place_id)
-    ↓
-    if row.url IS NOT NULL:
-        INSERT scrape_sources (url, venue_id, source_type='venue_website', enabled=true)
-    else:
-        skip scrape_sources insert (no_website venues)
-    ↓
-    UPDATE discovered_sources SET status='approved'
+UPDATE events SET series_id = <series.id>
+  WHERE id IN [occurrence ids]
 ```
 
-### Reddit Discovery Flow
+### Public Events API Flow (Modified)
 
 ```
-/api/cron/reddit-discover (Wednesday)
+GET /api/events
     ↓
-runRedditDiscovery(subreddits: string[])
+SELECT events.*, venues.*
+  FROM events
+  INNER JOIN venues ON events.venue_id = venues.id
+  WHERE events.event_date >= NOW()
+    AND events.archived_at IS NULL   ← ADD THIS
+  ORDER BY events.event_date
+    ↓ supplementary source_types query [existing, unchanged]
     ↓
-For each subreddit:
-    GET https://www.reddit.com/r/{sub}/new.json?limit=100
-    headers: { 'User-Agent': 'eastcoastlocal/2.0' }
-    ↓
-    Extract post titles + selftexts
-    ↓
-    generateText(Gemini, batchPrompt)
-    → Output.object({ schema: CandidateSchema })
-    → Reuse existing CandidateSchema from discovery-orchestrator.ts
-    ↓
-    Filter: aggregator domains, known domains
-    ↓
-    db.insert(discovered_sources).onConflictDoNothing()
-    ↓
-    scoreCandidate(candidate, method='reddit_gemini')
-    → auto-approve threshold: 0.9 (higher bar for unstructured source)
+Return EventWithVenue[]
+  events.series_id is included in events.* — no API shape change needed
+  Frontend reads events.series_id to decide series badge
+```
+
+### Series Badge Render Flow (Modified UI)
+
+```
+EventWithVenue.events.series_id
+    ↓ null → no badge
+    ↓ non-null → render "Recurring" badge (or series recurrence_label if available)
+
+// EventCard.tsx addition (follows existing source_types badge pattern)
+{ev.series_id !== null && ev.series_id !== undefined && (
+  <span className="text-xs bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5 rounded font-medium">
+    Recurring
+  </span>
+)}
 ```
 
 ---
 
-## Schema Changes Required
+## New vs Modified: Explicit Inventory
 
-### `discovered_sources` table additions
-
-```typescript
-// Add to existing pgTable:
-address: text('address'),                     // formattedAddress from Places API
-google_place_id: text('google_place_id'),     // unique Places place_id — dedup key
-lat: doublePrecision('lat'),                  // pre-geocoded from Places API
-lng: doublePrecision('lng'),                  // pre-geocoded from Places API
-```
-
-**Index recommendation:** Add a unique index on `google_place_id` (nullable — PostgreSQL allows multiple NULLs in unique indexes, so this is safe for non-Places rows).
-
-### `venues` table additions
-
-```typescript
-// Add to existing pgTable:
-google_place_id: text('google_place_id').unique(),  // dedup anchor for cross-source matching
-```
-
-### `discovered_sources` status expansion
-
-Current accepted values: `pending`, `approved`, `rejected`
-New value: `no_website` — venues confirmed by Places API with no `websiteUri`. Admin UI should show these distinctly (filter chip or separate section).
+| Artifact | Status | What Changes |
+|----------|--------|--------------|
+| `schema.ts` | MODIFIED | Add `recurring_series` table; add nullable `series_id` FK + nullable `archived_at` timestamp to `events` table |
+| `extracted-event.ts` | MODIFIED | Add `recurrence_pattern: z.string().nullable().optional()` |
+| `extractor.ts` | MODIFIED | Add `recurrence_pattern` field description to Gemini prompt |
+| `normalizer.ts` | NO CHANGE | `upsertEvent()` signature and body unchanged |
+| `orchestrator.ts` | MODIFIED | Accumulate unique (venue_id, normalized_performer) pairs during upsert loop; call `detectAndLinkSeries()` per pair after upserts |
+| `series-detector.ts` | NEW | `detectAndLinkSeries(venueId, normalizedPerformer, recurrenceLabel?)` |
+| `series-detector.test.ts` | NEW | Tests: single occurrence = no series; 2+ = series created; occurrence_count updates; series_id set on all occurrences; idempotent on re-run |
+| `archiver.ts` | NEW | `archivePassedEvents()` returning `{ archived: number }` |
+| `archiver.test.ts` | NEW | Tests: past events archived; future events untouched; already-archived events not double-stamped; idempotent |
+| `/api/cron/archive/route.ts` | NEW | CRON_SECRET GET handler; `maxDuration = 60`; calls `archivePassedEvents()` |
+| `/api/events/route.ts` | MODIFIED | Add `isNull(events.archived_at)` to WHERE clause via `and(gte(...), isNull(...))` |
+| `EventCard.tsx` | MODIFIED | Render series badge when `event.events.series_id !== null` |
+| `EventList.tsx` | NO CHANGE (MVP) | Series collapse/grouping is optional polish; defer |
+| `types/index.ts` | AUTO-UPDATED | `Event` type picks up `series_id` + `archived_at` automatically via `InferSelectModel` |
+| `vercel.json` | MODIFIED | Add `{ "path": "/api/cron/archive", "schedule": "0 6 * * *" }` |
+| Admin events view | OPTIONAL | Add archived events tab filtered by `archived_at IS NOT NULL`; not required for MVP |
 
 ---
 
-## Integration Points Summary
+## Build Order
 
-### New vs Modified (explicit)
+Build order respects hard dependencies: schema migration before any code using new columns; archiver before its cron endpoint; API guard independent of series; series detector before orchestrator wires it in; UI last.
 
-| Component | Status | Integration Point |
-|-----------|--------|-------------------|
-| `places-discoverer.ts` | NEW | Feeds `DiscoveredCandidate[]` to orchestrator; uses `GOOGLE_MAPS_API_KEY` (existing env var — confirm Places API enabled on GCP key) |
-| `reddit-discoverer.ts` | NEW | Feeds `DiscoveredCandidate[]` to separate cron; uses existing Gemini AI SDK |
-| `/api/cron/reddit-discover/route.ts` | NEW | Same CRON_SECRET auth + `maxDuration = 60` pattern as existing crons |
-| `discovery-orchestrator.ts` | MODIFIED | `runDiscoveryJob()` extended or split; `ATLANTIC_CITIES` expanded |
-| `scoreCandidate()` | MODIFIED | Per-method thresholds added; existing signature extended |
-| `promoteSource()` | MODIFIED | Pre-populated lat/lng/address used when available; geocoder call skipped |
-| `discovered_sources` table | MODIFIED | 4 new columns via Drizzle migration |
-| `venues` table | MODIFIED | `google_place_id` column via Drizzle migration |
-| `vercel.json` | MODIFIED | Reddit cron entry added |
-| Admin discovery UI | UNCHANGED | No changes needed; all new candidates flow through existing review |
-| `upsertEvent()`, `normalizer.ts` | UNCHANGED | All promoted venues scrape via existing daily cron |
-| `venue-dedup.ts` | UNCHANGED | Two-signal gate still applies when Ticketmaster creates venues |
+### Phase 1 — Schema Foundation
 
-### External Service Boundaries
+**Prerequisite for everything. Ship this first, independently.**
 
-| Service | Auth | Notes |
-|---------|------|-------|
-| Google Maps Places API (New) | `X-Goog-Api-Key: $GOOGLE_MAPS_API_KEY` | Uses same key as geocoder.ts. Verify Places API is enabled in GCP Console — geocoder uses Geocoding API, which is a separate product. |
-| Reddit public JSON | None (set User-Agent header) | `https://www.reddit.com/r/{sub}/new.json?limit=100`. No OAuth. Stable public endpoint. |
-| Gemini (`@ai-sdk/google`) | `GOOGLE_GENERATIVE_AI_API_KEY` (existing) | No new packages. Reddit mining adds ~7 Gemini calls/week (one per subreddit). |
+1. Add `recurring_series` table to `schema.ts`
+2. Add `series_id` nullable FK and `archived_at` nullable timestamp to `events` in `schema.ts`
+3. Add optional `recurrence_pattern` to `ExtractedEventSchema` in `extracted-event.ts`
+4. Run `drizzle-kit generate` → produces migration SQL
+5. Run `drizzle-kit migrate` → apply to Neon Postgres
+
+**Why this block is safe:** Adding nullable columns and a new table is non-breaking. No existing queries reference the new columns. Drizzle `InferSelectModel` auto-propagates `series_id` and `archived_at` to the `Event` type — `types/index.ts` requires no manual edit. The Zod schema addition is purely optional — existing events flow through with `recurrence_pattern = undefined` without error.
+
+### Phase 2 — Archival (Independent of Series, Lower Risk)
+
+**Ship second. Unblocks the API change. Self-contained.**
+
+6. Write `archiver.ts` with `archivePassedEvents()`
+7. Write `archiver.test.ts`
+8. Create `/api/cron/archive/route.ts`
+9. Add archive cron to `vercel.json`
+10. Modify `/api/events/route.ts` — add `isNull(events.archived_at)` guard
+
+**Why before series:** Archival is fully self-contained — no dependency on series logic. The `archived_at IS NULL` guard in the API is a no-op until the archival cron runs, so it can be deployed immediately. Once archival is live, the series detector must include `isNull(events.archived_at)` in its occurrence query so it doesn't count past events — meaning archival must be in place before series detection for correct behavior.
+
+### Phase 3 — Series Detection
+
+**Depends on Phase 1 (schema) and Phase 2 (archival must be live first).**
+
+11. Write `series-detector.ts` with `detectAndLinkSeries()`
+12. Write `series-detector.test.ts`
+13. Modify `extractor.ts` — add `recurrence_pattern` to Gemini prompt
+14. Modify `orchestrator.ts` — accumulate unique pairs, call `detectAndLinkSeries()` per pair after source upserts
+
+**Why after archival:** The detector queries `WHERE archived_at IS NULL` to count valid occurrences. If archival is not live yet, it may count past events as occurrences and incorrectly tag a performer who has played once in the past and once upcoming as a "series."
+
+### Phase 4 — UI
+
+**Pure rendering. No data dependencies beyond the API changes in Phase 2.**
+
+15. Modify `EventCard.tsx` — add series badge on `events.series_id !== null`
+16. Optionally: add archived events admin view (`/admin/events?archived=true`)
+17. Optionally: `EventList.tsx` series collapse/grouping (defer to next milestone if scope is tight)
+
+---
+
+## Integration Points
+
+### Schema Integration
+
+The `events` table dedup key (`venue_id`, `event_date`, `normalized_performer`) is unchanged. New columns `series_id` and `archived_at` are additive nullable columns — no existing indexes or constraints are affected. The `recurring_series` unique index on `(venue_id, normalized_performer)` mirrors the dedup pattern already used across the schema (`events_dedup_key`, `event_sources_dedup`).
+
+### API WHERE Clause
+
+Current: `gte(events.event_date, new Date())`
+After v2.2: `and(gte(events.event_date, new Date()), isNull(events.archived_at))`
+
+The `and` and `isNull` operators are already imported and used throughout the codebase (`merge-venue.ts`, admin routes). No new imports needed in the events route.
+
+### Cron Pattern Conformance
+
+All existing cron endpoints follow: CRON_SECRET Bearer auth check, `export const maxDuration = 60`, GET handler, calls one `lib/scraper/` function, returns `{ success: true, timestamp }`. The new `/api/cron/archive/route.ts` follows this pattern exactly — no new conventions introduced.
+
+Suggested `vercel.json` schedule for archival: `"0 6 * * *"` (6 AM UTC daily, same time as the scrape cron). Running archival and scrape at the same time is acceptable because they write to different columns (`archived_at` vs content fields) and the upsert dedup key does not include `archived_at`. If contention is a concern, offset by one hour: `"0 7 * * *"`.
+
+### series_id in EventWithVenue
+
+`EventWithVenue.events` is typed as `InferSelectModel<typeof events>`. Once `series_id` is added to the schema, it appears in this type automatically — no changes to `types/index.ts`, the API route, or the `enriched` map. `EventCard.tsx` can read `event.events.series_id` immediately.
+
+### Orchestrator Integration
+
+`runScrapeJob()` processes sources in a `for` loop. The series detection pass fits as a post-source step without restructuring the loop:
+
+```
+for (const source of sources) {
+  const seriesKeys = new Set<string>();
+  // ... existing extract + upsert loop ...
+  // ADD: seriesKeys.add(`${venueId}:${normalizedPerformer}`)
+  // ADD: after upserts for this source:
+  for (const key of seriesKeys) { await detectAndLinkSeries(...) }
+}
+```
+
+The per-source scoping is important: it avoids accumulating a global set across all sources in a single run, which could cause stale pair detection if sources for the same venue are spread across a long scrape run.
+
+### event_sources Boundary
+
+`event_sources` is fully untouched. Archival operates only on `events.archived_at`. Series detection operates only on `events.series_id`. The FK integrity of `event_sources → events` is preserved because soft-deleted events are never hard-deleted.
+
+---
+
+## Anti-Patterns
+
+### Anti-Pattern 1: Running Series Detection Inside upsertEvent()
+
+**What people do:** Add series detection logic inside `upsertEvent()` so it triggers on every event insert/update.
+
+**Why it's wrong:** `upsertEvent()` is called once per extracted event. At the moment of upsert, the DB may contain only one occurrence (the one being inserted). Series detection requires aggregate state — it must query all occurrences and therefore must run after, not during, individual upserts. Running it inline adds N extra queries for N events where most are single-occurrence events that will never form a series.
+
+**Do this instead:** Accumulate unique (venue_id, normalized_performer) pairs during the upsert loop, then run a single detection pass after all upserts for a source complete.
+
+### Anti-Pattern 2: Hard-Deleting Past Events
+
+**What people do:** `DELETE FROM events WHERE event_date < NOW()` in the archival cron.
+
+**Why it's wrong:** Hard deletes orphan `event_sources` rows (FK violation unless cascaded — cascading breaks the audit trail). The existing upsert dedup key will re-insert the same event on the next scrape if the source page still lists it. Admin visibility into what was scraped is lost.
+
+**Do this instead:** Set `archived_at = NOW()` (soft delete). The public API filters `WHERE archived_at IS NULL`. Admin can query `WHERE archived_at IS NOT NULL`. If the scraper re-encounters a previously archived event, `upsertEvent()` hits the unique constraint and updates the row — the archival cron will re-archive it on the next run if the date has passed.
+
+### Anti-Pattern 3: Text-Column-Only Series Tagging
+
+**What people do:** Add a `series_key TEXT` column to events (e.g., `"open-mic-the-dome"`) and skip the `recurring_series` table.
+
+**Why it's wrong:** Series-level metadata (recurrence_label, occurrence_count, first_seen_at) can't be stored without denormalizing across all event rows. Series-level admin operations (rename, dissolve) require a full-table UPDATE. Querying "all active series" requires a GROUP BY on a large table. The text key has no enforced referential integrity.
+
+**Do this instead:** Normalize to `recurring_series` with `events.series_id` FK. Series metadata lives in one row. Querying all series is a table scan on a small purpose-built table.
+
+### Anti-Pattern 4: Expanding the 30-day Extraction Window for Recurring Events
+
+**What people do:** Increase the extractor's 30-day future window to 60 or 90 days so more occurrences are visible for series detection.
+
+**Why it's wrong:** The 30-day cap is a deliberate product decision — locals care about what's coming up soon. Expanding it increases Gemini context, cost, and noise from tentative/distant events. It also violates the existing filter in `extractor.ts`.
+
+**Do this instead:** Keep the 30-day window. Recurring events (weekly, monthly) naturally produce 2-4 occurrences within any 30-day window. If a performer has only one upcoming occurrence in the next 30 days, they are not "recurring" in a way that's useful to surface to users right now — the series badge would be misleading.
+
+### Anti-Pattern 5: Making Series Detection Synchronous and Blocking
+
+**What people do:** Call `detectAndLinkSeries()` inside the upsert loop for every event, awaiting each call before continuing.
+
+**Why it's wrong:** This multiplies the number of DB round-trips per scrape run by the number of unique performers per source. Most performers are one-off; calling detection on each wastes DB connections and adds latency inside the 60s Vercel timeout.
+
+**Do this instead:** Accumulate a `Set<string>` of unique pairs during the upsert loop (O(1) Set.add, no DB call), then run detection only for unique pairs after the source's upserts complete. The Set deduplicates naturally.
 
 ---
 
@@ -381,120 +502,25 @@ New value: `no_website` — venues confirmed by Places API with no `websiteUri`.
 
 | Scale | Architecture Adjustments |
 |-------|--------------------------|
-| 26 venues (current v1.5) | Serial scrape cron runs in ~30-40s |
-| 100-200 venues (near-term v2.0 target) | Monitor scrape cron duration. Start enabling `scrape_frequency='weekly'` for low-yield sources to keep daily cron under 60s. |
-| 300-500 venues | Serial cron will exceed 60s. Options: (a) shard by province across two cron endpoints, (b) upgrade to Vercel Pro ($20/mo, 300s limit), (c) move to Vercel Pro and use a background job queue. |
-| Discovery scale | 140 Places queries/week + 7 Reddit fetches + 7 Gemini calls is trivial at any scale. |
+| Current (~dozens of active events, ~41 venues) | Archival bulk UPDATE is trivially fast. Series detection: handful of unique pairs per run. No indexes needed. |
+| 10x events (~5k active) | Still fine. Archival is one UPDATE. Series detection bounded by unique venue+performer pairs. Consider adding `index('events_archived_at_idx').on(table.archived_at)` at this scale. |
+| 100k+ events | Add `index('events_series_id_idx').on(table.series_id)` for series-grouped queries. Add `events_archived_at_idx` for archival UPDATE query. Archival UPDATE may benefit from batching. |
 
-### First Bottleneck: The Scrape Cron
+### Scaling Priorities
 
-The daily scrape cron is serial (`for source of sources`). At ~26 venues with Gemini throttle at 4000ms, it runs in ~30-40s. At 200 enabled venue_website sources, it would take ~800s — far over the 60s limit.
-
-Mitigations available today (no infrastructure change):
-1. Set `scrape_frequency = 'weekly'` for venues with low event turnover
-2. Reduce `SCRAPE_THROTTLE_MS` for paid Gemini tier (already supported via env var)
-3. Skip Gemini for venues that consistently return JSON-LD (already implemented)
-
-Mitigation requiring change:
-- Shard: split sources into buckets by province, run four separate crons on different hours
-
-### Second Bottleneck: Venue Dedup at Scale
-
-The `findOrCreateVenue()` call in `scrapeTicketmaster()` loads all venues in a city for fuzzy matching. At 500 venues this is still fast (city-scoped, in-memory Levenshtein). At 10,000 venues it may degrade. Not a concern for Atlantic Canada scale.
-
----
-
-## Anti-Patterns
-
-### Anti-Pattern 1: Stacking Places Discovery Inside the Existing 60s Discover Cron
-
-**What people do:** Add `await runPlacesDiscovery()` directly at the top of `runDiscoveryJob()`.
-
-**Why it's wrong:** The existing Gemini+Search loop already uses ~20-30s (6 cities × 2s throttle + Gemini latency). Adding 140 Places API calls with inter-request throttle will reliably exceed 60s.
-
-**Do this instead:** Run Places discovery as its own cron endpoint on a separate day, or replace the Gemini+Search discovery on Mondays with Places discovery (Gemini+Search is lower-value once Places API covers the same geography).
-
-### Anti-Pattern 2: Global Auto-Approve Threshold for All Discovery Methods
-
-**What people do:** Keep `AUTO_APPROVE_THRESHOLD = 0.8` and apply it uniformly.
-
-**Why it's wrong:** Reddit-mined candidates have lower precision than Places API candidates (unstructured Gemini extraction from social media text). Auto-approving at 0.8 will promote bad venue rows.
-
-**Do this instead:** Apply per-method thresholds. `google_places` = 0.8 (structured, address confirmed). `gemini_google_search` = 0.8 (existing, keep). `reddit_gemini` = 0.9 (higher bar). The `discovery_method` column is already in `discovered_sources` — use it.
-
-### Anti-Pattern 3: Treating `url = null` Venues as Incomplete / Skippable
-
-**What people do:** Add a `WHERE url IS NOT NULL` guard in the Places discovery output, skipping venues without websites.
-
-**Why it's wrong:** Many real Atlantic Canada venues — community halls, seasonal festival spaces, small bars — have no dedicated website. Their Places entry still provides name + address + `google_place_id`. This is valuable as a dedup anchor when Ticketmaster creates a venue with the same name.
-
-**Do this instead:** Insert with `status = 'no_website'`. The `google_place_id` becomes the cross-source dedup key. When Ticketmaster later creates a venue with the same name, `findOrCreateVenue()` can check `google_place_id` for a fast-path match (future enhancement, not required for v2.0).
-
-### Anti-Pattern 4: Creating a New Review Flow for Places/Reddit Sources
-
-**What people do:** Build separate admin pages for "Google Places candidates" and "Reddit candidates" with different review actions.
-
-**Why it's wrong:** The existing `/admin/discovery` UI with pending/approve/reject already handles all cases. The `discovery_method` column already provides attribution. Adding separate flows fragments the review queue and doubles admin UI complexity.
-
-**Do this instead:** Add a `discovery_method` filter chip to the existing review page if needed (minor UI change). All sources use the same `promoteSource()` action.
-
-### Anti-Pattern 5: Storing Full Places API Response as Raw JSON
-
-**What people do:** Add a `places_api_raw jsonb` column to preserve the full API response for future use.
-
-**Why it's wrong:** Most Places API fields (hours, ratings, reviews, photos) change constantly and are not used by this app. Storing them inflates the row size and creates maintenance confusion about what's current.
-
-**Do this instead:** Store only the four durable fields: `google_place_id` (dedup key, permanent), `address` (stable), `lat` (stable), `lng` (stable).
-
----
-
-## Suggested Build Order
-
-### Phase 1: Schema Migration
-**Rationale:** Foundation for everything else. Pure migration, no logic changes, safe to ship independently.
-- Add `address`, `google_place_id`, `lat`, `lng` to `discovered_sources`
-- Add `google_place_id` to `venues`
-- No application changes; migration only
-
-### Phase 2: Places API Discoverer
-**Rationale:** Highest value, most structured input. Build and test in isolation before wiring to orchestrator.
-- Implement `places-discoverer.ts`
-- Verify `GOOGLE_MAPS_API_KEY` has Places API (New) enabled in GCP Console (separate from Geocoding API)
-- Unit-test with mocked `fetch` responses
-- Confirm field mask and billing implications
-
-### Phase 3: Orchestrator Integration + Score Tuning
-**Rationale:** Wire the Places channel into the discovery pipeline. Tune scoring after seeing real output.
-- Decide: extend `runDiscoveryJob()` or create separate `/api/cron/places-discover` route (prefer separate due to timeout risk)
-- Extend `scoreCandidate()` with per-method thresholds
-- Modify `promoteSource()` for pre-populated lat/lng/address optimization
-- Update `vercel.json` schedule
-- Expand `ATLANTIC_CITIES` to cover all Atlantic Canada (20+ cities/towns)
-
-### Phase 4: Reddit Discoverer
-**Rationale:** Lower precision than Places; build after the high-quality path is working and you have a baseline for what good candidates look like.
-- Implement `reddit-discoverer.ts`
-- Create `/api/cron/reddit-discover` route
-- Apply 0.9 auto-approve threshold for Reddit-sourced candidates
-- Add to `vercel.json`
-
-### Phase 5: Admin UI — `no_website` Filter (Optional)
-**Rationale:** Only needed if `no_website` candidates create confusion in the review queue. The existing UI handles them; this is polish.
-- Add `no_website` filter chip to `/admin/discovery`
-- Show Google Maps link (using `google_place_id`) in discovery review card
+1. **First concern (not yet needed):** Index on `events.archived_at`. The archival UPDATE scans all non-archived events. At Atlantic Canada scale this is a small table; no index needed now.
+2. **Second concern (not yet needed):** Index on `events.series_id`. Querying "all events in series X" requires a full scan of events without this index. At current scale the table is small; add when EventList series-grouping is implemented if needed.
 
 ---
 
 ## Sources
 
-- Direct codebase analysis of `src/lib/scraper/`, `src/lib/db/schema.ts`, `src/app/api/cron/` (HIGH confidence — read directly)
-- Google Maps Places API (New) Text Search endpoint, field mask format, `X-Goog-FieldMask` header pattern: training data knowledge (MEDIUM confidence — verify current billing and field availability at https://developers.google.com/maps/documentation/places/web-service/text-search)
-- Reddit public JSON API (`/r/{sub}/new.json`): training data knowledge (MEDIUM confidence — API has been stable; verify `User-Agent` requirement at current Reddit API policy)
-- Vercel Hobby plan 60s limit: confirmed in existing codebase via `maxDuration = 60` in all cron route files (HIGH confidence)
-- `GOOGLE_MAPS_API_KEY` env var: confirmed in `src/lib/scraper/geocoder.ts` (HIGH confidence)
-- `discovery_method` column in `discovered_sources`: confirmed in `src/lib/db/schema.ts` (HIGH confidence)
-- `AUTO_APPROVE_THRESHOLD` env var with 0.8 default: confirmed in `src/lib/scraper/discovery-orchestrator.ts` (HIGH confidence)
+- Direct codebase read: `schema.ts`, `extractor.ts`, `orchestrator.ts`, `normalizer.ts`, `/api/events/route.ts`, `EventCard.tsx`, `EventList.tsx`, `types/index.ts`, `extracted-event.ts`, `/api/cron/scrape/route.ts` — HIGH confidence
+- Drizzle ORM: `isNull`, `and`, `onConflictDoUpdate`, `inArray` operators — standard Drizzle pg-core API, confirmed present and used throughout existing codebase — HIGH confidence
+- Vercel Hobby 60s limit: confirmed via `export const maxDuration = 60` in all existing cron routes — HIGH confidence
+- Soft-delete (nullable timestamp) pattern: established pattern in this codebase (`reviewed_at`, `last_scraped_at`, `merged_at` all nullable timestamps used as state flags) — HIGH confidence
+- PostgreSQL: adding nullable columns is non-blocking, no table rewrite — HIGH confidence (standard Postgres behavior)
 
 ---
-*Architecture research for: East Coast Local — v2.0 Mass Venue Discovery*
-*Researched: 2026-03-15*
+*Architecture research for: East Coast Local v2.2 — Recurring Event Series + Past Event Archival*
+*Researched: 2026-03-16*

@@ -1,24 +1,25 @@
 # Feature Research
 
-**Domain:** Event discovery platform — mass venue discovery and coverage scaling (v2.0 milestone)
-**Researched:** 2026-03-15
-**Confidence:** MEDIUM overall — Google Maps Places API and Reddit API behaviors drawn from training data (cutoff August 2025); flag for verification before implementation
+**Domain:** Recurring event series detection/grouping and past event archival for an event discovery app (v2.2 milestone)
+**Researched:** 2026-03-16
+**Confidence:** MEDIUM — core UX patterns are well-established from comparable platforms (Eventbrite, Meetup, Google Events); detection heuristics and schema design informed by codebase analysis and domain knowledge; specific detection algorithm accuracy unverifiable without data
 
 ---
 
 ## Context: What Already Exists (Must Preserve)
 
-This is the v2.0 milestone. The following are already built and must be integrated with, not replaced:
+This is the v2.2 milestone. The following are already built and must be integrated with, not replaced:
 
-- **Discovery pipeline:** `runDiscoveryJob()` queries Gemini + Google Search grounding for 6 hardcoded Atlantic cities; stages results in `discovered_sources`; auto-approves at score ≥ 0.8
-- **Scoring:** `scoreCandidate()` assigns 0.5 base + bonuses for city/province/name presence; penalizes aggregator domains and event-path URLs
-- **Promotion:** `promoteSource()` creates a `venues` row + `scrape_sources` row from a `discovered_sources` row; called by both admin UI and auto-approve
-- **Venue dedup:** Two-signal gate (name ratio + geocoordinate proximity); auto-merge at high confidence; borderline cases queued to `venueMergeCandidates` for admin review
-- **Auto-geocoding:** `geocodeAddress()` uses Google Maps Geocoding API with APPROXIMATE-precision rejection
-- **Vercel Hobby constraints:** 60s function timeout; 50MB size limit; no Playwright/Puppeteer
-- **Existing geography:** 6 cities hardcoded in `ATLANTIC_CITIES` array (Halifax, Moncton, Fredericton, Saint John, Charlottetown, St. John's)
+- **`events` table**: `id`, `venue_id`, `performer`, `normalized_performer`, `event_date`, `event_category`, `description`, `archived_at` column does NOT yet exist
+- **`/api/events` route**: Currently filters `WHERE event_date >= NOW()` — live date comparison on every request; no archived_at guard
+- **`event_sources` join table**: Tracks scrape/ticketmaster/manual origin per event; non-destructive upsert pattern
+- **Daily scrape cron** at `/api/cron/scrape`: Runs all scrape sources daily; 60s Vercel timeout budget
+- **`EventCard` component**: Renders event details including category badge; accepts `EventWithVenue` type
+- **`EventWithVenue` type** in `src/types/index.ts`: Drizzle join shape plus `source_types?: string[]` — will need series fields added
+- **Admin dashboard**: JWT-auth, dashboard with health stats, venue management, discovery review, merge review, discovery run metrics
+- **Dedup key**: `uniqueIndex` on `(venue_id, event_date, normalized_performer)` — same-event-same-venue dedup already works
 
-The v2.0 features add new discovery *sources* (Google Maps Places API, Reddit) and expand *geography*. The downstream pipeline (scraping, dedup, promotion) is largely unchanged.
+Neither `archived_at` nor `series_id` exist on the `events` table yet. Both are new columns for v2.2.
 
 ---
 
@@ -26,123 +27,125 @@ The v2.0 features add new discovery *sources* (Google Maps Places API, Reddit) a
 
 ### Table Stakes (Users Expect These)
 
-These are the minimum behaviors for a system claiming "mass venue discovery." Missing them = the feature does not work as described.
+Features users assume exist in a well-functioning event discovery app. Missing these = product feels incomplete or stale.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| Google Maps Places API venue search | The only reliable structured data source for venue metadata (name, address, website, lat/lng, place type, phone) at scale. Text Search and Nearby Search are the standard mechanisms. Without this, "bulk discovery" relies entirely on Gemini web search, which has no structured output guarantees. | MEDIUM | Requires Places API (New) enabled on the Google Cloud project. Text Search: `POST https://places.googleapis.com/v1/places:searchText` with `textQuery: "bars pubs venues events [city]"`. Nearby Search: `POST .../places:searchNearby` with lat/lng + radius. Response fields include `displayName`, `formattedAddress`, `websiteUri`, `nationalPhoneNumber`, `types`, `location`. Field mask header required — only request needed fields to control billing. |
-| Expanded city coverage beyond 6 cities | Current 6-city list misses population centers like Truro NS, Amherst NS, Miramichi NB, Corner Brook NL, Summerside PEI. "Expanded geographic coverage" is a stated goal; without it, the milestone is incomplete. | LOW | Extend the `ATLANTIC_CITIES` array (or equivalent config) with smaller cities. Atlantic Canada has ~30 population centers worth targeting. The existing loop already iterates per-city — adding more cities is additive. Timeout risk: 30 cities × 2s throttle = 60s, which hits the Vercel function limit. See pitfalls. |
-| Deduplication against existing venues before bulk import | Google Maps will return venues already in the system. Without dedup, bulk import creates duplicate venue rows and double pins. The venue dedup system (two-signal gate) already exists but is only triggered by Ticketmaster ingest. | LOW | Before inserting a Places-discovered venue, run it through `scoreVenueCandidate()` against existing venues. Auto-merge at high confidence; queue borderline to `venueMergeCandidates`. Reuse existing logic; wire it into the new discovery path. |
-| Website URL extraction from Places results | The point of venue discovery is to find scrapeable websites. If a Places result has no `websiteUri`, it cannot be promoted to a scrape source. The system needs to handle "no website" venues separately from "has website" venues. | LOW | Filter Places results: venues with `websiteUri` are candidates for scrape source promotion. Venues without website but with phone/address can be stored as venue stubs (with no scrape source) for future manual review or Ticketmaster-only coverage. |
-| Rate limit compliance for Places API | Google Maps Places API has per-minute and per-day quotas. A bulk import loop hammering the API without throttling will hit 429 errors and may incur unexpected billing spikes. | LOW | Apply the same per-request delay pattern already used in `runDiscoveryJob()` (configurable `DISCOVERY_THROTTLE_MS`). Add a distinct `PLACES_THROTTLE_MS` env var. Cache responses — do not re-query a city that was searched in the current run. |
-| Reddit post mining for venue/event mentions | r/halifax, r/fredericton, r/stjohnsnl, r/newbrunswick, r/PEI are active Atlantic Canada communities. Event and venue recommendations appear in "what's on this weekend" and "live music" threads. Without extracting from these sources, the feature is not delivered. | HIGH | Reddit API (OAuth2, read-only) or direct Reddit JSON endpoints (`.json` suffix on any post/thread URL, no auth required for public subreddits). Use Gemini to parse raw comment text and extract venue names + URLs. High complexity because Reddit data is unstructured and noisy; false positive rate will be higher than Places API. |
-| Aggressive auto-approval for high-confidence venues | The current auto-approve threshold (0.8) was calibrated for Gemini web-search results. Places API results have structured data (address, coordinates, place type) that warrants different — likely lower — threshold or a separate scoring path. Without tuning this, the admin queue fills with Places-sourced venues that should be auto-approved. | LOW | Add a `places_api` discovery method value for `discovered_sources.discovery_method`. Score Places candidates with a separate scoring function that gives credit for having structured lat/lng, a verified place type (bar, restaurant, night_club, etc.), and a real website URL. Auto-approve at a lower threshold (e.g., 0.7) for Places-sourced venues. |
+| Past events hidden from default view | Users expect only upcoming events when browsing; seeing October gigs in March is disorienting and erodes trust in the app | LOW | `/api/events` already has `gte(event_date, now())`. Archival replaces this live comparison with a stable `archived_at IS NULL` gate, making archival auditable and reversible. |
+| "Recurring" or "Weekly" badge on event cards | Apps like Meetup, Eventbrite, and Google Events all surface recurrence signals visually; users expect to see at a glance that "Open Mic Night" happens every week, not just once | LOW | Badge is pure UI — conditional render when `series_id IS NOT NULL`. Requires `series_id` FK to exist on the event row. No badge logic needed beyond null-check. |
+| Recurring series collapsed to next occurrence in list | Eventbrite and Meetup both show one card per series (the next upcoming date) rather than flooding the list with 8 identical entries for the same weekly open mic | MEDIUM | Collapse logic lives in the API query layer: `DISTINCT ON (COALESCE(series_id, id::text))` ordered by `event_date ASC` gives one row per series. Without collapse, a weekly event at a popular venue produces 8 map pins and 8 list entries, crowding out other events. |
+| Archived events excluded from public API | All public-facing views (map, list, heatmap) implicitly expect active/upcoming data; stale events pollute every view simultaneously | LOW | Change `/api/events` `WHERE` clause from `gte(event_date, now())` to `AND archived_at IS NULL`. Both guards are valid during transition. `archived_at` is the authoritative state machine gate. |
+| Admin can see archived events | Admins need to audit what got archived to catch false positives — e.g., a recurring event that ran for months and is now paused, or an event that was archived too aggressively | LOW | A filtered tab in the admin events view (or a "show archived" toggle). Does not require a separate page — existing admin patterns (DiscoveryList tab model) apply directly. |
 
 ### Differentiators (Competitive Advantage)
 
-Features that extend beyond the minimum and improve data quality or coverage significantly.
+Features that go beyond the baseline and add measurable value given East Coast Local's specific context.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Place type filtering for venue relevance | Google Maps returns businesses of all types. Without filtering, "venue discovery" query returns restaurants, grocery stores, and gas stations. Filtering by place type ensures only plausible event venues are staged. | LOW | Include `includedTypes` in the Nearby Search request body (e.g., `["bar", "night_club", "concert_hall", "performing_arts_theater", "comedy_club", "community_center", "stadium"]`). Text Search does not support `includedTypes` natively — apply type filtering as a post-process step on the response. |
-| Scalable discovery job architecture (chunked cron) | 30+ cities × Places API + Gemini + Reddit = well over 60 seconds of sequential work. A single cron that tries to do everything will timeout on Vercel Hobby. | HIGH | Split discovery into city-chunked jobs. Option A: multiple Vercel cron schedules, each covering a subset of cities (e.g., NB cities at 2am, NS at 3am). Option B: a single cron that tracks last-processed city index in DB and picks up where it left off. Option B is more elegant but requires state management. |
-| Reddit subreddit targeting per province | Different provinces have different active communities (r/halifax is large; r/PEI is smaller). Blanket scraping all subreddits equally wastes quota on low-signal sources. | LOW | Maintain a province-to-subreddit mapping. Prioritize high-activity subreddits. Limit search to "new" or "hot" posts within the past 30 days. Use specific search terms: "live music", "events this weekend", "shows", "playing tonight". |
-| No-website venue stubs for Ticketmaster coverage | Some venues have no scrapeable website but appear on Ticketmaster (e.g., sports arenas, amphitheatres). Storing these as venue stubs with lat/lng allows Ticketmaster events at those venues to be geocoded and mapped correctly, even without a scrape source. | LOW | On promotion: if `websiteUri` is null but venue has name + address + coordinates, create a venues row without a `scrape_sources` entry. Mark with a `venue_type: 'stub'` or a new boolean `has_scrape_source: false`. Ticketmaster's existing dedup will match TM venue names against these stubs. |
-| Admin batch-approve UI for discovery queue | When bulk import produces 50–100 staged candidates, reviewing them one by one is impractical. A "select all / approve selected" batch action in the admin discovery UI dramatically reduces review friction. | MEDIUM | Add checkboxes to the discovery list rows. "Approve selected" button calls `promoteSource()` for each checked ID. Requires server action that accepts an array of IDs. Current per-item approve action can be reused per-item internally. |
-| Discovery run logging and metrics | At scale (hundreds of venues processed per run), the admin needs visibility into what was discovered, what was auto-approved, what failed, and why — not just a console.log. | MEDIUM | Add a `discovery_runs` table with `run_at`, `method`, `cities_searched`, `candidates_found`, `auto_approved`, `queued_for_review`, `errors`. Populate at end of each cron run. Surface on admin dashboard as "Last discovery run" with counts. |
+| Automatic series detection from scraped data | Most event aggregators require the organizer to explicitly mark an event as recurring (Eventbrite, Meetup). Auto-detection from scraped titles and date patterns means zero manual curation — the system figures out "Open Mic Every Wednesday" from the data | MEDIUM | Two complementary signals: (1) **Title keyword heuristic** — if `performer` or `description` contains "every", "weekly", "open mic", "trivia night", "bingo", "karaoke night", "comedy night", the event is a recurrence candidate; (2) **Temporal pattern** — same `normalized_performer` at same `venue_id` appearing on multiple same-weekday dates across scrape runs. Running both increases recall. This runs as a post-scrape enrichment step in the daily cron, not at extraction time. |
+| "Next occurrence" contextual label on series cards | Show "Recurring — Next: Wed Mar 18" rather than a bare date, making recurring events feel like a living schedule rather than a one-off listing | LOW | Derived at render time from `series_id` + `event_date` ordering. Requires `recurrence_cadence` stored per series (weekly, biweekly, monthly). No extra DB query needed — cadence is on the `event_series` row fetched via JOIN. |
+| Map pin de-duplication for recurring series | A venue with a weekly recurring event would otherwise produce 8 pins in the cluster view, making that venue appear 8x more prominent than a venue with one event. Series grouping lets the map show one pin per venue with a popup saying "Open Mic Night — every Wednesday (8 upcoming)" | MEDIUM | Pin de-duplication per venue already works via Leaflet clusters. The enhancement is in the popup content: group events by `series_id` within the venue popup, show one series row instead of N occurrence rows. |
+| Admin series management override | Admin can manually tag an event as part of a series, edit the cadence, or split a wrongly-detected series | MEDIUM | Needed for edge cases: a venue runs "Open Mic Night" monthly, not weekly; two different performers share the same stage name. Lower priority than detection itself — can ship after auto-detection is validated. |
 
 ### Anti-Features (Commonly Requested, Often Problematic)
 
+Features that seem useful but create more problems than they solve in this context.
+
 | Feature | Why Requested | Why Problematic | Alternative |
 |---------|---------------|-----------------|-------------|
-| Fully automated bulk import with zero admin review | "Just approve everything from Google Maps — they're legit businesses" | Google Maps returns tattoo parlors, nail salons, and food trucks alongside bars and venues. Even with type filtering, false positives exist. Bulk auto-import without any review path will populate the map with non-event venues and require manual cleanup. | Auto-approve only when place type is in a high-confidence whitelist (bar, night_club, concert_hall, performing_arts_theater) AND website is present AND address is valid. Route everything else through admin review. |
-| Reddit as primary discovery source | Reddit is unstructured, community-sourced, and noisy. Using it as the primary input for venue discovery would produce many false positives. | Reddit posts mention venues in passing (e.g., "I saw a band at [venue name]"). Extracting structured URLs from these mentions requires LLM parsing, which has error rates. Reddit API also has rate limits and requires OAuth2 setup. | Use Reddit as a *supplemental* signal — a second-pass enrichment after Places API has built the baseline. Reddit is better for discovering niche venues that don't appear in Places than as a primary data source. |
-| Storing raw Reddit posts in the database | "Save the full post text for provenance" | Raw Reddit content is large, legally ambiguous (Reddit TOS), and unnecessary. The useful output is extracted venue names and URLs, not the raw text. | Store only the extracted structured output (venue name, URL, city) in `discovered_sources.raw_context`. Record the subreddit and post ID as the source reference, not the full post body. |
-| Real-time venue discovery triggered by users | "Let users suggest venues to add" | Triggers LLM + Places API calls on user requests, which is expensive, slow, and open to abuse. | Discovery remains a scheduled cron job only. If user-triggered venue requests are needed in the future, implement a simple "suggest a venue" form that queues suggestions for admin review — no automated pipeline triggered. |
-| Scraping Facebook Events for venue discovery | "Lots of Atlantic Canada venues post events only on Facebook" | Requires headless browser (Playwright/Puppeteer), which exceeds Vercel Hobby's 50MB function size limit. Facebook actively blocks scrapers. This is explicitly listed as Out of Scope in PROJECT.md. | Focus on venues with their own websites (Places API `websiteUri`), Eventbrite pages, and Bandsintown pages. These are scrapeable without headless browsers. Accept that Facebook-only venues are out of scope. |
-| Geocoding every Reddit-mentioned venue during discovery | "Let's geocode each extracted venue immediately so we have coordinates" | Reddit-extracted venue names are noisy and many will fail geocoding (e.g., "the bar on Gottingen" is not a geocodable address). Burning Geocoding API credits on low-quality inputs wastes money. | Geocode only after a venue passes the quality gate and is promoted to the `venues` table. The existing `promoteSource()` already geocodes on creation. Do not geocode during the discovery/staging phase. |
+| Store all future occurrences at scrape time | "Complete history" — scraper sees "Open Mic every Wednesday through December" and wants to persist all 30 future dates | Produces dozens of identical rows; bloats the events table; the dedup key (venue + date + performer) would block duplicates on re-scrape anyway; most future occurrences will never be viewed | Store only dates that appear on the venue website. Let the venue website be the source of truth for which occurrences have been published. The scraper already does this correctly — do not change it. |
+| RRULE-based recurrence generation | iCalendar RRULE format is the standard for recurring events; used by Google Calendar, Eventbrite internals, schema.org Schedule type | This app is a discovery tool, not a calendar app. RRULE requires knowing the exact recurrence rule upfront — venue websites don't expose RRULE. Detection heuristics are better than pretending you know the exact rule. `postgres-rrule` extension is also incompatible with Neon serverless | Store `recurrence_cadence` as a simple enum (weekly, biweekly, monthly) or text field. No extension needed. Cadence is advisory, not generative. |
+| Public "past events" tab | Users who missed an event might want to see what played recently | Creates a browsing surface for stale data; increases cognitive load; heatmap + timelapse already shows past density; not aligned with the "what's happening now/soon" core value; explicitly out of scope per PROJECT.md | Keep archived events in admin only. Public interface stays future-focused. |
+| Hard delete of past events | Simpler than archival — just `DELETE WHERE event_date < now() - interval` on a cron | Destroys the cross-source dedup anchor: if an event is deleted and re-scraped from a new source, it reappears as a duplicate. Also destroys the `event_sources` audit trail. | Soft-delete via `archived_at` timestamp. Archived rows stay in the DB; public API excludes them via `WHERE archived_at IS NULL`. Admin can query them. Dedup key still prevents re-insertion. |
+| Real-time series detection on event insert | Run detection as each event is inserted during scraping | O(n) lookback query per insertion adds latency inside the 60s Vercel cron timeout. Detection failures would block event persistence. | Run series detection as a separate post-scrape enrichment step in the daily cron, after all events are inserted. Two-phase: insert first, enrich second. |
+| "Recurring events only" filter chip in public UI | Filter to show only recurring events on the map and list | Adds a UI filter element for a subset of events that may be sparse at launch; creates pressure to have high detection accuracy before the filter is worth surfacing; could confuse users if detection has false negatives | Surface recurrence passively via badges on existing cards. Add the filter chip in a later milestone once series detection coverage and accuracy are confirmed by admin review. |
+| Archiving events immediately at midnight | Run the archive cron at exactly midnight so events are archived the moment they end | Race condition: an event that ended at 11:58 PM gets archived at midnight before some users finish viewing it; also catches events that list 9 PM but often run until 1 AM | Use a grace period: archive events where `event_date < NOW() - INTERVAL '2 hours'`. Events 2+ hours past their start time are safely archiveable. Adjust interval based on typical event duration patterns. |
 
 ---
 
 ## Feature Dependencies
 
 ```
-[Google Maps Places API Discovery]
-    └──requires──> [Places API enabled on GCP project] (may need API key scope update)
-    └──requires──> [Throttling per request] (reuse DISCOVERY_THROTTLE_MS pattern)
-    └──feeds into──> [discovered_sources table] (same staging table as Gemini discovery)
-    └──requires──> [Venue dedup check before insert] (scoreVenueCandidate against existing venues)
-    └──requires──> [Separate scoring function] (Places candidates score differently than Gemini candidates)
+[event_series table (new)]
+    └──required by──> [series_id FK on events table]
+    └──holds──> [recurrence_cadence, canonical_title, first_seen_at, venue_id]
 
-[Expanded City Coverage]
-    └──requires──> [City list expansion] (extend ATLANTIC_CITIES or equivalent config)
-    └──conflicts with──> [Vercel 60s timeout] (more cities = longer sequential job; see Architecture)
-    └──requires──> [Chunked cron job design] (if >15 cities, sequential loop will timeout)
+[series_id nullable FK on events (new column)]
+    └──requires──> [event_series table exists]
+    └──enables──> [Recurring badge on EventCard]
+    └──enables──> [Collapse to next occurrence in list view]
+    └──enables──> [Map popup: "every Wednesday" label]
+    └──enables──> [Admin series management UI]
 
-[Reddit Venue Mining]
-    └──requires──> [Reddit API access] (OAuth2 app registration OR public JSON endpoints)
-    └──requires──> [Gemini extraction] (reuse existing extractor pattern; parse unstructured text)
-    └──feeds into──> [discovered_sources table] (discovery_method: 'reddit_mining')
-    └──depends on──> [Google Maps Places API Discovery] (Reddit is supplemental, not primary)
-    └──does NOT require──> [Schema changes] (discovery_method column already exists as free text)
+[Series detection enrichment step (new cron logic)]
+    └──requires──> [event_series table]
+    └──requires──> [series_id column on events]
+    └──runs after──> [daily scrape cron inserts events]
+    └──uses──> [normalized_performer (existing) + venue_id (existing) + event_date (existing)]
+    └──populates──> [series_id on events rows]
+    └──creates──> [event_series rows on first detection]
 
-[Batch Admin Approve UI]
-    └──requires──> [Checkboxes on discovery list] (UI change to DiscoveryList component)
-    └──requires──> [Batch server action] (new action accepting array of IDs)
-    └──reuses──> [promoteSource()] (calls per-item internally)
-    └──enhances──> [Admin discovery review] (reduces friction for bulk review)
+[archived_at column on events (new column)]
+    └──independent of──> [series_id / event_series]
+    └──enables──> [Archive cron step]
+    └──enables──> [archived_at IS NULL filter in /api/events]
+    └──enables──> [Admin archived events view]
 
-[Scalable Discovery Job (Chunked Cron)]
-    └──requires──> [Either: multiple Vercel cron schedules OR DB-tracked job cursor]
-    └──required by──> [Expanded City Coverage] (prerequisite if >15 cities)
-    └──required by──> [Reddit Mining at scale] (Reddit adds significant per-subreddit latency)
+[Archive cron step (new or appended to existing cron)]
+    └──requires──> [archived_at column]
+    └──runs as──> [separate /api/cron/archive endpoint OR appended to /api/cron/scrape]
+    └──sets──> [archived_at = NOW() WHERE event_date < NOW() - INTERVAL '2 hours' AND archived_at IS NULL]
 
-[No-website Venue Stubs]
-    └──requires──> [Venue promotion path for Places results without websiteUri]
-    └──reuses──> [venues table] (no schema change needed)
-    └──enhances──> [Ticketmaster dedup] (TM venues can merge against stubs)
-    └──does NOT require──> [scrape_sources entry]
+[EventCard badge (UI change)]
+    └──requires──> [series_id surfaced in EventWithVenue type]
+    └──requires──> [/api/events to JOIN event_series and return recurrence_cadence]
 
-[Discovery Run Logging]
-    └──requires──> [New discovery_runs table] (schema migration)
-    └──fed by──> [runDiscoveryJob() return value or wrapper]
-    └──surfaces on──> [Admin dashboard]
+[List view collapse (query change)]
+    └──requires──> [series_id populated on events rows]
+    └──changes──> [/api/events query: DISTINCT ON series or application-layer dedup]
 ```
 
 ### Dependency Notes
 
-- **Places API before Reddit:** Build Places API discovery first. It produces higher-quality structured results and establishes the bulk discovery pipeline pattern. Reddit mining is a supplemental pass that uses the same staging table — add it after Places API is working.
-- **Chunked cron is required for expanded geography:** The Vercel 60s timeout is the binding constraint. Any design that adds more than ~15 cities to a sequential discovery loop must address this before expanding geography. The chunked cron design gates all city expansion work.
-- **Dedup wiring is a prerequisite for bulk import:** Google Maps will return venues already in the system. Without running `scoreVenueCandidate()` before insert, the bulk import will create duplicates that require manual merge. Wire dedup before enabling Places API discovery at scale.
-- **Batch approve UI is independent:** It is a UI-only change that can be added at any point. It does not gate any backend feature.
+- **`event_series` table before `series_id` FK:** Migration order must create the parent table before adding the FK column to `events`. Drizzle migration will handle ordering if schemas are defined correctly.
+- **`archived_at` is fully independent of series detection:** These two features share no schema dependencies. They can be built and shipped in any order within v2.2. Archival is simpler and lower risk — good candidate to ship first.
+- **Collapse in list requires `series_id` to be populated:** The "one card per series" query is impossible until the detection enrichment has run and set `series_id` on existing events. Plan for a one-time backfill run after the migration.
+- **Archive cron and scrape cron should coordinate:** Archive step should run after the scrape inserts new events, not before — otherwise a newly-scraped event for today could be archived before the scrape completes.
+- **`EventWithVenue` type needs extension:** Add `series_id?: number | null` and `recurrence_cadence?: string | null` to the type and the API response shape. The existing supplementary query pattern (used for `source_types`) can be reused to fetch series data.
 
 ---
 
 ## MVP Definition
 
-### Launch With (v2.0)
+### Launch With (v1 of this milestone — v2.2)
 
-Minimum viable feature set for this milestone to be complete and valuable.
+Minimum viable scope that delivers meaningful value and keeps data fresh.
 
-- [ ] Google Maps Places API venue discovery — Text Search or Nearby Search per city, extracting name + address + website + coordinates + place type
-- [ ] Expanded city list — all Atlantic Canada population centers (target: ~25 cities/towns across 4 provinces)
-- [ ] Place type filtering — only stage venues with plausible event-hosting types (bar, night_club, performing_arts_theater, community_center, etc.)
-- [ ] Dedup against existing venues before staging — run `scoreVenueCandidate()` before inserting to `discovered_sources`
-- [ ] Places-specific scoring — separate scoring path that credits structured lat/lng, verified place type, and website presence
-- [ ] Chunked cron design — discovery job does not attempt all cities in one 60s window
-- [ ] Reddit mining (supplemental) — scan r/halifax, r/fredericton, r/stjohnsnl, r/newbrunswick, r/PEI for venue mentions; extract with Gemini; stage in `discovered_sources`
+- [ ] `archived_at` nullable timestamp column on `events` table (migration)
+- [ ] `/api/cron/archive` endpoint (or archive step in existing `/api/cron/scrape`): sets `archived_at = NOW()` where `event_date < NOW() - INTERVAL '2 hours' AND archived_at IS NULL`
+- [ ] `/api/events` query updated: `AND archived_at IS NULL` added to WHERE clause — makes archival the authoritative gate
+- [ ] `event_series` table with `id`, `canonical_title`, `venue_id`, `recurrence_cadence` (text: weekly/biweekly/monthly), `first_seen_at`, `created_at` (migration)
+- [ ] `series_id` nullable integer FK on `events` referencing `event_series.id` (migration)
+- [ ] Series detection enrichment function: groups events by `normalized_performer + venue_id + day-of-week`, creates `event_series` rows, sets `series_id` on matched events
+- [ ] Title keyword heuristic detection: if `performer` contains recurrence keywords ("every", "weekly", "open mic", "trivia", "bingo", "karaoke"), flag as series candidate regardless of temporal pattern
+- [ ] Detection runs as post-scrape step in the daily cron (after all events inserted)
+- [ ] One-time backfill run of series detection against all existing events
+- [ ] "Recurring" badge on `EventCard` when `series_id IS NOT NULL`
+- [ ] List view collapse: show only the next upcoming occurrence per series (not all future dates)
+- [ ] Admin archived events tab: events where `archived_at IS NOT NULL`, sorted by event_date desc
 
-### Add After Validation (v2.x)
+### Add After Validation (v1.x)
 
-- [ ] Batch admin approve UI — checkboxes + "approve selected" for bulk review
-- [ ] No-website venue stubs — promote Places venues without websites as stub venue rows
-- [ ] Discovery run logging — `discovery_runs` table surfaced on admin dashboard
+- [ ] "Next: Wed Mar 18 — then every Wed" enhanced label on series cards — trigger: once series detection accuracy is confirmed by admin review of detected series
+- [ ] Map popup enhancement: "Open Mic Night — every Wednesday (5 upcoming)" — trigger: once series coverage is meaningful
+- [ ] Admin series management UI: view all detected series, edit cadence, manually merge/split occurrences — trigger: when false-positive series detections are reported
 
-### Future Consideration (v3+)
+### Future Consideration (v2+)
 
-- [ ] Real-time discovery coverage health — admin view showing province/city coverage metrics (X venues per city, last discovered date)
-- [ ] Venue suggestion form — user-submitted venue suggestions queued for admin review (no automated pipeline)
-- [ ] Auto-refresh stale venue websites — detect venues that haven't had successful scrapes in 30+ days and re-evaluate their website URL
+- [ ] "Recurring events only" filter chip in public UI — defer until series coverage is broad enough to be useful (needs >50% of expected recurring events detected)
+- [ ] Series confidence score with admin review queue for low-confidence detections — defer until detection volume is large enough to need triage
+- [ ] Hard purge of events archived > 90 days — defer; storage costs at Atlantic Canada scale are negligible; keep rows for dedup anchor integrity
 
 ---
 
@@ -150,132 +153,64 @@ Minimum viable feature set for this milestone to be complete and valuable.
 
 | Feature | User Value | Implementation Cost | Priority |
 |---------|------------|---------------------|----------|
-| Google Maps Places API discovery | HIGH (structured bulk input; enables scale) | MEDIUM (API integration + field masking + throttling) | P1 |
-| Expanded city coverage | HIGH (directly increases event coverage) | LOW (list expansion) + depends on chunked cron | P1 |
-| Chunked cron job design | MEDIUM (infrastructure; enables scale) | MEDIUM (cron splitting or cursor state) | P1 — gates city expansion |
-| Dedup wiring for Places results | HIGH (prevents data corruption at scale) | LOW (reuse existing scoreVenueCandidate) | P1 |
-| Place type filtering | MEDIUM (reduces false positives) | LOW (includedTypes param or post-filter) | P1 |
-| Reddit venue mining | MEDIUM (discovers niche/local venues Places misses) | HIGH (API setup + Gemini extraction + noise handling) | P2 |
-| Batch admin approve UI | MEDIUM (reduces admin burden at scale) | MEDIUM (UI + server action) | P2 |
-| Discovery run logging | LOW-MEDIUM (operational visibility) | MEDIUM (schema + instrumentation) | P2 |
-| No-website venue stubs | LOW (improves TM dedup; no immediate map value) | LOW (promotion path change) | P3 |
+| `archived_at` column + archive cron | HIGH — keeps public UI fresh automatically | LOW — one column, one WHERE clause, one cron step | P1 |
+| `archived_at IS NULL` in `/api/events` | HIGH — authoritative gate on stale data | LOW — one WHERE clause change | P1 |
+| `event_series` table + `series_id` FK | HIGH — foundation for all series features | LOW — two schema objects, one migration | P1 |
+| Series detection (temporal pattern) | HIGH — core value of the milestone | MEDIUM — enrichment query + grouping logic | P1 |
+| Series detection (title keywords) | MEDIUM — catches explicit recurrence signals | LOW — regex/keyword match on existing text | P1 |
+| Recurring badge on EventCard | MEDIUM — visual trust signal; sets expectation | LOW — conditional badge in existing card | P1 |
+| List view collapse to next occurrence | HIGH — prevents weekly events flooding list/map | MEDIUM — query-layer GROUP BY or app dedup | P1 |
+| Admin archived events tab | MEDIUM — admin visibility; catch false positives | LOW — filter tab in existing admin pattern | P2 |
+| Map popup "every Wednesday" label | MEDIUM — contextual discovery value | LOW — string addition once series_id exists | P2 |
+| Admin series management UI | LOW at launch — needed once FP rate known | MEDIUM — new admin page with merge/split | P3 |
 
 **Priority key:**
-- P1: Must have for v2.0 launch
-- P2: Should have; add when P1 features are stable
-- P3: Nice to have; defer if time-constrained
-
----
-
-## Implementation Detail Notes
-
-### Google Maps Places API (New) — Key Behaviors
-
-**Confidence: MEDIUM — based on training data through August 2025; verify current quota and pricing before implementation.**
-
-The Places API (New) uses a different endpoint structure than the legacy Places API:
-- Text Search: `POST https://places.googleapis.com/v1/places:searchText`
-- Nearby Search: `POST https://places.googleapis.com/v1/places:searchNearby`
-- Field mask header: `X-Goog-FieldMask: places.displayName,places.formattedAddress,places.websiteUri,places.nationalPhoneNumber,places.types,places.location,places.businessStatus`
-
-**Recommended approach — Text Search per city:**
-Query: `"bars pubs live music venues [city] [province] Canada"` — returns up to 20 results per request. Use `pageToken` for pagination (up to 3 pages = 60 results per city). For 25 cities this is up to 1,500 candidate venues before filtering.
-
-**Place types relevant to event venues:**
-`bar`, `night_club`, `concert_hall`, `performing_arts_theater`, `comedy_club`, `community_center`, `stadium`, `amphitheatre_or_outdoor_concert_venue`, `pub`. Filter client-side: keep results that have at least one of these types in the `types` array. Discard results that are only `restaurant`, `lodging`, `store`, etc.
-
-**businessStatus field:** Filter out `CLOSED_PERMANENTLY` and `CLOSED_TEMPORARILY` venues before staging — no point scraping a closed venue.
-
-**Cost:** Text Search is billed per request. At 25 cities × 3 pages each = 75 API requests per discovery run. At Google's current pricing this is inexpensive but verify the SKU pricing before enabling.
-
-**Rate limits:** 600 requests per minute (project-level). A 25-city discovery run at 75 requests is well within limits. No per-second throttling needed beyond the existing courtesy delay.
-
-### Reddit Mining via Gemini — Approach
-
-**Confidence: MEDIUM — Reddit public JSON API behavior is stable; Gemini extraction pattern reuses existing code.**
-
-**No OAuth2 required for read-only public subreddit access:** Reddit exposes public subreddit listings as JSON by appending `.json` to any subreddit URL:
-- `https://www.reddit.com/r/halifax/search.json?q=live+music+venue&sort=new&t=month&limit=25`
-- `https://www.reddit.com/r/fredericton/search.json?q=events+shows&sort=new&t=month&limit=25`
-
-This requires a descriptive `User-Agent` header (e.g., `EastCoastLocal/1.0`). No API key needed. Rate limit: 60 requests/minute for unauthenticated access.
-
-**Extraction approach:** Fetch top posts + comments for target search terms. Concatenate post title + selftext + top-level comments into a single text blob. Pass to Gemini with a prompt to extract: venue names, URLs, city, province. Use the existing `Output.object({ schema: CandidateSchema })` pattern from `discovery-orchestrator.ts`. The existing schema already captures all needed fields.
-
-**Noise handling:** Expect 60–80% of extracted "venues" to be invalid (band names mistaken for venues, addresses, aggregator links). Scoring will reject aggregator URLs. Admin review handles borderline cases. Do not attempt NLP-based venue classification — scoring + admin review is sufficient.
-
-**Subreddit targeting:**
-```
-NB: r/newbrunswick, r/fredericton, r/SaintJohn, r/moncton
-NS: r/halifax, r/novascotia
-PEI: r/PEI
-NL: r/newfoundland, r/stjohnsnl
-```
-
-### Chunked Cron Job Design
-
-**The Vercel Hobby 60s function timeout is the primary architecture constraint.**
-
-**Option A — Multiple Vercel cron schedules (recommended for simplicity):**
-```
-/api/cron/discover/nb  → runs at 2:00 AM UTC — NB cities
-/api/cron/discover/ns  → runs at 3:00 AM UTC — NS cities
-/api/cron/discover/pei → runs at 4:00 AM UTC — PEI + NL
-```
-Each cron handles a subset of cities that fits within 60 seconds. No state management needed. Downside: multiple cron endpoint files.
-
-**Option B — DB-tracked job cursor:**
-Store `last_processed_city_index` in a `discovery_job_state` table. Each cron invocation reads the cursor, processes the next N cities, and advances the cursor. Wraps around after last city. More complex but keeps a single cron endpoint.
-
-**Recommendation:** Option A for v2.0 (lower complexity, easier to debug). Option B if the number of cron files becomes unwieldy.
-
-### Scoring Places API Candidates vs. Gemini Candidates
-
-The existing `scoreCandidate()` function was designed for Gemini web-search output. Places API results have different signal availability:
-
-| Signal | Gemini candidates | Places API candidates |
-|--------|------------------|-----------------------|
-| City present | Optional (LLM may omit) | Always present (formattedAddress) |
-| Province present | Optional | Derivable from address |
-| Name present | Optional | Always present (displayName) |
-| Coordinates | Never (URL-only output) | Always present (location.lat/lng) |
-| Website | Present (it's the URL) | Optional (websiteUri field) |
-| Place type | Never | Always present (types array) |
-
-Recommended scoring for Places candidates:
-- Base: 0.5
-- Has websiteUri: +0.2
-- Place type in event-venue whitelist: +0.15
-- businessStatus is OPERATIONAL: +0.05
-- Has coordinates: +0.05 (bonus for geocoding accuracy)
-- Place type NOT in whitelist: -0.3
-- businessStatus CLOSED_PERMANENTLY: reject outright
-
-This scoring means most operational venues with websites and event-venue types will score ≥ 0.8 and auto-approve. Venues without websites will score ~0.7 and go to admin review.
+- P1: Must have for v2.2 launch
+- P2: Should have, add when P1 is working
+- P3: Nice to have, future milestone
 
 ---
 
 ## Competitor Feature Analysis
 
-| Feature | Songkick | Bandsintown | Google Maps/Events | Our Approach |
-|---------|----------|-------------|-------------------|--------------|
-| Venue discovery | Manually curated + promoter submissions | Promoter/artist push | Places API (structured) | Places API pull + Reddit supplemental |
-| Geographic coverage | Major cities only | Major cities only | Global (Places API) | All Atlantic Canada, including small towns |
-| Auto-approval | N/A (curated) | N/A (push model) | N/A | Score-gated auto-approve; admin review for borderline |
-| Venue without website | Not scraped | Artist-linked only | Listed in Places regardless | Venue stubs (no scrape source); TM dedup still works |
-| Admin review UI | N/A | N/A | N/A | Per-item approve/reject; batch approve for scale |
+| Feature | Eventbrite | Meetup | Google Events | Our Approach |
+|---------|------------|--------|---------------|--------------|
+| Recurring event grouping | Parent event + child date instances; one listing with date picker | Single "recurring event" with all dates; RSVP per occurrence | `EventSeries` / `superEvent` schema.org structured data; Knowledge Panel shows series | `event_series` table as grouping anchor; `series_id` FK on events; auto-detected from scraped data — no organizer action needed |
+| Recurrence display | "Select date" dropdown on event page | "Recurring — every [cadence]" badge; next date prominent | "Weekly event" in search results | "Recurring" badge on EventCard; collapse list to next occurrence |
+| Who marks recurrence | Organizer at event creation (explicit) | Organizer at event creation (explicit) | Structured data markup by organizer | Automatic detection from scrape data — zero manual curation |
+| Past event handling | Hidden from search by default; organizer sees archive | Visible on group page but de-emphasized | Removed from featured results; `eventStatus` schema field | `archived_at` soft-delete; excluded from public API; admin-only view |
+| Admin/organizer archive visibility | Full organizer dashboard with all history | Group admin sees full event history | N/A (organizer manages own site) | Admin events tab filtered by `archived_at IS NOT NULL` |
+
+---
+
+## Existing Schema Integration Points
+
+Direct integration points identified from `src/lib/db/schema.ts` and `src/app/api/events/route.ts`:
+
+- **`events` table**: Add `archived_at` (nullable timestamp, default null) and `series_id` (nullable integer FK to `event_series.id`). Both nullable — zero backfill required at migration time.
+- **`/api/events` route**: Currently `WHERE gte(events.event_date, new Date())`. Change to also include `isNull(events.archived_at)` using Drizzle's `isNull()` operator. Both guards complement each other.
+- **`normalized_performer` column**: Already exists on `events` — the temporal series detection pattern uses `normalized_performer + venue_id + day-of-week` directly, no new columns needed.
+- **`event_date` column**: Use `EXTRACT(DOW FROM event_date)` in PostgreSQL (or equivalent Drizzle `sql` tagged template) to group by day-of-week for temporal pattern detection.
+- **`EventWithVenue` type** (`src/types/index.ts`): Add `series_id?: number | null` and `recurrence_cadence?: string | null`. The existing supplementary query pattern for `source_types` (two-round-trip + Map merge) can be reused to fetch series data without JOIN row duplication.
+- **Daily cron** (`/api/cron/scrape`): Series detection enrichment appended after all event inserts complete, or a separate `/api/cron/enrich-series` endpoint. Separate endpoint is cleaner for timeout isolation.
 
 ---
 
 ## Sources
 
-- Google Maps Places API (New) documentation — `places:searchText`, `places:searchNearby`, field masking, `includedTypes` — training data through August 2025. **MEDIUM confidence — verify current endpoint behavior and pricing before implementation.**
-- Reddit public JSON API (`/r/subreddit/search.json`) — stable behavior for unauthenticated public access — **MEDIUM confidence.**
-- Existing codebase: `discovery-orchestrator.ts`, `promote-source.ts`, `venue-dedup.ts`, `geocoder.ts`, `schema.ts` — direct inspection — **HIGH confidence.**
-- Vercel Hobby plan constraints (60s timeout, 50MB function size) — PROJECT.md Constraints section — **HIGH confidence.**
-- Atlantic Canada subreddit list — community knowledge — **MEDIUM confidence; verify subreddit activity before targeting.**
+- [Eventbrite: Create and manage multiple date or recurring events](https://www.eventbrite.com/help/en-us/articles/256014/create-and-manage-multiple-date-or-recurring-events/)
+- [Eventbrite: New recurring event experience](https://www.eventbrite.com/help/en-us/articles/692566/create-a-recurring-or-timed-entry-event-in-eventbrites-new-recurring-event-experience/)
+- [Meetup: Creating a repeating event](https://help.meetup.com/hc/en-us/articles/39795590048781-Creating-a-repeating-event)
+- [Again and Again! Managing Recurring Events in a Data Model — Red Gate](https://www.red-gate.com/blog/again-and-again-managing-recurring-events-in-a-data-model/)
+- [Recurring Events and PostgreSQL — Thoughtbot](https://thoughtbot.com/blog/recurring-events-and-postgresql)
+- [Creating a Soft Delete Archive Table with PostgreSQL — Meroxa/Medium](https://medium.com/meroxa/creating-a-soft-delete-archive-table-with-postgresql-70ba2eb6baf3)
+- [The challenges of soft delete — atlas9](https://atlas9.dev/blog/soft-delete.html)
+- [Events, occurrences, and series — The Events Calendar API Handbook](https://docs.theeventscalendar.com/apis/custom-tables/events/)
+- [schema.org Schedule type](https://schema.org/Schedule)
+- [Hacker News: Recurring events database schema discussion](https://news.ycombinator.com/item?id=18477975)
+- Codebase analysis: `src/lib/db/schema.ts`, `src/app/api/events/route.ts`, `src/types/index.ts`, `.planning/PROJECT.md` — HIGH confidence
 
 ---
 
-*Feature research for: East Coast Local v2.0 — Mass Venue Discovery and Coverage Scaling*
-*Researched: 2026-03-15*
+*Feature research for: East Coast Local v2.2 — Recurring Event Series Detection and Past Event Archival*
+*Researched: 2026-03-16*
