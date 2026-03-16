@@ -96,7 +96,7 @@
   1. Running venue-dedup-backfill.ts --execute no longer risks FK violations — merged events/sources are re-parented before the duplicate venue is deleted
   2. EventCard attribution badge derives from event_sources.source_type column, not a string-match on source_url
   3. The phone column is absent from discovered_sources and venues tables — schema migration applied, no references remain in application code
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 26-01-PLAN.md — Fix dedup backfill FK risk and drop phone column
@@ -151,6 +151,6 @@ Plans:
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
-| 26. Data Fixes | v2.1 | 0/2 | Not started | - |
+| 26. Data Fixes | 1/2 | In Progress|  | - |
 | 27. Admin & Config | v2.1 | 0/? | Not started | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |

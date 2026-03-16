@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.1
-milestone_name: Tech Debt Cleanup
-status: roadmap_ready
-stopped_at: Roadmap created — ready to plan Phase 26
-last_updated: "2026-03-16T14:00:00.000Z"
-last_activity: "2026-03-16 — Roadmap created for v2.1 (Phases 26-28)"
+milestone: v1.0
+milestone_name: milestone
+status: Roadmap ready, awaiting plan-phase
+stopped_at: Completed 26-data-fixes 26-02-PLAN.md
+last_updated: "2026-03-16T13:45:42.457Z"
+last_activity: 2026-03-16 — Roadmap created for v2.1
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_plans: 2
+  completed_plans: 1
 ---
 
 # Project State
@@ -35,6 +34,8 @@ Last activity: 2026-03-16 — Roadmap created for v2.1
 ### Decisions
 
 Full decision log in PROJECT.md Key Decisions table.
+- [Phase 26-data-fixes]: Used supplementary query pattern (2 DB round-trips + Map merge) instead of LEFT JOIN in events API to avoid row duplication from Drizzle's select-all with multiple source rows
+- [Phase 26-data-fixes]: Removed anchor link from Ticketmaster attribution badge; badge visibility decoupled from source_url, driven by source_type enum
 
 ### Tech Debt (cumulative)
 
@@ -55,6 +56,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16
-Stopped at: Roadmap created for v2.1 — next step is plan-phase 26
+Last session: 2026-03-16T13:45:42.453Z
+Stopped at: Completed 26-data-fixes 26-02-PLAN.md
 Resume file: None
