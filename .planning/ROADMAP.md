@@ -119,7 +119,10 @@ Plans:
   2. Extracted candidates include structured venue name and location data derived from post text via Gemini
   3. Reddit candidates are tagged with discovery_method = reddit_gemini and flow through the existing staging pipeline
   4. Province-specific subreddits are configurable and each maps to the correct province
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 24-01-PLAN.md — Core reddit-discoverer module with TDD tests
+- [ ] 24-02-PLAN.md — Cron endpoint and vercel.json schedule
 
 ### Phase 25: Admin Scale Tooling
 **Goal**: Admin can process a high volume of staged discovery candidates efficiently — batch-approving multiple candidates at once, and seeing discovery run health at a glance on the dashboard
@@ -160,5 +163,5 @@ Plans:
 | 21. Tech Debt Cleanup | v1.5 | 1/1 | Complete | 2026-03-15 |
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 23. Places API Discovery | 3/3 | Complete    | 2026-03-16 | - |
-| 24. Reddit Discovery | v2.0 | 0/TBD | Not started | - |
+| 24. Reddit Discovery | v2.0 | 0/2 | Not started | - |
 | 25. Admin Scale Tooling | v2.0 | 0/TBD | Not started | - |
