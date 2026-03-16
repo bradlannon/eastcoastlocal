@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Mass Venue Discovery
 status: executing
-stopped_at: "Completed 25-01: discovery_runs table and cron instrumentation"
-last_updated: "2026-03-16T11:57:06.258Z"
+stopped_at: "Checkpoint: 25-02 Task 2 human-verify (batch approve UX)"
+last_updated: "2026-03-16T12:01:14.594Z"
 last_activity: "2026-03-15 — Completed 24-01: Reddit discovery module (reddit-discoverer.ts), 16 tests pass"
 progress:
   total_phases: 4
   completed_phases: 3
   total_plans: 10
-  completed_plans: 8
+  completed_plans: 9
   percent: 86
 ---
 
@@ -59,6 +59,8 @@ Recent decisions affecting v2.0:
 - [Phase 24-reddit-discovery]: Friday 9am UTC (0 9 * * 5) schedule for Reddit discovery cron — distinct day from Places province crons (Mon-Thu)
 - [Phase 25-admin-scale-tooling]: discovery_runs has no indexes beyond PK — table is small (~350 rows/year) and only queried ORDER BY completed_at DESC LIMIT 10
 - [Phase 25-admin-scale-tooling]: Error-path db.insert wrapped in nested try/catch to prevent DB logging failure from masking the original cron error
+- [Phase 25-admin-scale-tooling]: Promise.allSettled (not Promise.all) for batch approve — individual failures don't abort the batch, logged with count
+- [Phase 25-admin-scale-tooling]: Batch approve checkbox column restricted to pending tab only — no bulk actions on approved/rejected
 
 ### Tech Debt (from v1.5 audit)
 
@@ -80,6 +82,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-16T11:57:06.253Z
-Stopped at: Completed 25-01: discovery_runs table and cron instrumentation
+Last session: 2026-03-16T12:01:14.590Z
+Stopped at: Checkpoint: 25-02 Task 2 human-verify (batch approve UX)
 Resume file: None
