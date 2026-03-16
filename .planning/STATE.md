@@ -61,6 +61,10 @@ Recent decisions affecting v2.2:
 - [Phase 30-archival]: Pre-fetch venue IDs by province (two SELECT queries) rather than subquery to avoid Drizzle subquery pitfall
 - [Phase 30-archival]: archived_at omission from ON CONFLICT SET is the upsert guard — re-scraping cannot unarchive events (ARCH-04)
 
+### Roadmap Evolution
+
+- Phase 33 added: Admin Manual Triggers — admin UI buttons to trigger cron jobs on demand
+
 ### Tech Debt (cumulative)
 
 From v2.1 audit (non-blocking):

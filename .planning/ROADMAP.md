@@ -10,7 +10,7 @@
 - ✅ **v1.5 Event Dedup & UX Polish** — Phases 18-21 (shipped 2026-03-15)
 - ✅ **v2.0 Mass Venue Discovery** — Phases 22-25 (shipped 2026-03-16)
 - ✅ **v2.1 Tech Debt Cleanup** — Phases 26-28 (shipped 2026-03-16)
-- 🚧 **v2.2 Event Data Quality** — Phases 29-32 (in progress)
+- 🚧 **v2.2 Event Data Quality** — Phases 29-33 (in progress)
 
 ## Phases
 
@@ -98,6 +98,7 @@
 - [x] **Phase 30: Archival** - Daily cron soft-archives past events; API excludes archived events; upsert guards against unarchival (completed 2026-03-16)
 - [ ] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events
 - [ ] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence
+- [ ] **Phase 33: Admin Manual Triggers** - Admin UI buttons to trigger cron jobs (scrape, discover, archive) on demand
 
 ## Phase Details
 
@@ -187,3 +188,12 @@ Plans:
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
+
+### Phase 33: Admin Manual Triggers
+**Goal**: Admin can trigger any cron job (scrape, discover, discover-places, discover-reddit, archive) on demand from the admin dashboard without waiting for scheduled runs
+**Depends on**: Phase 30
+**Requirements**: TBD
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 33 to break down)
