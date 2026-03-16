@@ -110,7 +110,10 @@ Plans:
   1. Admin navigating to /admin/discovery sees a "No Website" tab listing Places API venue stubs with no_website status
   2. The no_website tab shows the correct count of stubs and supports approve/reject actions
   3. GEMINI_AUTO_APPROVE threshold in places-discoverer reads from an environment variable with the existing hardcoded value as the fallback default
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 27-01-PLAN.md — Add no_website tab and make GEMINI_AUTO_APPROVE env-overridable
 
 ### Phase 28: Tests & Validation
 **Goal**: Test suite passes cleanly and all Nyquist validation files reflect actual implementation
@@ -151,6 +154,6 @@ Plans:
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 25. Admin Scale Tooling | v2.0 | 3/3 | Complete | 2026-03-16 |
-| 26. Data Fixes | 2/2 | Complete    | 2026-03-16 | - |
-| 27. Admin & Config | v2.1 | 0/? | Not started | - |
+| 26. Data Fixes | v2.1 | 2/2 | Complete | 2026-03-16 |
+| 27. Admin & Config | v2.1 | 0/1 | Not started | - |
 | 28. Tests & Validation | v2.1 | 0/? | Not started | - |
