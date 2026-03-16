@@ -152,6 +152,15 @@ Plans:
   3. The collapsed series card shows how many upcoming occurrences exist in the series
 **Plans**: TBD
 
+### Phase 33: Admin Manual Triggers
+**Goal**: Admin can trigger any cron job (scrape, discover, discover-places, discover-reddit, archive) on demand from the admin dashboard without waiting for scheduled runs
+**Depends on**: Phase 30
+**Requirements**: TRIG-01, TRIG-02
+**Plans:** 1 plan
+
+Plans:
+- [ ] 33-01-PLAN.md — Admin trigger API route + TriggerActions dashboard component
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -188,12 +197,4 @@ Plans:
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
-
-### Phase 33: Admin Manual Triggers
-**Goal**: Admin can trigger any cron job (scrape, discover, discover-places, discover-reddit, archive) on demand from the admin dashboard without waiting for scheduled runs
-**Depends on**: Phase 30
-**Requirements**: TBD
-**Plans**: TBD
-
-Plans:
-- [ ] TBD (run /gsd:plan-phase 33 to break down)
+| 33. Admin Manual Triggers | v2.2 | 0/1 | Planning | - |
