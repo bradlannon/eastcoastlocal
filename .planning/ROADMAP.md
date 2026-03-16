@@ -132,7 +132,7 @@ Plans:
   1. Admin can select multiple discovered sources via checkboxes and approve them in a single action
   2. Each discovery run logs candidate counts (found, auto-approved, queued for review, errors)
   3. Admin dashboard shows a summary of the most recent discovery run without navigating to a separate page
-**Plans:** 3 plans
+**Plans:** 1/3 plans executed
 Plans:
 - [ ] 25-01-PLAN.md — DB schema (discovery_runs table) + cron instrumentation
 - [ ] 25-02-PLAN.md — Batch approve UI + server action
@@ -168,4 +168,4 @@ Plans:
 | 22. Schema Foundation | v2.0 | 2/2 | Complete | 2026-03-16 |
 | 23. Places API Discovery | v2.0 | 3/3 | Complete | 2026-03-16 |
 | 24. Reddit Discovery | v2.0 | 2/2 | Complete | 2026-03-16 |
-| 25. Admin Scale Tooling | v2.0 | 0/3 | Not started | - |
+| 25. Admin Scale Tooling | 1/3 | In Progress|  | - |
