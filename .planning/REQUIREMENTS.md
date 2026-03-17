@@ -26,8 +26,8 @@ Requirements for event data quality. Each maps to roadmap phases.
 
 ### Series UI
 
-- [ ] **UI-01**: EventCard shows "Recurring" badge when event belongs to a series
-- [ ] **UI-02**: Event list collapses recurring series to next occurrence with occurrence count
+- [x] **UI-01**: EventCard shows "Recurring" badge when event belongs to a series
+- [x] **UI-02**: Event list collapses recurring series to next occurrence with occurrence count
 
 ## Future Requirements
 
@@ -61,8 +61,8 @@ None — focused data quality milestone.
 | SER-04 | Phase 31 | Complete |
 | SER-05 | Phase 31 | Complete |
 | SER-06 | Phase 31 | Complete |
-| UI-01 | Phase 32 | Pending |
-| UI-02 | Phase 32 | Pending |
+| UI-01 | Phase 32 | Complete |
+| UI-02 | Phase 32 | Complete |
 
 **Coverage:**
 - v2.2 requirements: 13 total

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Event Data Quality
 status: planning
-stopped_at: Completed 31-02-PLAN.md
-last_updated: "2026-03-17T00:48:06.503Z"
+stopped_at: Completed 32-01-PLAN.md
+last_updated: "2026-03-17T01:12:52.070Z"
 last_activity: 2026-03-16 — Roadmap created for v2.2 (4 phases, 13 requirements)
 progress:
   total_phases: 5
-  completed_phases: 4
-  total_plans: 6
-  completed_plans: 6
+  completed_phases: 5
+  total_plans: 7
+  completed_plans: 7
   percent: 0
 ---
 
@@ -67,6 +67,8 @@ Recent decisions affecting v2.2:
 - [Phase 31-series-detection]: performerFuzzyRatio test spec in plan had incorrect math; tests updated to use pairs genuinely below 0.20 threshold — algorithm constants unchanged
 - [Phase 31-series-detection]: detect-series cron runs at 10 6 * * * (6:10am UTC) — 10 minutes after scrape cron to avoid timeout overlap
 - [Phase 31-series-detection]: backfill-series.ts calls detectAndTagSeries directly (no HTTP) — one-shot script for existing events
+- [Phase 32-series-ui]: collapseSeriesEvents uses two-pass algorithm: count map first pass, ordered emit second pass — preserves input sort order
+- [Phase 32-series-ui]: Teal color scheme for Recurring badge distinguishes from existing orange (category) and gray (price) badges
 
 ### Roadmap Evolution
 
@@ -85,6 +87,6 @@ From v2.1 audit (non-blocking):
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:45:38.750Z
-Stopped at: Completed 31-02-PLAN.md
+Last session: 2026-03-17T01:12:52.066Z
+Stopped at: Completed 32-01-PLAN.md
 Resume file: None

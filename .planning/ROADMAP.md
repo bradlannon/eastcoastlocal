@@ -97,7 +97,7 @@
 - [x] **Phase 29: Schema Foundation** - Add archived_at and series_id columns to events; create recurring_series table (completed 2026-03-16)
 - [x] **Phase 30: Archival** - Daily cron soft-archives past events; API excludes archived events; upsert guards against unarchival (completed 2026-03-16)
 - [x] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events (completed 2026-03-17)
-- [ ] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence
+- [x] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence (completed 2026-03-17)
 - [x] **Phase 33: Admin Manual Triggers** - Admin UI buttons to trigger cron jobs (scrape, discover, archive) on demand (completed 2026-03-16)
 
 ## Phase Details
@@ -154,7 +154,7 @@ Plans:
   1. EventCard displays a "Recurring" badge when the event's series_id is not null
   2. The event list shows one card per series (the next upcoming occurrence) rather than a separate card for every future date
   3. The collapsed series card shows how many upcoming occurrences exist in the series
-**Plans:** 1 plan
+**Plans:** 1/1 plans complete
 
 Plans:
 - [ ] 32-01-PLAN.md — Series collapse utility (TDD) + EventCard badge + EventList integration (UI-01, UI-02)
@@ -203,5 +203,5 @@ Plans:
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | 2/2 | Complete    | 2026-03-17 | - |
-| 32. Series UI | v2.2 | 0/1 | Not started | - |
+| 32. Series UI | 1/1 | Complete   | 2026-03-17 | - |
 | 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |
