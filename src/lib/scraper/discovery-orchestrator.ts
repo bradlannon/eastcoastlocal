@@ -1,5 +1,5 @@
 import { google } from '@ai-sdk/google';
-import { generateText, Output } from 'ai';
+import { generateText } from 'ai';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
@@ -101,19 +101,28 @@ export async function runDiscoveryJob(): Promise<DiscoveryJobResult> {
       await delay(throttleMs);
     }
 
-    const { experimental_output } = await generateText({
+    const { text } = await generateText({
       model: google('gemini-2.5-flash'),
       tools: {
         google_search: google.tools.googleSearch({}),
       },
-      output: Output.object({ schema: CandidateSchema }),
       prompt: `Search for event venue websites in ${city}, ${province}, Canada.
 Find bars, pubs, theatres, concert halls, and community centres that host public events and have their own events pages.
 Return their official website URLs — NOT Eventbrite, Facebook, Bandsintown, or Ticketmaster pages.
-For each venue return: url (full URL with https://), name, province ("${province}"), city ("${city}"), and a brief rawContext describing the venue.`,
+For each venue return a JSON object with: url (full URL with https://), name, province ("${province}"), city ("${city}"), and a brief rawContext describing the venue.
+
+Return ONLY a JSON object in this exact format, no markdown fences:
+{"candidates": [{"url": "...", "name": "...", "province": "...", "city": "...", "rawContext": "..."}]}`,
     });
 
-    const candidates = experimental_output?.candidates ?? [];
+    let candidates: z.infer<typeof CandidateSchema>['candidates'] = [];
+    try {
+      const cleaned = text.replace(/```json\s*|```\s*/g, '').trim();
+      const parsed = CandidateSchema.parse(JSON.parse(cleaned));
+      candidates = parsed.candidates;
+    } catch (e) {
+      console.error(`Failed to parse Gemini response for ${city}:`, e);
+    }
 
     // Step 3: Deduplicate, filter aggregators, and insert
     for (const candidate of candidates) {
