@@ -42,12 +42,51 @@ export async function POST(
       }
 
       case 'discover': {
-        const { runDiscoveryJob } = await import('@/lib/scraper/discovery-orchestrator');
+        const { runDiscoveryForCity, ATLANTIC_CITIES } = await import(
+          '@/lib/scraper/discovery-orchestrator'
+        );
+        const url = new URL(_request.url);
+        const cityParam = url.searchParams.get('city');
+
+        if (cityParam === null) {
+          // Legacy: run all cities (may timeout)
+          const { runDiscoveryJob } = await import('@/lib/scraper/discovery-orchestrator');
+          const startedAt = new Date();
+          const result = await runDiscoveryJob();
+          await db.insert(discovery_runs).values({
+            discovery_method: 'gemini_google_search',
+            province: null,
+            started_at: startedAt,
+            completed_at: new Date(),
+            candidates_found: result.candidatesFound,
+            auto_approved: result.autoApproved,
+            queued_pending: result.queuedPending,
+            skipped_dedup: 0,
+            errors: result.errors,
+          });
+          return NextResponse.json({
+            success: true,
+            ...result,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Single-city mode: ?city=0..5
+        const cityIndex = parseInt(cityParam, 10);
+        if (isNaN(cityIndex) || cityIndex < 0 || cityIndex >= ATLANTIC_CITIES.length) {
+          return NextResponse.json(
+            { success: false, error: `Invalid city index (0-${ATLANTIC_CITIES.length - 1})` },
+            { status: 400 }
+          );
+        }
+
         const startedAt = new Date();
-        const result = await runDiscoveryJob();
+        const result = await runDiscoveryForCity(cityIndex);
+        const cityInfo = ATLANTIC_CITIES[cityIndex];
+
         await db.insert(discovery_runs).values({
           discovery_method: 'gemini_google_search',
-          province: null,
+          province: cityInfo.province,
           started_at: startedAt,
           completed_at: new Date(),
           candidates_found: result.candidatesFound,
@@ -56,9 +95,13 @@ export async function POST(
           skipped_dedup: 0,
           errors: result.errors,
         });
+
         return NextResponse.json({
           success: true,
           ...result,
+          cityIndex,
+          cityName: cityInfo.city,
+          totalCities: ATLANTIC_CITIES.length,
           timestamp: new Date().toISOString(),
         });
       }

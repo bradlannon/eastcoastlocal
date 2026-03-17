@@ -13,7 +13,7 @@ export interface DiscoveryJobResult {
   errors: number;
 }
 
-const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
+export const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
   { city: 'Halifax', province: 'NS' },
   { city: 'Moncton', province: 'NB' },
   { city: 'Fredericton', province: 'NB' },
@@ -58,34 +58,32 @@ export function scoreCandidate(candidate: {
   return Math.max(0, Math.min(score, 1.0));
 }
 
-export async function runDiscoveryJob(): Promise<DiscoveryJobResult> {
-  // Step 1: Fetch all existing domains for deduplication
+async function getKnownDomains(): Promise<Set<string>> {
   const existingSources = await db.select({ url: scrape_sources.url }).from(scrape_sources);
   const existingStaged = await db.select({ url: discovered_sources.url }).from(discovered_sources);
 
-  const knownDomains = new Set<string>(
+  return new Set<string>(
     [
       ...existingSources.map((r) => {
-        try {
-          return new URL(r.url).hostname;
-        } catch {
-          return '';
-        }
+        try { return new URL(r.url).hostname; } catch { return ''; }
       }),
       ...existingStaged.map((r) => {
-        try {
-          return new URL(r.url).hostname;
-        } catch {
-          return '';
-        }
+        try { return new URL(r.url).hostname; } catch { return ''; }
       }),
     ].filter(Boolean)
   );
+}
 
-  let totalInserted = 0;
-  const throttleMs = parseInt(process.env.DISCOVERY_THROTTLE_MS ?? '2000', 10);
+/** Process a single city — fits within Vercel's 60s timeout */
+export async function runDiscoveryForCity(cityIndex: number): Promise<DiscoveryJobResult> {
+  const entry = ATLANTIC_CITIES[cityIndex];
+  if (!entry) {
+    return { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
+  }
 
-  // Collect inserted candidates for scoring after city loop
+  const { city, province } = entry;
+  const knownDomains = await getKnownDomains();
+
   const insertedCandidates: Array<{
     url: string;
     city: string | null;
@@ -93,88 +91,76 @@ export async function runDiscoveryJob(): Promise<DiscoveryJobResult> {
     source_name: string | null;
   }> = [];
 
-  // Step 2: Loop over ATLANTIC_CITIES, query Gemini per city
-  for (let i = 0; i < ATLANTIC_CITIES.length; i++) {
-    const { city, province } = ATLANTIC_CITIES[i];
-
-    if (i > 0) {
-      await delay(throttleMs);
-    }
-
-    const { text } = await generateText({
-      model: google('gemini-2.5-flash'),
-      tools: {
-        google_search: google.tools.googleSearch({}),
-      },
-      prompt: `Search for event venue websites in ${city}, ${province}, Canada.
+  const { text } = await generateText({
+    model: google('gemini-2.5-flash'),
+    tools: {
+      google_search: google.tools.googleSearch({}),
+    },
+    prompt: `Search for event venue websites in ${city}, ${province}, Canada.
 Find bars, pubs, theatres, concert halls, and community centres that host public events and have their own events pages.
 Return their official website URLs — NOT Eventbrite, Facebook, Bandsintown, or Ticketmaster pages.
 For each venue return a JSON object with: url (full URL with https://), name, province ("${province}"), city ("${city}"), and a brief rawContext describing the venue.
 
 Return ONLY a JSON object in this exact format, no markdown fences:
 {"candidates": [{"url": "...", "name": "...", "province": "...", "city": "...", "rawContext": "..."}]}`,
-    });
+  });
 
-    let candidates: z.infer<typeof CandidateSchema>['candidates'] = [];
-    try {
-      const cleaned = text.replace(/```json\s*|```\s*/g, '').trim();
-      const parsed = CandidateSchema.parse(JSON.parse(cleaned));
-      candidates = parsed.candidates;
-    } catch (e) {
-      console.error(`Failed to parse Gemini response for ${city}:`, e);
-    }
-
-    // Step 3: Deduplicate, filter aggregators, and insert
-    for (const candidate of candidates) {
-      let hostname: string;
-      try {
-        hostname = new URL(candidate.url).hostname;
-      } catch {
-        continue; // Skip malformed URLs
-      }
-
-      if (knownDomains.has(hostname)) continue;
-
-      if (AGGREGATOR_DOMAINS.some((agg) => hostname.includes(agg))) continue;
-
-      await db
-        .insert(discovered_sources)
-        .values({
-          url: candidate.url,
-          domain: hostname,
-          source_name: candidate.name ?? null,
-          province: candidate.province ?? null,
-          city: candidate.city ?? null,
-          status: 'pending',
-          discovery_method: 'gemini_google_search',
-          raw_context: candidate.rawContext ?? null,
-        })
-        .onConflictDoNothing();
-
-      insertedCandidates.push({
-        url: candidate.url,
-        city: candidate.city ?? null,
-        province: candidate.province ?? null,
-        source_name: candidate.name ?? null,
-      });
-
-      knownDomains.add(hostname); // Prevent intra-run duplicates
-      totalInserted++;
-    }
+  let candidates: z.infer<typeof CandidateSchema>['candidates'] = [];
+  try {
+    const cleaned = text.replace(/```json\s*|```\s*/g, '').trim();
+    const parsed = CandidateSchema.parse(JSON.parse(cleaned));
+    candidates = parsed.candidates;
+  } catch (e) {
+    console.error(`Failed to parse Gemini response for ${city}:`, e);
+    return { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 1 };
   }
 
-  // Step 4: Score all inserted candidates and auto-promote high scorers
+  let totalInserted = 0;
+  for (const candidate of candidates) {
+    let hostname: string;
+    try {
+      hostname = new URL(candidate.url).hostname;
+    } catch {
+      continue;
+    }
+
+    if (knownDomains.has(hostname)) continue;
+    if (AGGREGATOR_DOMAINS.some((agg) => hostname.includes(agg))) continue;
+
+    await db
+      .insert(discovered_sources)
+      .values({
+        url: candidate.url,
+        domain: hostname,
+        source_name: candidate.name ?? null,
+        province: candidate.province ?? null,
+        city: candidate.city ?? null,
+        status: 'pending',
+        discovery_method: 'gemini_google_search',
+        raw_context: candidate.rawContext ?? null,
+      })
+      .onConflictDoNothing();
+
+    insertedCandidates.push({
+      url: candidate.url,
+      city: candidate.city ?? null,
+      province: candidate.province ?? null,
+      source_name: candidate.name ?? null,
+    });
+
+    knownDomains.add(hostname);
+    totalInserted++;
+  }
+
   let autoApproved = 0;
   for (const candidate of insertedCandidates) {
     const score = scoreCandidate(candidate);
 
-    // Write discovery_score to DB
     await db
       .update(discovered_sources)
       .set({ discovery_score: score })
       .where(eq(discovered_sources.url, candidate.url));
 
-    // Auto-promote if score meets threshold
     if (score >= GEMINI_AUTO_APPROVE) {
       const staged = await db.query.discovered_sources.findFirst({
         where: eq(discovered_sources.url, candidate.url),
@@ -188,9 +174,7 @@ Return ONLY a JSON object in this exact format, no markdown fences:
     }
   }
 
-  console.log(
-    `Discovery complete: ${totalInserted} new candidates staged, ${autoApproved} auto-approved`
-  );
+  console.log(`Discovery [${city}]: ${totalInserted} candidates, ${autoApproved} auto-approved`);
 
   return {
     candidatesFound: totalInserted,
@@ -198,4 +182,25 @@ Return ONLY a JSON object in this exact format, no markdown fences:
     queuedPending: totalInserted - autoApproved,
     errors: 0,
   };
+}
+
+/** Run all cities sequentially — used by the cron job (may timeout on Hobby plan) */
+export async function runDiscoveryJob(): Promise<DiscoveryJobResult> {
+  const throttleMs = parseInt(process.env.DISCOVERY_THROTTLE_MS ?? '2000', 10);
+  const totals: DiscoveryJobResult = { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
+
+  for (let i = 0; i < ATLANTIC_CITIES.length; i++) {
+    if (i > 0) await delay(throttleMs);
+    const result = await runDiscoveryForCity(i);
+    totals.candidatesFound += result.candidatesFound;
+    totals.autoApproved += result.autoApproved;
+    totals.queuedPending += result.queuedPending;
+    totals.errors += result.errors;
+  }
+
+  console.log(
+    `Discovery complete: ${totals.candidatesFound} new candidates staged, ${totals.autoApproved} auto-approved`
+  );
+
+  return totals;
 }

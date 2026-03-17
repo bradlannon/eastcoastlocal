@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
-type JobResult = { success: boolean; message: string; isWarning?: boolean } | null;
+type JobResult = { success: boolean; message: string; isWarning?: boolean; progress?: string } | null;
 
 const DISCOVERY_OPTIONS = [
   { label: 'Gemini Search', job: 'discover' },
@@ -113,9 +113,49 @@ export default function TriggerActions() {
   async function trigger(job: string) {
     setRunningJob(job);
     setResult(null);
-    const startTime = Date.now();
 
-    // Show "still running" warning after 30s
+    // Gemini discovery: run one city at a time to avoid 60s timeout
+    if (job === 'discover') {
+      const totalCities = 6; // ATLANTIC_CITIES length
+      const totals = { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
+
+      for (let i = 0; i < totalCities; i++) {
+        setResult({
+          success: true,
+          message: `Discovering cities... (${i + 1}/${totalCities})`,
+          isWarning: true,
+          progress: `${i + 1}/${totalCities}`,
+        });
+
+        try {
+          const res = await fetch(`/api/admin/trigger/discover?city=${i}`, { method: 'POST' });
+          const body = await res.json();
+          if (body.success) {
+            totals.candidatesFound += body.candidatesFound ?? 0;
+            totals.autoApproved += body.autoApproved ?? 0;
+            totals.queuedPending += body.queuedPending ?? 0;
+            totals.errors += body.errors ?? 0;
+          } else {
+            totals.errors++;
+            console.error(`Discovery city ${i} failed:`, body.error);
+          }
+        } catch (err) {
+          totals.errors++;
+          console.error(`Discovery city ${i} error:`, err);
+        }
+      }
+
+      setResult({
+        success: totals.errors === 0,
+        message: `Discovery complete — ${totals.candidatesFound} found, ${totals.autoApproved} approved${totals.errors > 0 ? `, ${totals.errors} errors` : ''}`,
+      });
+      setRunningJob(null);
+      router.refresh();
+      return;
+    }
+
+    // All other jobs: single request
+    const startTime = Date.now();
     const warningTimer = setTimeout(() => {
       setResult({
         success: true,
