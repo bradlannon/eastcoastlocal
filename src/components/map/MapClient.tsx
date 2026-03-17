@@ -18,7 +18,7 @@ import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
 import CategoryChipsRow from '../events/CategoryChipsRow';
-import { ATLANTIC_CANADA_CENTER, ATLANTIC_CANADA_MAX_BOUNDS, INITIAL_ZOOM } from '@/lib/province-bounds';
+import { ATLANTIC_CANADA_CENTER, ATLANTIC_CANADA_MAX_BOUNDS, INITIAL_ZOOM, MIN_ZOOM } from '@/lib/province-bounds';
 import type { EventWithVenue } from '@/types/index';
 import type { Bounds } from '@/lib/filter-utils';
 import type { HeatPoint } from '@/lib/timelapse-utils';
@@ -84,7 +84,7 @@ export default function MapClient({
         scrollWheelZoom={true}
         maxBounds={ATLANTIC_CANADA_MAX_BOUNDS}
         maxBoundsViscosity={1.0}
-        minZoom={5}
+        minZoom={MIN_ZOOM}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"

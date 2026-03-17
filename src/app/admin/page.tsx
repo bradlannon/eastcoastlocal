@@ -175,35 +175,35 @@ export default async function AdminDashboardPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {/* Total Venues */}
-        <Link href="/admin/venues" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
+        <Link href="/admin/venues" className="block h-full">
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center hover:shadow-md transition-shadow">
             <p className="text-sm text-gray-500">Total Venues</p>
             <p className="text-3xl font-bold text-gray-900 mt-1">{venueCount}</p>
           </div>
         </Link>
 
         {/* Active Sources */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center">
           <p className="text-sm text-gray-500">Active Sources</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{activeSourceCount}</p>
         </div>
 
         {/* Active Events */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center">
           <p className="text-sm text-gray-500">Active Events</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{activeEventCount}</p>
         </div>
 
         {/* Pending Discoveries */}
-        <Link href="/admin/discovery" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
+        <Link href="/admin/discovery" className="block h-full">
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center hover:shadow-md transition-shadow">
             <p className="text-sm text-gray-500">Pending Discoveries</p>
             <p className="text-3xl font-bold text-gray-900 mt-1">{pendingDiscoveryCount}</p>
           </div>
         </Link>
 
         {/* Last Scrape & Discovery */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col justify-center">
           <div className="mb-3">
             <p className="text-sm text-gray-500">Last Scrape</p>
             <p

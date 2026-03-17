@@ -89,17 +89,17 @@ function Tooltip({ text }: { text: string }) {
 export default function TriggerActions() {
   const router = useRouter();
   const [runningJob, setRunningJob] = useState<string | null>(null);
-  const [result, setResultRaw] = useState<JobResult>(() => {
-    if (typeof window === 'undefined') return null;
-    try {
-      const stored = localStorage.getItem('ecl-job-result');
-      return stored ? JSON.parse(stored) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [result, setResultRaw] = useState<JobResult>(null);
   const [discoveryType, setDiscoveryType] = useState('discover');
   const cancelledRef = useRef(false);
+
+  // Restore persisted result after hydration to avoid server/client mismatch
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('ecl-job-result');
+      if (stored) setResultRaw(JSON.parse(stored));
+    } catch { /* ignore */ }
+  }, []);
 
   // Wrapper that persists result to localStorage
   function setResult(value: JobResult | ((prev: JobResult) => JobResult)) {
