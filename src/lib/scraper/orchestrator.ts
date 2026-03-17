@@ -18,34 +18,69 @@ const AI_THROTTLE_MS = parseInt(process.env.SCRAPE_THROTTLE_MS ?? '4000', 10);
 // Delay between venue_website sources (not AI-related — HTTP courtesy throttle).
 const HTTP_THROTTLE_MS = parseInt(process.env.HTTP_THROTTLE_MS ?? '1000', 10);
 
+// Skip sources scraped within this window (in hours)
+const STALE_THRESHOLD_HOURS = parseInt(process.env.SCRAPE_STALE_HOURS ?? '4', 10);
+
+export const PROVINCES = ['NS', 'NB', 'PEI', 'NL'] as const;
+export type Province = (typeof PROVINCES)[number];
+
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-export async function runScrapeJob(): Promise<void> {
-  const sources = await db.query.scrape_sources.findMany({
+export interface ScrapeResult {
+  province: Province | 'all';
+  success: number;
+  failed: number;
+  skipped: number;
+  events: number;
+}
+
+/** Scrape sources for a single province, skipping recently-scraped ones. */
+export async function runScrapeForProvince(province: Province): Promise<ScrapeResult> {
+  const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_HOURS * 60 * 60 * 1000);
+
+  // Get venue IDs for this province
+  const provinceVenues = await db.query.venues.findMany({
+    where: eq(venues.province, province),
+  });
+  const venueIds = provinceVenues.map((v) => v.id);
+
+  if (venueIds.length === 0) {
+    console.log(`[${province}] No venues found — skipping`);
+    return { province, success: 0, failed: 0, skipped: 0, events: 0 };
+  }
+
+  // Get enabled sources for those venues
+  const allProvinceSources = await db.query.scrape_sources.findMany({
     where: eq(scrape_sources.enabled, true),
   });
+  const matchingSources = allProvinceSources.filter((s) => venueIds.includes(s.venue_id));
 
-  console.log(`Scraping ${sources.length} enabled sources (throttle: ${AI_THROTTLE_MS}ms)...`);
+  // Build venue lookup map
+  const venueMap = new Map(provinceVenues.map((v) => [v.id, v]));
+
+  // Split into stale (to scrape) and fresh (to skip)
+  const provinceSources = matchingSources.filter(
+    (s) => s.last_scraped_at === null || s.last_scraped_at < staleThreshold
+  );
+  const skippedCount = matchingSources.length - provinceSources.length;
+
+  console.log(`[${province}] Scraping ${provinceSources.length} stale sources (${skippedCount} skipped, threshold: ${STALE_THRESHOLD_HOURS}h)...`);
+
   let successCount = 0;
   let failCount = 0;
   let eventCount = 0;
 
-  for (const source of sources) {
+  for (const source of provinceSources) {
     try {
-      // Track per-source metrics — set inside venue_website branch, null for other types
       let sourceEventCount: number | null = null;
       let avgConf: number | null = null;
 
       if (source.source_type === 'venue_website') {
-        // Fetch venue record to check for geocoding needs
-        const venue = await db.query.venues.findFirst({
-          where: eq(venues.id, source.venue_id),
-        });
-
+        const venue = venueMap.get(source.venue_id);
         if (!venue) {
-          console.error(`Venue not found for source ${source.id} (venue_id=${source.venue_id})`);
+          console.error(`[${province}] Venue not found for source ${source.id} (venue_id=${source.venue_id})`);
           await db
             .update(scrape_sources)
             .set({
@@ -71,30 +106,24 @@ export async function runScrapeJob(): Promise<void> {
           }
         }
 
-        // Fetch page(s) — multi-page support via source.max_pages
         const { text, rawHtml } = await fetchAndPreprocess(source.url, {
           maxPages: source.max_pages ?? 1,
         });
 
-        // JSON-LD fast path: structured data is authoritative (confidence=1.0)
-        // Short-circuit — do NOT also call Gemini if JSON-LD found events
         const jsonLdEvents = extractJsonLdEvents(rawHtml);
 
         let extracted: ExtractedEvent[];
         if (jsonLdEvents.length > 0) {
           extracted = jsonLdEvents;
-          console.log(`  ✓ ${venue.name}: ${extracted.length} events (JSON-LD, skipping Gemini)`);
+          console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (JSON-LD, skipping Gemini)`);
         } else {
           extracted = await extractEvents(text, source.url);
-          console.log(`  ✓ ${venue.name}: ${extracted.length} events`);
-
-          // AI throttle only applies when Gemini was actually called
+          console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events`);
           if (AI_THROTTLE_MS > 0) {
             await delay(AI_THROTTLE_MS);
           }
         }
 
-        // Compute quality metrics for this source
         sourceEventCount = extracted.length;
         avgConf = sourceEventCount > 0
           ? extracted.reduce((sum, e) => sum + (e.confidence ?? 0), 0) / sourceEventCount
@@ -106,24 +135,22 @@ export async function runScrapeJob(): Promise<void> {
 
         eventCount += extracted.length;
 
-        // HTTP throttle between venue_website sources (separate from AI throttle)
         if (HTTP_THROTTLE_MS > 0) {
           await delay(HTTP_THROTTLE_MS);
         }
       } else if (source.source_type === 'eventbrite') {
         await scrapeEventbrite(source);
-        console.log(`  ✓ Eventbrite source ${source.id}`);
+        console.log(`  ✓ [${province}] Eventbrite source ${source.id}`);
       } else if (source.source_type === 'bandsintown') {
         await scrapeBandsintown(source);
-        console.log(`  ✓ Bandsintown source ${source.id}`);
+        console.log(`  ✓ [${province}] Bandsintown source ${source.id}`);
       } else if (source.source_type === 'ticketmaster') {
         await scrapeTicketmaster(source);
-        console.log(`  ✓ Ticketmaster source ${source.id} (${source.url})`);
+        console.log(`  ✓ [${province}] Ticketmaster source ${source.id} (${source.url})`);
       } else {
-        console.warn(`Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
+        console.warn(`[${province}] Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }
 
-      // Mark success with quality metrics
       await db
         .update(scrape_sources)
         .set({
@@ -138,7 +165,7 @@ export async function runScrapeJob(): Promise<void> {
         .where(eq(scrape_sources.id, source.id));
       successCount++;
     } catch (err) {
-      console.error(`  ✗ Source ${source.id} (${source.url}):`, err instanceof Error ? err.message : err);
+      console.error(`  ✗ [${province}] Source ${source.id} (${source.url}):`, err instanceof Error ? err.message : err);
       await db
         .update(scrape_sources)
         .set({
@@ -149,9 +176,21 @@ export async function runScrapeJob(): Promise<void> {
         })
         .where(eq(scrape_sources.id, source.id));
       failCount++;
-      // Continue to next source — never abort full run
     }
   }
 
-  console.log(`Scrape complete: ${successCount} succeeded, ${failCount} failed, ${eventCount} events extracted`);
+  console.log(`[${province}] Scrape complete: ${successCount} succeeded, ${failCount} failed, ${skippedCount} skipped, ${eventCount} events`);
+  return { province, success: successCount, failed: failCount, skipped: skippedCount, events: eventCount };
+}
+
+/** Run all provinces concurrently, each province processes its sources sequentially. */
+export async function runScrapeJob(): Promise<ScrapeResult[]> {
+  console.log(`Scraping all provinces concurrently (stale threshold: ${STALE_THRESHOLD_HOURS}h)...`);
+  const results = await Promise.all(PROVINCES.map((p) => runScrapeForProvince(p)));
+  const totals = results.reduce(
+    (acc, r) => ({ success: acc.success + r.success, failed: acc.failed + r.failed, skipped: acc.skipped + r.skipped, events: acc.events + r.events }),
+    { success: 0, failed: 0, skipped: 0, events: 0 }
+  );
+  console.log(`Scrape complete: ${totals.success} succeeded, ${totals.failed} failed, ${totals.skipped} skipped, ${totals.events} events extracted`);
+  return results;
 }

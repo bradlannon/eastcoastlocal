@@ -23,8 +23,12 @@ export async function POST(
     switch (job) {
       case 'scrape': {
         const { runScrapeJob } = await import('@/lib/scraper/orchestrator');
-        await runScrapeJob();
-        return NextResponse.json({ success: true, timestamp: new Date().toISOString() });
+        const results = await runScrapeJob();
+        const totals = results.reduce(
+          (acc, r) => ({ scraped: acc.scraped + r.success, failed: acc.failed + r.failed, skipped: acc.skipped + r.skipped, events: acc.events + r.events }),
+          { scraped: 0, failed: 0, skipped: 0, events: 0 }
+        );
+        return NextResponse.json({ success: true, ...totals, timestamp: new Date().toISOString() });
       }
 
       case 'archive': {
@@ -175,6 +179,25 @@ export async function POST(
         return NextResponse.json({
           success: true,
           ...result,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      case 'fetch-feeds': {
+        const { fetchAllWpEventFeeds } = await import('@/lib/scraper/wordpress-events');
+        const results = await fetchAllWpEventFeeds();
+        const totals = results.reduce(
+          (acc, r) => ({
+            feeds: acc.feeds + 1,
+            eventsFound: acc.eventsFound + r.eventsFound,
+            eventsUpserted: acc.eventsUpserted + r.eventsUpserted,
+            errors: acc.errors + r.errors,
+          }),
+          { feeds: 0, eventsFound: 0, eventsUpserted: 0, errors: 0 }
+        );
+        return NextResponse.json({
+          success: true,
+          ...totals,
           timestamp: new Date().toISOString(),
         });
       }

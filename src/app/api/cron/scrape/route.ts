@@ -12,8 +12,8 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   try {
-    await runScrapeJob();
-    return Response.json({ success: true, timestamp: new Date().toISOString() });
+    const results = await runScrapeJob();
+    return Response.json({ success: true, results, timestamp: new Date().toISOString() });
   } catch (err) {
     console.error('Cron scrape job failed:', err);
     return Response.json({ success: false, error: String(err) }, { status: 500 });

@@ -17,7 +17,10 @@ const DISCOVERY_OPTIONS = [
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function formatSuccessMessage(job: string, body: any): string {
   if (job === 'scrape') {
-    return 'Scrape complete';
+    const parts = [`${body.scraped} scraped`, `${body.events} events`];
+    if (body.skipped > 0) parts.push(`${body.skipped} skipped`);
+    if (body.failed > 0) parts.push(`${body.failed} failed`);
+    return `Scrape complete — ${parts.join(', ')}`;
   }
   if (job === 'archive') {
     return `Archived ${body.archived} events`;
@@ -30,6 +33,9 @@ function formatSuccessMessage(job: string, body: any): string {
   }
   if (job.startsWith('discover-places-')) {
     return `Places discovery — ${body.candidatesFound} found, ${body.autoApproved} approved`;
+  }
+  if (job === 'fetch-feeds') {
+    return `Feeds complete — ${body.eventsUpserted}/${body.eventsFound} events from ${body.feeds} feeds`;
   }
   if (job === 'detect-series') {
     return `Series detection — ${body.seriesUpserted} series, ${body.eventsTagged} events tagged`;
@@ -168,6 +174,17 @@ export default function TriggerActions() {
           >
             Run Archive
             {runningJob === 'archive' && <Spinner />}
+          </button>
+
+          {/* Fetch Feeds */}
+          <button
+            type="button"
+            className={buttonClass}
+            disabled={isAnyJobRunning}
+            onClick={() => trigger('fetch-feeds')}
+          >
+            Fetch Feeds
+            {runningJob === 'fetch-feeds' && <Spinner />}
           </button>
 
           {/* Detect Series */}

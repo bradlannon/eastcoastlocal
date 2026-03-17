@@ -109,13 +109,22 @@ describe('POST /api/admin/trigger/[job]', () => {
       mockVerifyToken.mockResolvedValue(true);
     });
 
-    it('job=scrape calls runScrapeJob and returns success with timestamp', async () => {
-      mockRunScrapeJob.mockResolvedValue(undefined);
+    it('job=scrape calls runScrapeJob and returns success with stats', async () => {
+      mockRunScrapeJob.mockResolvedValue([
+        { province: 'NS', success: 3, failed: 0, skipped: 1, events: 8 },
+        { province: 'NB', success: 2, failed: 1, skipped: 0, events: 5 },
+        { province: 'PEI', success: 1, failed: 0, skipped: 0, events: 2 },
+        { province: 'NL', success: 1, failed: 0, skipped: 0, events: 3 },
+      ]);
       const [req, ctx] = makeRequest('scrape');
       const response = await POST(req, ctx);
       expect(response.status).toBe(200);
       const body = await response.json();
       expect(body.success).toBe(true);
+      expect(body.scraped).toBe(7);
+      expect(body.events).toBe(18);
+      expect(body.skipped).toBe(1);
+      expect(body.failed).toBe(1);
       expect(body).toHaveProperty('timestamp');
       expect(mockRunScrapeJob).toHaveBeenCalledTimes(1);
     });
