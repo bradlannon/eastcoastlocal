@@ -33,6 +33,8 @@ const TOOLTIPS: Record<string, string> = {
     'Move past events (event_date < today) to archived status. Archived events are hidden from the public map but preserved in the database. Runs daily at 7:00 AM UTC.',
   'fetch-feeds':
     'Pull events from 6 regional API feeds: Tourism Nova Scotia, Halifax Events, Destination St. John\'s, Theatre Nova Scotia, Dalhousie University, and Tourism PEI. Creates venues automatically with dedup matching. Runs daily at 6:30 AM UTC.',
+  'parse-newsletters':
+    'Read unread emails from the Gmail label "ECL/events" and use Gemini AI to extract events from newsletter content. Automatically creates venues and upserts events. Subscribe to tourism boards, venue mailing lists, and arts councils to populate events passively. Runs daily at 7:30 AM UTC.',
   'detect-series':
     'Scan events for recurring weekly patterns (same performer at same venue). Groups them into recurring series and tags events with series IDs. Series events show a "Recurring" badge on the public map. Runs daily at 6:10 AM UTC.',
 };
@@ -59,6 +61,11 @@ function formatSuccessMessage(job: string, body: any): string {
   }
   if (job === 'fetch-feeds') {
     return `Feeds complete — ${body.eventsUpserted}/${body.eventsFound} events from ${body.feeds} feeds`;
+  }
+  if (job === 'parse-newsletters') {
+    const parts = [`${body.emailsProcessed} emails`, `${body.eventsUpserted}/${body.eventsFound} events`];
+    if (body.errors > 0) parts.push(`${body.errors} errors`);
+    return `Newsletters — ${parts.join(', ')}`;
   }
   if (job === 'detect-series') {
     return `Series detection — ${body.seriesUpserted} series, ${body.eventsTagged} events tagged`;
@@ -231,6 +238,20 @@ export default function TriggerActions() {
               {runningJob === 'fetch-feeds' && <Spinner />}
             </button>
             <Tooltip text={TOOLTIPS['fetch-feeds']} />
+          </div>
+
+          {/* Parse Newsletters */}
+          <div className="inline-flex items-center">
+            <button
+              type="button"
+              className={buttonClass}
+              disabled={isAnyJobRunning}
+              onClick={() => trigger('parse-newsletters')}
+            >
+              Parse Newsletters
+              {runningJob === 'parse-newsletters' && <Spinner />}
+            </button>
+            <Tooltip text={TOOLTIPS['parse-newsletters']} />
           </div>
 
           {/* Detect Series */}

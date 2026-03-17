@@ -40,6 +40,10 @@
     {
       "path": "/api/cron/fetch-feeds",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/parse-newsletters",
+      "schedule": "30 7 * * *"
     }
   ]
 }

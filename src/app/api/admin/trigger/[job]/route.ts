@@ -202,6 +202,19 @@ export async function POST(
         });
       }
 
+      case 'parse-newsletters': {
+        const { parseNewsletters } = await import('@/lib/scraper/newsletter-parser');
+        const result = await parseNewsletters();
+        return NextResponse.json({
+          success: true,
+          emailsProcessed: result.emailsProcessed,
+          eventsFound: result.eventsFound,
+          eventsUpserted: result.eventsUpserted,
+          errors: result.errors,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       case 'detect-series': {
         const { detectAndTagSeries } = await import('@/lib/series-detector');
         const result = await detectAndTagSeries();
