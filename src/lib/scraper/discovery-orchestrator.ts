@@ -52,6 +52,7 @@ const CandidateSchema = z.object({
     z.object({
       url: z.string().url(),
       name: z.string().nullable(),
+      address: z.string().nullable(),
       province: z.string().nullable(),
       city: z.string().nullable(),
       rawContext: z.string().nullable(),
@@ -120,10 +121,11 @@ export async function runDiscoveryForCity(cityIndex: number): Promise<DiscoveryJ
     prompt: `Search for event venue websites in ${city}, ${province}, Canada.
 Find bars, pubs, theatres, concert halls, and community centres that host public events and have their own events pages.
 Return their official website URLs — NOT Eventbrite, Facebook, Bandsintown, or Ticketmaster pages.
-For each venue return a JSON object with: url (full URL with https://), name, province ("${province}"), city ("${city}"), and a brief rawContext describing the venue.
+For each venue return: url (full URL with https://), name, address (full street address like "123 Main St, ${city}, ${province}"), province ("${province}"), city ("${city}"), and a brief rawContext describing the venue.
+You MUST search for and include the street address for each venue.
 
 Return ONLY a JSON object in this exact format, no markdown fences:
-{"candidates": [{"url": "...", "name": "...", "province": "...", "city": "...", "rawContext": "..."}]}`,
+{"candidates": [{"url": "...", "name": "...", "address": "...", "province": "...", "city": "...", "rawContext": "..."}]}`,
   });
 
   let candidates: z.infer<typeof CandidateSchema>['candidates'] = [];
@@ -154,6 +156,7 @@ Return ONLY a JSON object in this exact format, no markdown fences:
         url: candidate.url,
         domain: hostname,
         source_name: candidate.name ?? null,
+        address: candidate.address ?? null,
         province: candidate.province ?? null,
         city: candidate.city ?? null,
         status: 'pending',
