@@ -60,7 +60,13 @@ export async function mergePair(formData: FormData): Promise<void> {
     .limit(1);
 
   if (duplicateVenues.length === 0) {
-    throw new Error(`Duplicate venue ${duplicateId} not found`);
+    // Venue already deleted (e.g. by a prior merge) — just mark candidate as merged
+    await db
+      .update(venueMergeCandidates)
+      .set({ status: 'merged', reviewed_at: new Date() })
+      .where(eq(venueMergeCandidates.id, candidateId));
+    revalidatePath('/admin/merge-review');
+    redirect('/admin/merge-review');
   }
 
   const { name: duplicateName, city: duplicateCity } = duplicateVenues[0];

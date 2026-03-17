@@ -7,7 +7,7 @@ import {
   venueMergeLog,
   venueMergeCandidates,
 } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 
 export interface PerformVenueMergeOpts {
   canonicalId: number;
@@ -87,10 +87,21 @@ export async function performVenueMerge(
     .set({ venue_id: canonicalId })
     .where(eq(scrape_sources.venue_id, duplicateId));
 
-  // Step 3: Delete the duplicate venue row
+  // Step 3: Remove any other merge candidates referencing the duplicate venue
+  // (they'd break after the venue row is deleted)
+  await db
+    .delete(venueMergeCandidates)
+    .where(
+      and(
+        sql`(${venueMergeCandidates.venue_a_id} = ${duplicateId} OR ${venueMergeCandidates.venue_b_id} = ${duplicateId})`,
+        sql`${venueMergeCandidates.id} != ${candidateId}`
+      )
+    );
+
+  // Step 4: Delete the duplicate venue row
   await db.delete(venues).where(eq(venues.id, duplicateId));
 
-  // Step 4: Insert audit row into venue_merge_log
+  // Step 5: Insert audit row into venue_merge_log
   await db.insert(venueMergeLog).values({
     canonical_venue_id: canonicalId,
     merged_venue_name: duplicateName,
@@ -99,7 +110,7 @@ export async function performVenueMerge(
     distance_meters: distanceMeters,
   });
 
-  // Step 5: Update venue_merge_candidates status
+  // Step 6: Update venue_merge_candidates status
   await db
     .update(venueMergeCandidates)
     .set({ status: 'merged', reviewed_at: new Date() })

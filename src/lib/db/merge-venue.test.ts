@@ -30,6 +30,11 @@ jest.mock('@/lib/db/schema', () => ({
 jest.mock('drizzle-orm', () => ({
   eq: jest.fn((col, val) => ({ __eq: true, col, val })),
   inArray: jest.fn((col, vals) => ({ __inArray: true, col, vals })),
+  and: jest.fn((...args) => ({ __and: true, args })),
+  sql: Object.assign(
+    (strings: TemplateStringsArray, ...values: unknown[]) => ({ __sql: true, strings, values }),
+    { raw: jest.fn((s: string) => ({ __sqlRaw: true, s })) }
+  ),
 }));
 
 import { db } from '@/lib/db/client';
