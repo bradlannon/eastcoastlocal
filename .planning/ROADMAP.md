@@ -154,7 +154,10 @@ Plans:
   1. EventCard displays a "Recurring" badge when the event's series_id is not null
   2. The event list shows one card per series (the next upcoming occurrence) rather than a separate card for every future date
   3. The collapsed series card shows how many upcoming occurrences exist in the series
-**Plans**: TBD
+**Plans:** 1 plan
+
+Plans:
+- [ ] 32-01-PLAN.md — Series collapse utility (TDD) + EventCard badge + EventList integration (UI-01, UI-02)
 
 ### Phase 33: Admin Manual Triggers
 **Goal**: Admin can trigger any cron job (scrape, discover, discover-places, discover-reddit, archive) on demand from the admin dashboard without waiting for scheduled runs
@@ -200,5 +203,5 @@ Plans:
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | 2/2 | Complete    | 2026-03-17 | - |
-| 32. Series UI | v2.2 | 0/? | Not started | - |
+| 32. Series UI | v2.2 | 0/1 | Not started | - |
 | 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |
