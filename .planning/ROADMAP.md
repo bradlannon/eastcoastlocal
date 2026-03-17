@@ -197,4 +197,4 @@ Plans:
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | v2.2 | 0/? | Not started | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
-| 33. Admin Manual Triggers | 1/1 | Complete   | 2026-03-17 | - |
+| 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |
