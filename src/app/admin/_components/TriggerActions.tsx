@@ -31,6 +31,9 @@ function formatSuccessMessage(job: string, body: any): string {
   if (job.startsWith('discover-places-')) {
     return `Places discovery — ${body.candidatesFound} found, ${body.autoApproved} approved`;
   }
+  if (job === 'detect-series') {
+    return `Series detection — ${body.seriesUpserted} series, ${body.eventsTagged} events tagged`;
+  }
   return 'Job complete';
 }
 
@@ -165,6 +168,17 @@ export default function TriggerActions() {
           >
             Run Archive
             {runningJob === 'archive' && <Spinner />}
+          </button>
+
+          {/* Detect Series */}
+          <button
+            type="button"
+            className={buttonClass}
+            disabled={isAnyJobRunning}
+            onClick={() => trigger('detect-series')}
+          >
+            Detect Series
+            {runningJob === 'detect-series' && <Spinner />}
           </button>
         </div>
 

@@ -179,6 +179,17 @@ export async function POST(
         });
       }
 
+      case 'detect-series': {
+        const { detectAndTagSeries } = await import('@/lib/series-detector');
+        const result = await detectAndTagSeries();
+        return NextResponse.json({
+          success: true,
+          seriesUpserted: result.seriesUpserted,
+          eventsTagged: result.eventsTagged,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
       default:
         return NextResponse.json({ success: false, error: 'Unknown job' }, { status: 400 });
     }
