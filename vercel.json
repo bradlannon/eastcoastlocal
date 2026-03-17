@@ -36,6 +36,10 @@
     {
       "path": "/api/cron/detect-series",
       "schedule": "10 6 * * *"
+    },
+    {
+      "path": "/api/cron/fetch-feeds",
+      "schedule": "30 6 * * *"
     }
   ]
 }
