@@ -116,13 +116,33 @@ export default function TriggerActions() {
 
     // Gemini discovery: run one city at a time to avoid 60s timeout
     if (job === 'discover') {
-      const totalCities = 6; // ATLANTIC_CITIES length
+      // First call gets totalCities from the API response; start optimistic with city 0
       const totals = { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
+      let totalCities = 0;
 
-      for (let i = 0; i < totalCities; i++) {
+      // Discover city 0 to learn totalCities
+      setResult({ success: true, message: 'Discovering towns & cities... (1/?)', isWarning: true });
+      try {
+        const res = await fetch('/api/admin/trigger/discover?city=0', { method: 'POST' });
+        const body = await res.json();
+        totalCities = body.totalCities ?? 1;
+        if (body.success) {
+          totals.candidatesFound += body.candidatesFound ?? 0;
+          totals.autoApproved += body.autoApproved ?? 0;
+          totals.queuedPending += body.queuedPending ?? 0;
+          totals.errors += body.errors ?? 0;
+        } else {
+          totals.errors++;
+        }
+      } catch {
+        totals.errors++;
+        totalCities = 1;
+      }
+
+      for (let i = 1; i < totalCities; i++) {
         setResult({
           success: true,
-          message: `Discovering cities... (${i + 1}/${totalCities})`,
+          message: `Discovering towns & cities... (${i + 1}/${totalCities})`,
           isWarning: true,
           progress: `${i + 1}/${totalCities}`,
         });

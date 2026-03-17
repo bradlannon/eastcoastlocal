@@ -14,12 +14,33 @@ export interface DiscoveryJobResult {
 }
 
 export const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
+  // Nova Scotia
   { city: 'Halifax', province: 'NS' },
+  { city: 'Sydney', province: 'NS' },
+  { city: 'Truro', province: 'NS' },
+  { city: 'New Glasgow', province: 'NS' },
+  { city: 'Wolfville', province: 'NS' },
+  { city: 'Antigonish', province: 'NS' },
+  { city: 'Yarmouth', province: 'NS' },
+  { city: 'Kentville', province: 'NS' },
+  { city: 'Bridgewater', province: 'NS' },
+  // New Brunswick
   { city: 'Moncton', province: 'NB' },
   { city: 'Fredericton', province: 'NB' },
   { city: 'Saint John', province: 'NB' },
+  { city: 'Miramichi', province: 'NB' },
+  { city: 'Bathurst', province: 'NB' },
+  { city: 'Edmundston', province: 'NB' },
+  { city: 'Sackville', province: 'NB' },
+  { city: 'Woodstock', province: 'NB' },
+  // PEI
   { city: 'Charlottetown', province: 'PEI' },
+  { city: 'Summerside', province: 'PEI' },
+  // Newfoundland & Labrador
   { city: "St. John's", province: 'NL' },
+  { city: 'Corner Brook', province: 'NL' },
+  { city: 'Gander', province: 'NL' },
+  { city: 'Grand Falls-Windsor', province: 'NL' },
 ];
 
 const AGGREGATOR_DOMAINS = ['eventbrite.com', 'bandsintown.com', 'facebook.com', 'ticketmaster.com'];
