@@ -40,7 +40,8 @@ export async function mergePair(formData: FormData): Promise<void> {
   const eventCounts = await db
     .select({ venue_id: events.venue_id, count: sql<number>`count(*)::int` })
     .from(events)
-    .where(or(eq(events.venue_id, venue_a_id), eq(events.venue_id, venue_b_id)));
+    .where(or(eq(events.venue_id, venue_a_id), eq(events.venue_id, venue_b_id)))
+    .groupBy(events.venue_id);
 
   // Build a map of venue_id → count (default 0 if no rows for that venue)
   const countMap = new Map<number, number>(
