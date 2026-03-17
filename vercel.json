@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/archive",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/detect-series",
+      "schedule": "10 6 * * *"
     }
   ]
 }

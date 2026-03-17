@@ -26,6 +26,7 @@ Extract all UPCOMING events (after today: ${today}). For each event return:
 - cover_image_url: URL of event image or null
 - confidence: your confidence 0.0–1.0 that this is a real upcoming public event
 - event_category: one of live_music | comedy | theatre | arts | sports | festival | community | other
+- recurrence_pattern: if the page indicates this event repeats on a schedule (e.g., "every Tuesday", "weekly open mic", "first Friday of each month"), capture that pattern as a short string. Omit if no recurrence is indicated.
 
 Category guidance:
 - live_music: concerts, bands, solo artists performing live
