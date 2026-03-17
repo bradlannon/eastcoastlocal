@@ -140,7 +140,7 @@ Plans:
   3. Minor name variations (~20% Levenshtein tolerance) are grouped into the same series rather than creating separate series
   4. Gemini extraction produces a recurrence_pattern hint that the detector uses as a signal
   5. All existing events in the database are backfilled with series_id on the first detection run
-**Plans:** 2 plans
+**Plans:** 1/2 plans executed
 
 Plans:
 - [ ] 31-01-PLAN.md — Series detection algorithm with TDD (SER-02, SER-03, SER-04)
@@ -199,6 +199,6 @@ Plans:
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
-| 31. Series Detection | v2.2 | 0/2 | Not started | - |
+| 31. Series Detection | 1/2 | In Progress|  | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
 | 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |

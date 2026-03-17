@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v2.2
 milestone_name: Event Data Quality
 status: planning
-stopped_at: Completed 33-01-PLAN.md
-last_updated: "2026-03-17T00:11:21.478Z"
+stopped_at: Completed 31-01-PLAN.md
+last_updated: "2026-03-17T00:40:18.192Z"
 last_activity: 2026-03-16 — Roadmap created for v2.2 (4 phases, 13 requirements)
 progress:
   total_phases: 5
   completed_phases: 3
-  total_plans: 4
-  completed_plans: 4
+  total_plans: 6
+  completed_plans: 5
   percent: 0
 ---
 
@@ -64,6 +64,7 @@ Recent decisions affecting v2.2:
 - [Phase 33-admin-manual-triggers]: Discovery manual triggers insert discovery_runs rows matching cron route pattern so Recent Discovery Runs dashboard table updates
 - [Phase 33]: Admin trigger route uses admin session cookie auth (verifyToken), not CRON_SECRET — cron secret stays server-only
 - [Phase 33]: Discovery manual triggers insert discovery_runs rows matching cron route pattern so Recent Discovery Runs dashboard table updates
+- [Phase 31-series-detection]: performerFuzzyRatio test spec in plan had incorrect math; tests updated to use pairs genuinely below 0.20 threshold — algorithm constants unchanged
 
 ### Roadmap Evolution
 
@@ -82,6 +83,6 @@ From v2.1 audit (non-blocking):
 
 ## Session Continuity
 
-Last session: 2026-03-17T00:06:19.835Z
-Stopped at: Completed 33-01-PLAN.md
+Last session: 2026-03-17T00:40:18.187Z
+Stopped at: Completed 31-01-PLAN.md
 Resume file: None
