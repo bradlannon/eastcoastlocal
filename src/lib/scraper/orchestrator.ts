@@ -9,6 +9,7 @@ import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
 import { scrapeTicketmaster } from './ticketmaster';
+import { tryFeedFallback, tryDiscoveredFeeds } from './feed-discovery';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Delay between AI extraction requests to stay within Gemini rate limits.
@@ -106,21 +107,44 @@ export async function runScrapeForProvince(province: Province): Promise<ScrapeRe
           }
         }
 
-        const { text, rawHtml } = await fetchAndPreprocess(source.url, {
-          maxPages: source.max_pages ?? 1,
-        });
-
-        const jsonLdEvents = extractJsonLdEvents(rawHtml);
-
         let extracted: ExtractedEvent[];
-        if (jsonLdEvents.length > 0) {
-          extracted = jsonLdEvents;
-          console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (JSON-LD, skipping Gemini)`);
-        } else {
-          extracted = await extractEvents(text, source.url);
-          console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events`);
-          if (AI_THROTTLE_MS > 0) {
-            await delay(AI_THROTTLE_MS);
+
+        try {
+          const { text, rawHtml } = await fetchAndPreprocess(source.url, {
+            maxPages: source.max_pages ?? 1,
+          });
+
+          const jsonLdEvents = extractJsonLdEvents(rawHtml);
+
+          if (jsonLdEvents.length > 0) {
+            extracted = jsonLdEvents;
+            console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (JSON-LD, skipping Gemini)`);
+          } else {
+            // Try feed discovery from HTML before falling back to AI extraction
+            const discoveredEvents = await tryDiscoveredFeeds(rawHtml, source.url);
+            if (discoveredEvents.length > 0) {
+              extracted = discoveredEvents;
+              console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (discovered feed)`);
+            } else {
+              extracted = await extractEvents(text, source.url);
+              console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events`);
+              if (AI_THROTTLE_MS > 0) {
+                await delay(AI_THROTTLE_MS);
+              }
+            }
+          }
+        } catch (fetchErr) {
+          // Bot-blocked or JS-gated — try RSS/Atom/iCal feed fallback
+          const errMsg = fetchErr instanceof Error ? fetchErr.message : '';
+          if (errMsg.includes('bot-blocked') || errMsg.includes('Cloudflare') || errMsg.includes('JS-gated') || errMsg.includes('403')) {
+            console.log(`  ↻ [${province}] ${venue.name}: bot-blocked, trying feed fallback...`);
+            extracted = await tryFeedFallback(source.url);
+            if (extracted.length === 0) {
+              throw fetchErr; // No feed found — propagate original error
+            }
+            console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (feed fallback)`);
+          } else {
+            throw fetchErr; // Non-bot-block error — propagate
           }
         }
 
@@ -243,14 +267,32 @@ export async function scrapeOneSource(sourceId: number): Promise<{
         }
       }
 
-      const { text, rawHtml } = await fetchAndPreprocess(source.url, { maxPages: source.max_pages ?? 1 });
-      const jsonLdEvents = extractJsonLdEvents(rawHtml);
-
       let extracted: ExtractedEvent[];
-      if (jsonLdEvents.length > 0) {
-        extracted = jsonLdEvents;
-      } else {
-        extracted = await extractEvents(text, source.url);
+
+      try {
+        const { text, rawHtml } = await fetchAndPreprocess(source.url, { maxPages: source.max_pages ?? 1 });
+        const jsonLdEvents = extractJsonLdEvents(rawHtml);
+
+        if (jsonLdEvents.length > 0) {
+          extracted = jsonLdEvents;
+        } else {
+          const discoveredEvents = await tryDiscoveredFeeds(rawHtml, source.url);
+          if (discoveredEvents.length > 0) {
+            extracted = discoveredEvents;
+          } else {
+            extracted = await extractEvents(text, source.url);
+          }
+        }
+      } catch (fetchErr) {
+        const errMsg = fetchErr instanceof Error ? fetchErr.message : '';
+        if (errMsg.includes('bot-blocked') || errMsg.includes('Cloudflare') || errMsg.includes('JS-gated') || errMsg.includes('403')) {
+          console.log(`  ↻ ${venueName}: bot-blocked, trying feed fallback...`);
+          extracted = await tryFeedFallback(source.url);
+          if (extracted.length === 0) throw fetchErr;
+          console.log(`  ✓ ${venueName}: ${extracted.length} events (feed fallback)`);
+        } else {
+          throw fetchErr;
+        }
       }
 
       sourceEventCount = extracted.length;

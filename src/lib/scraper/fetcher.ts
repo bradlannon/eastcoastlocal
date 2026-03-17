@@ -1,4 +1,5 @@
 import * as cheerio from 'cheerio';
+import { gotScraping } from 'got-scraping';
 
 // Module-level per-domain rate limiting state
 const domainLastRequest = new Map<string, number>();
@@ -19,28 +20,37 @@ async function applyDomainRateLimit(url: string): Promise<void> {
   domainLastRequest.set(domain, Date.now());
 }
 
-async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
+/**
+ * Fetch using got-scraping — browser-like TLS/JA3 fingerprint + auto-generated
+ * realistic headers (User-Agent, Accept, sec-ch-ua, etc.).
+ * Retries transient errors with exponential backoff.
+ */
+async function fetchWithRetry(url: string, retries = 2): Promise<{ body: string; statusCode: number }> {
   let lastErr: Error | null = null;
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      // Check for Retry-After header from previous response if available
       const backoffMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s
       await delay(backoffMs);
     }
     try {
-      const resp = await fetch(url, {
-        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; EastCoastLocal/1.0)' },
-        signal: AbortSignal.timeout(15_000),
+      const resp = await gotScraping({
+        url,
+        timeout: { request: 15_000 },
+        headerGeneratorOptions: {
+          browsers: ['chrome'],
+          operatingSystems: ['macos', 'windows'],
+          locales: ['en-US', 'en-CA'],
+        },
       });
       // Only retry on transient errors
-      if (resp.status === 429 || resp.status === 503) {
+      if (resp.statusCode === 429 || resp.statusCode === 503) {
         if (attempt < retries) {
-          lastErr = new Error(`HTTP error: ${resp.status} for ${url}`);
+          lastErr = new Error(`HTTP error: ${resp.statusCode} for ${url}`);
           continue;
         }
       }
-      return resp;
+      return { body: resp.body, statusCode: resp.statusCode };
     } catch (err) {
       lastErr = err as Error;
     }
@@ -67,20 +77,25 @@ function detectNextPageUrl(html: string, baseUrl: string): string | null {
 
 async function fetchPage(url: string): Promise<{ html: string; text: string }> {
   await applyDomainRateLimit(url);
-  const resp = await fetchWithRetry(url);
 
-  if (!resp.ok) {
-    throw new Error(`HTTP error: ${resp.status} for ${url}`);
+  const result = await fetchWithRetry(url);
+
+  if (result.statusCode < 200 || result.statusCode >= 300) {
+    throw new Error(`HTTP error: ${result.statusCode} for ${url}`);
   }
 
-  const html = await resp.text();
+  const html = result.body;
 
   if (html.length < 5000) {
     throw new Error(`Page too short (${html.length} chars) — likely bot-blocked: ${url}`);
   }
 
-  if (html.includes('Just a moment') || html.includes('Enable JavaScript')) {
-    throw new Error(`Bot-blocked or JS-gated page detected (Cloudflare challenge): ${url}`);
+  if (html.includes('Just a moment') || html.includes('Checking your browser')) {
+    throw new Error(`Bot-blocked (Cloudflare challenge detected): ${url}`);
+  }
+
+  if (html.includes('Enable JavaScript') && html.length < 10000) {
+    throw new Error(`JS-gated page detected: ${url}`);
   }
 
   const $ = cheerio.load(html);
