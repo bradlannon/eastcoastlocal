@@ -7,7 +7,7 @@ import {
   venueMergeLog,
   venueMergeCandidates,
 } from '@/lib/db/schema';
-import { eq, and, sql } from 'drizzle-orm';
+import { eq, and, or, ne, sql } from 'drizzle-orm';
 
 export interface PerformVenueMergeOpts {
   canonicalId: number;
@@ -93,8 +93,11 @@ export async function performVenueMerge(
     .delete(venueMergeCandidates)
     .where(
       and(
-        sql`(${venueMergeCandidates.venue_a_id} = ${duplicateId} OR ${venueMergeCandidates.venue_b_id} = ${duplicateId})`,
-        sql`${venueMergeCandidates.id} != ${candidateId}`
+        or(
+          eq(venueMergeCandidates.venue_a_id, duplicateId),
+          eq(venueMergeCandidates.venue_b_id, duplicateId)
+        ),
+        ne(venueMergeCandidates.id, candidateId)
       )
     );
 
