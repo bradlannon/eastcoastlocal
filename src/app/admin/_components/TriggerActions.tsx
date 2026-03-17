@@ -99,7 +99,6 @@ export default function TriggerActions() {
     }
   });
   const [discoveryType, setDiscoveryType] = useState('discover');
-  const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
 
   // Wrapper that persists result to localStorage
@@ -117,22 +116,7 @@ export default function TriggerActions() {
     });
   }
 
-  // Auto-dismiss toast after 8 seconds (only for final results, not progress)
-  useEffect(() => {
-    if (result && !result.isWarning) {
-      if (dismissTimerRef.current) {
-        clearTimeout(dismissTimerRef.current);
-      }
-      dismissTimerRef.current = setTimeout(() => {
-        setResult(null);
-      }, 8_000);
-    }
-    return () => {
-      if (dismissTimerRef.current) {
-        clearTimeout(dismissTimerRef.current);
-      }
-    };
-  }, [result]);
+  // No auto-dismiss — results persist until manually dismissed or next job starts
 
   async function trigger(job: string) {
     setRunningJob(job);
@@ -161,10 +145,7 @@ export default function TriggerActions() {
           setResult({
             success: true,
             message: `Cancelled after ${i}/${cities.length} — ${totals.candidatesFound} found, ${totals.autoApproved} approved`,
-            isWarning: true,
           });
-          // Let auto-dismiss handle it by marking as non-warning after a moment
-          setTimeout(() => setResult((prev) => prev ? { ...prev, isWarning: false } : null), 100);
           setRunningJob(null);
           router.refresh();
           return;
@@ -229,9 +210,7 @@ export default function TriggerActions() {
           setResult({
             success: true,
             message: `Cancelled after ${i}/${sources.length} — ${totals.scraped} scraped, ${totals.events} events`,
-            isWarning: true,
           });
-          setTimeout(() => setResult((prev) => prev ? { ...prev, isWarning: false } : null), 100);
           setRunningJob(null);
           router.refresh();
           return;
@@ -447,7 +426,7 @@ export default function TriggerActions() {
         {/* Result toast */}
         {result && (
           <div
-            className={`text-sm rounded-md px-4 py-2 mt-4 ${
+            className={`text-sm rounded-md px-4 py-2 mt-4 flex items-center justify-between ${
               result.isWarning
                 ? 'bg-amber-50 border border-amber-200 text-amber-700'
                 : result.success
@@ -455,7 +434,17 @@ export default function TriggerActions() {
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}
           >
-            {result.message}
+            <span>{result.message}</span>
+            {!result.isWarning && (
+              <button
+                type="button"
+                className="ml-3 text-current opacity-50 hover:opacity-100"
+                onClick={() => setResult(null)}
+                aria-label="Dismiss"
+              >
+                &times;
+              </button>
+            )}
           </div>
         )}
       </div>
