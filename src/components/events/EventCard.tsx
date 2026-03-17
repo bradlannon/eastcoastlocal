@@ -7,11 +7,12 @@ import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface EventCardProps {
   event: EventWithVenue;
+  occurrenceCount?: number;
   onHover?: (venueId: number | null) => void;
   onClickVenue?: (venueId: number, lat: number, lng: number) => void;
 }
 
-export default function EventCard({ event, onHover, onClickVenue }: EventCardProps) {
+export default function EventCard({ event, occurrenceCount, onHover, onClickVenue }: EventCardProps) {
   const ev = event.events;
   const venue = event.venues;
 
@@ -79,6 +80,13 @@ export default function EventCard({ event, onHover, onClickVenue }: EventCardPro
               {CATEGORY_META[ev.event_category as EventCategory]?.label ?? ev.event_category}
             </span>
           )}
+
+          {/* Recurring badge */}
+          {ev.series_id !== null && ev.series_id !== undefined && (
+            <span className="text-xs bg-teal-50 text-teal-700 border border-teal-200 px-1.5 py-0.5 rounded font-medium">
+              Recurring
+            </span>
+          )}
         </div>
 
         {/* Ticketmaster attribution */}
@@ -87,6 +95,13 @@ export default function EventCard({ event, onHover, onClickVenue }: EventCardPro
             <span className="text-xs text-blue-600">
               via Ticketmaster
             </span>
+          </div>
+        )}
+
+        {/* Occurrence count for collapsed series */}
+        {occurrenceCount !== undefined && occurrenceCount > 1 && (
+          <div className="mt-0.5 text-xs text-teal-600 font-medium">
+            +{occurrenceCount - 1} more upcoming
           </div>
         )}
 

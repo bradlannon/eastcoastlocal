@@ -1,5 +1,6 @@
 import EventCard from './EventCard';
 import type { EventWithVenue } from '@/types/index';
+import { collapseSeriesEvents } from '@/lib/series-utils';
 
 interface EventListProps {
   events: EventWithVenue[];
@@ -20,11 +21,14 @@ export default function EventList({
       new Date(b.events.event_date).getTime()
   );
 
+  // Collapse recurring series to next occurrence (UI-02)
+  const collapsed = collapseSeriesEvents(sorted);
+
   return (
     <div className="flex flex-col h-full">
       {/* List or empty state */}
       <div className="flex-1 overflow-y-auto">
-        {sorted.length === 0 ? (
+        {collapsed.length === 0 ? (
           <div className="flex items-center justify-center h-full p-6 text-center">
             <p className="text-sm text-gray-400">
               {emptyMessage ?? 'No events in this area. Zoom out to see more.'}
@@ -32,10 +36,11 @@ export default function EventList({
           </div>
         ) : (
           <div className="p-2 space-y-2">
-            {sorted.map((event) => (
+            {collapsed.map(({ event, occurrenceCount }) => (
               <EventCard
                 key={event.events.id}
                 event={event}
+                occurrenceCount={occurrenceCount}
                 onHover={onHoverVenue}
                 onClickVenue={onClickVenue}
               />
