@@ -29,14 +29,8 @@ jest.mock('@/lib/db/schema', () => ({
 
 jest.mock('drizzle-orm', () => ({
   eq: jest.fn((col, val) => ({ __eq: true, col, val })),
-  ne: jest.fn((col, val) => ({ __ne: true, col, val })),
   or: jest.fn((...args: unknown[]) => ({ __or: true, args })),
-  and: jest.fn((...args: unknown[]) => ({ __and: true, args })),
   inArray: jest.fn((col, vals) => ({ __inArray: true, col, vals })),
-  sql: Object.assign(
-    (strings: TemplateStringsArray, ...values: unknown[]) => ({ __sql: true, strings, values }),
-    { raw: jest.fn((s: string) => ({ __sqlRaw: true, s })) }
-  ),
 }));
 
 import { db } from '@/lib/db/client';
@@ -276,7 +270,7 @@ describe('performVenueMerge', () => {
     });
   });
 
-  it('Test 7: updates venue_merge_candidates status to merged with reviewed_at', async () => {
+  it('Test 7: deletes merge candidates referencing the duplicate venue', async () => {
     setupCleanMocks();
 
     await performVenueMerge(baseOpts);
@@ -284,16 +278,6 @@ describe('performVenueMerge', () => {
     const { venueMergeCandidates: candidatesTable } = jest.requireMock('@/lib/db/schema') as {
       venueMergeCandidates: unknown;
     };
-    expect(mockDb.update).toHaveBeenCalledWith(candidatesTable);
-
-    // Find the update call for venueMergeCandidates and check .set()
-    const updateCalls = mockDb.update.mock.calls;
-    const candidatesCallIdx = updateCalls.findIndex((c: unknown[]) => c[0] === candidatesTable);
-    expect(candidatesCallIdx).toBeGreaterThanOrEqual(0);
-
-    const setCallsOnChain =
-      mockDb.update.mock.results[candidatesCallIdx]?.value?.set?.mock?.calls?.[0]?.[0];
-    expect(setCallsOnChain).toMatchObject({ status: 'merged' });
-    expect(setCallsOnChain?.reviewed_at).toBeInstanceOf(Date);
+    expect(mockDb.delete).toHaveBeenCalledWith(candidatesTable);
   });
 });

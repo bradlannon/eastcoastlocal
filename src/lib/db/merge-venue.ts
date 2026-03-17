@@ -7,7 +7,7 @@ import {
   venueMergeLog,
   venueMergeCandidates,
 } from '@/lib/db/schema';
-import { eq, and, or, ne, sql } from 'drizzle-orm';
+import { eq, or } from 'drizzle-orm';
 
 export interface PerformVenueMergeOpts {
   canonicalId: number;
@@ -27,13 +27,8 @@ export interface PerformVenueMergeResult {
 /**
  * Merge a duplicate venue into a canonical venue.
  *
- * Steps:
- * 1. Reassign all events from duplicate → canonical (on unique conflict: clean up
- *    event_sources first, then delete the conflicting event)
- * 2. Bulk reassign scrape_sources from duplicate → canonical
- * 3. Delete the duplicate venue row
- * 4. Insert audit row into venue_merge_log
- * 5. Update venue_merge_candidates: status = 'merged', reviewed_at = now
+ * Order matters — FK constraints require candidates to be removed before
+ * the venue row can be deleted.
  */
 export async function performVenueMerge(
   opts: PerformVenueMergeOpts
@@ -67,7 +62,6 @@ export async function performVenueMerge(
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       if (errMsg.includes('unique') || errMsg.includes('duplicate')) {
-        // FK RESTRICT: delete event_sources rows first, then delete the event
         await db
           .delete(event_sources)
           .where(eq(event_sources.event_id, evt.id));
@@ -87,24 +81,7 @@ export async function performVenueMerge(
     .set({ venue_id: canonicalId })
     .where(eq(scrape_sources.venue_id, duplicateId));
 
-  // Step 3: Remove any other merge candidates referencing the duplicate venue
-  // (they'd break after the venue row is deleted)
-  await db
-    .delete(venueMergeCandidates)
-    .where(
-      and(
-        or(
-          eq(venueMergeCandidates.venue_a_id, duplicateId),
-          eq(venueMergeCandidates.venue_b_id, duplicateId)
-        ),
-        ne(venueMergeCandidates.id, candidateId)
-      )
-    );
-
-  // Step 4: Delete the duplicate venue row
-  await db.delete(venues).where(eq(venues.id, duplicateId));
-
-  // Step 5: Insert audit row into venue_merge_log
+  // Step 3: Insert audit row BEFORE deleting anything
   await db.insert(venueMergeLog).values({
     canonical_venue_id: canonicalId,
     merged_venue_name: duplicateName,
@@ -113,11 +90,19 @@ export async function performVenueMerge(
     distance_meters: distanceMeters,
   });
 
-  // Step 6: Update venue_merge_candidates status
+  // Step 4: Delete ALL merge candidates referencing the duplicate venue
+  // (including the current one — must happen before venue delete due to FK)
   await db
-    .update(venueMergeCandidates)
-    .set({ status: 'merged', reviewed_at: new Date() })
-    .where(eq(venueMergeCandidates.id, candidateId));
+    .delete(venueMergeCandidates)
+    .where(
+      or(
+        eq(venueMergeCandidates.venue_a_id, duplicateId),
+        eq(venueMergeCandidates.venue_b_id, duplicateId)
+      )
+    );
+
+  // Step 5: Delete the duplicate venue row (now safe — no FK references remain)
+  await db.delete(venues).where(eq(venues.id, duplicateId));
 
   return { eventsReassigned, eventsDropped };
 }
