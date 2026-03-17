@@ -120,38 +120,33 @@ export default function TriggerActions() {
       const totals = { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
       let totalCities = 0;
 
-      // Discover city 0 to learn totalCities
-      setResult({ success: true, message: 'Discovering towns & cities... (1/?)', isWarning: true });
-      try {
-        const res = await fetch('/api/admin/trigger/discover?city=0', { method: 'POST' });
-        const body = await res.json();
-        totalCities = body.totalCities ?? 1;
-        if (body.success) {
-          totals.candidatesFound += body.candidatesFound ?? 0;
-          totals.autoApproved += body.autoApproved ?? 0;
-          totals.queuedPending += body.queuedPending ?? 0;
-          totals.errors += body.errors ?? 0;
-        } else {
-          totals.errors++;
-        }
-      } catch {
-        totals.errors++;
-        totalCities = 1;
-      }
-
-      for (let i = 1; i < totalCities; i++) {
+      for (let i = 0; ; i++) {
         setResult({
           success: true,
-          message: `Discovering towns & cities... (${i + 1}/${totalCities})`,
+          message: totalCities
+            ? `Searching ${i + 1}/${totalCities}...`
+            : 'Starting discovery...',
           isWarning: true,
-          progress: `${i + 1}/${totalCities}`,
         });
 
         try {
           const res = await fetch(`/api/admin/trigger/discover?city=${i}`, { method: 'POST' });
           const body = await res.json();
+
+          if (!body.success && body.error?.includes('Invalid city index')) break;
+
+          if (totalCities === 0) totalCities = body.totalCities ?? 1;
+
+          // Show the city name we just finished
+          const found = body.candidatesFound ?? 0;
+          setResult({
+            success: true,
+            message: `Searching ${i + 1}/${totalCities}: ${body.cityName ?? `city ${i}`} — ${found} found`,
+            isWarning: true,
+          });
+
           if (body.success) {
-            totals.candidatesFound += body.candidatesFound ?? 0;
+            totals.candidatesFound += found;
             totals.autoApproved += body.autoApproved ?? 0;
             totals.queuedPending += body.queuedPending ?? 0;
             totals.errors += body.errors ?? 0;
@@ -159,9 +154,13 @@ export default function TriggerActions() {
             totals.errors++;
             console.error(`Discovery city ${i} failed:`, body.error);
           }
+
+          if (i + 1 >= totalCities) break;
         } catch (err) {
           totals.errors++;
           console.error(`Discovery city ${i} error:`, err);
+          if (totalCities > 0 && i + 1 >= totalCities) break;
+          if (totalCities === 0) break; // Can't continue if we never learned the count
         }
       }
 
