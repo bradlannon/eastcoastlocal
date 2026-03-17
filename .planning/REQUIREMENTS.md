@@ -21,8 +21,8 @@ Requirements for event data quality. Each maps to roadmap phases.
 - [x] **SER-02**: Post-scrape enrichment detects recurring patterns (same performer + venue + regular weekday interval)
 - [x] **SER-03**: Keyword heuristic detects explicit recurrence signals ("every", "weekly", "open mic", etc.)
 - [x] **SER-04**: Fuzzy name matching (~20% Levenshtein) groups minor name variations into same series
-- [ ] **SER-05**: Gemini extraction includes optional recurrence_pattern hint from page content
-- [ ] **SER-06**: Existing events backfilled with series detection on first run
+- [x] **SER-05**: Gemini extraction includes optional recurrence_pattern hint from page content
+- [x] **SER-06**: Existing events backfilled with series detection on first run
 
 ### Series UI
 
@@ -59,8 +59,8 @@ None — focused data quality milestone.
 | SER-02 | Phase 31 | Complete |
 | SER-03 | Phase 31 | Complete |
 | SER-04 | Phase 31 | Complete |
-| SER-05 | Phase 31 | Pending |
-| SER-06 | Phase 31 | Pending |
+| SER-05 | Phase 31 | Complete |
+| SER-06 | Phase 31 | Complete |
 | UI-01 | Phase 32 | Pending |
 | UI-02 | Phase 32 | Pending |
 

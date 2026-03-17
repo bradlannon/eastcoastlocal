@@ -96,7 +96,7 @@
 
 - [x] **Phase 29: Schema Foundation** - Add archived_at and series_id columns to events; create recurring_series table (completed 2026-03-16)
 - [x] **Phase 30: Archival** - Daily cron soft-archives past events; API excludes archived events; upsert guards against unarchival (completed 2026-03-16)
-- [ ] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events
+- [x] **Phase 31: Series Detection** - Post-scrape enrichment detects recurring performers per venue; backfill existing events (completed 2026-03-17)
 - [ ] **Phase 32: Series UI** - Recurring badge on EventCard; list view collapses series to next occurrence
 - [x] **Phase 33: Admin Manual Triggers** - Admin UI buttons to trigger cron jobs (scrape, discover, archive) on demand (completed 2026-03-16)
 
@@ -140,7 +140,7 @@ Plans:
   3. Minor name variations (~20% Levenshtein tolerance) are grouped into the same series rather than creating separate series
   4. Gemini extraction produces a recurrence_pattern hint that the detector uses as a signal
   5. All existing events in the database are backfilled with series_id on the first detection run
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 
 Plans:
 - [ ] 31-01-PLAN.md — Series detection algorithm with TDD (SER-02, SER-03, SER-04)
@@ -199,6 +199,6 @@ Plans:
 | 28. Tests & Validation | v2.1 | 2/2 | Complete | 2026-03-16 |
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
-| 31. Series Detection | 1/2 | In Progress|  | - |
+| 31. Series Detection | 2/2 | Complete   | 2026-03-17 | - |
 | 32. Series UI | v2.2 | 0/? | Not started | - |
 | 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |
