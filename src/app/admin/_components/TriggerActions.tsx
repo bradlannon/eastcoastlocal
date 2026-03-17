@@ -89,10 +89,33 @@ function Tooltip({ text }: { text: string }) {
 export default function TriggerActions() {
   const router = useRouter();
   const [runningJob, setRunningJob] = useState<string | null>(null);
-  const [result, setResult] = useState<JobResult>(null);
+  const [result, setResultRaw] = useState<JobResult>(() => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const stored = localStorage.getItem('ecl-job-result');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [discoveryType, setDiscoveryType] = useState('discover');
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const cancelledRef = useRef(false);
+
+  // Wrapper that persists result to localStorage
+  function setResult(value: JobResult | ((prev: JobResult) => JobResult)) {
+    setResultRaw((prev) => {
+      const next = typeof value === 'function' ? value(prev) : value;
+      try {
+        if (next) {
+          localStorage.setItem('ecl-job-result', JSON.stringify(next));
+        } else {
+          localStorage.removeItem('ecl-job-result');
+        }
+      } catch { /* ignore */ }
+      return next;
+    });
+  }
 
   // Auto-dismiss toast after 8 seconds (only for final results, not progress)
   useEffect(() => {
