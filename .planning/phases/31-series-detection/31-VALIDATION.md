@@ -2,8 +2,8 @@
 phase: 31
 slug: series-detection
 status: draft
-nyquist_compliant: false
-wave_0_complete: false
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-03-16
 ---
 
@@ -38,23 +38,23 @@ created: 2026-03-16
 
 | Task ID | Plan | Wave | Requirement | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|-----------|-------------------|-------------|--------|
-| 31-01-01 | 01 | 1 | SER-02 | unit | `npx jest src/lib/series-detector.test.ts -t "isWeekdayRegular"` | ❌ W0 | ⬜ pending |
-| 31-01-02 | 01 | 1 | SER-03 | unit | `npx jest src/lib/series-detector.test.ts -t "hasRecurrenceKeyword"` | ❌ W0 | ⬜ pending |
-| 31-01-03 | 01 | 1 | SER-04 | unit | `npx jest src/lib/series-detector.test.ts -t "performerFuzzyRatio"` | ❌ W0 | ⬜ pending |
-| 31-02-01 | 02 | 1 | SER-05 | unit | `npx jest src/app/api/cron/detect-series/route.test.ts -t "401"` | ❌ W0 | ⬜ pending |
-| 31-02-02 | 02 | 1 | SER-05 | unit | `npx jest src/app/api/cron/detect-series/route.test.ts -t "200"` | ❌ W0 | ⬜ pending |
-| 31-03-01 | 03 | 2 | SER-06 | manual | `tsx src/lib/db/backfill-series.ts` (dry-run) | ❌ W0 | ⬜ pending |
+| 31-01-01 | 01 | 1 | SER-02 | unit | `npx jest src/lib/series-detector.test.ts -t "isWeekdayRegular"` | W0 (Plan 01) | pending |
+| 31-01-02 | 01 | 1 | SER-03 | unit | `npx jest src/lib/series-detector.test.ts -t "hasRecurrenceKeyword"` | W0 (Plan 01) | pending |
+| 31-01-03 | 01 | 1 | SER-04 | unit | `npx jest src/lib/series-detector.test.ts -t "performerFuzzyRatio"` | W0 (Plan 01) | pending |
+| 31-02-01 | 02 | 2 | SER-05 | unit | `npx jest src/app/api/cron/detect-series/route.test.ts -t "401"` | W0 (Plan 02 Task 1) | pending |
+| 31-02-02 | 02 | 2 | SER-05 | unit | `npx jest src/app/api/cron/detect-series/route.test.ts -t "200"` | W0 (Plan 02 Task 1) | pending |
+| 31-03-01 | 03 | 2 | SER-06 | manual | `tsx src/lib/db/backfill-series.ts` (dry-run) | N/A | pending |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: pending / green / red / flaky*
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `src/lib/series-detector.test.ts` — stubs for SER-02, SER-03, SER-04
-- [ ] `src/app/api/cron/detect-series/route.test.ts` — auth + delegation tests
+- [x] `src/lib/series-detector.test.ts` — stubs for SER-02, SER-03, SER-04 (created by Plan 01, type: tdd)
+- [x] `src/app/api/cron/detect-series/route.test.ts` — auth + delegation tests (created by Plan 02, Task 1)
 
-*Existing infrastructure covers framework setup; only new test files needed.*
+*All Wave 0 test files are accounted for in plan files_modified lists.*
 
 ---
 
@@ -68,11 +68,11 @@ created: 2026-03-16
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 15s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 15s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved
