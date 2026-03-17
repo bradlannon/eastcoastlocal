@@ -82,28 +82,36 @@ export default function SourceHealthTable({ rows }: { rows: SourceRow[] }) {
 
   return (
     <div className="relative">
-      <table className="w-full divide-y divide-gray-200">
-        <thead className="bg-gray-50">
+      <table className="w-full table-fixed divide-y divide-gray-200">
+        <colgroup>
+          <col className="w-[15%]" />
+          <col className="w-[25%]" />
+          <col className="w-[10%]" />
+          <col className="w-[12%]" />
+          <col className="w-[8%]" />
+          <col className="w-[10%]" />
+          <col className="w-[8%]" />
+          <col className="w-[5%]" />
+        </colgroup>
+        <thead className="bg-gray-50 sticky top-0 z-10">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venue</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source URL</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Scraped</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Events</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Failures</th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Venue</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Source URL</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Scraped</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Events</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Failures</th>
+            <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"></th>
           </tr>
         </thead>
         <tbody className="bg-white divide-y divide-gray-200">
           {rows.map((row) => (
             <tr key={row.sourceId} className={row.enabled ? '' : 'opacity-50'}>
-              <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{row.venueName}</td>
-              <td className="px-4 py-3 text-sm text-gray-600">
-                <span className="block max-w-xs truncate" title={row.url}>{row.url}</span>
-              </td>
+              <td className="px-3 py-3 text-sm text-gray-900 truncate" title={row.venueName}>{row.venueName}</td>
+              <td className="px-3 py-3 text-sm text-gray-600 truncate" title={row.url}>{row.url}</td>
               <td
-                className="px-4 py-3 text-sm whitespace-nowrap"
+                className="px-3 py-3 text-sm whitespace-nowrap"
                 onMouseEnter={(e) => row.status === 'failure' && row.lastScrapeError ? handleErrorHover(row.sourceId, e) : undefined}
                 onMouseLeave={handleMouseLeave}
               >
@@ -119,9 +127,9 @@ export default function SourceHealthTable({ rows }: { rows: SourceRow[] }) {
                   <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">pending</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{relativeTime(row.lastScrapedAt)}</td>
+              <td className="px-3 py-3 text-sm text-gray-500 whitespace-nowrap">{relativeTime(row.lastScrapedAt)}</td>
               <td
-                className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap"
+                className="px-3 py-3 text-sm text-gray-700 whitespace-nowrap"
                 onMouseEnter={(e) => (row.lastEventCount ?? 0) >= 1 ? handleEventHover(row.sourceId, e) : undefined}
                 onMouseLeave={handleMouseLeave}
               >
@@ -129,8 +137,8 @@ export default function SourceHealthTable({ rows }: { rows: SourceRow[] }) {
                   {row.lastEventCount ?? '—'}
                 </span>
               </td>
-              <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{row.avgConfidence?.toFixed(2) ?? '—'}</td>
-              <td className="px-4 py-3 text-sm whitespace-nowrap">
+              <td className="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{row.avgConfidence?.toFixed(2) ?? '—'}</td>
+              <td className="px-3 py-3 text-sm whitespace-nowrap">
                 {row.consecutiveFailures === 0 ? (
                   <span className="text-green-600">0</span>
                 ) : (row.consecutiveFailures ?? 0) >= 3 ? (
@@ -139,7 +147,7 @@ export default function SourceHealthTable({ rows }: { rows: SourceRow[] }) {
                   <span className="text-amber-600">{row.consecutiveFailures}</span>
                 )}
               </td>
-              <td className="px-4 py-3 text-sm whitespace-nowrap">
+              <td className="px-3 py-3 text-sm whitespace-nowrap">
                 <button
                   type="button"
                   disabled={scrapingId !== null}

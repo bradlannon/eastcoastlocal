@@ -12,6 +12,12 @@ export const ATLANTIC_CANADA_BOUNDS: LatLngBoundsLiteral = [
   [55.0, -52.5],
 ];
 
+// Padded bounds used as maxBounds to constrain map panning
+export const ATLANTIC_CANADA_MAX_BOUNDS: LatLngBoundsLiteral = [
+  [41.0, -71.0],
+  [57.0, -49.5],
+];
+
 // Per-province bounding boxes
 export const PROVINCE_BOUNDS: Record<string, LatLngBoundsLiteral> = {
   NB: [

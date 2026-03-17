@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { count, desc, eq, max, sql } from 'drizzle-orm';
+import { count, desc, eq, gte, max, sql } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
-import { venues, scrape_sources, discovered_sources, discovery_runs } from '@/lib/db/schema';
+import { venues, scrape_sources, discovered_sources, discovery_runs, events } from '@/lib/db/schema';
 import RefreshButton from './_components/RefreshButton';
 import TriggerActions from './_components/TriggerActions';
 import SourceHealthTable from './_components/SourceHealthTable';
@@ -51,6 +51,7 @@ export default async function AdminDashboardPage() {
     consecutiveFailures: number | null;
     lastScrapeError: string | null;
   }> = [];
+  let activeEventCount = 0;
   let lastDiscoveryRun: { completedAt: Date; errors: number } | null = null;
   let recentRuns: Array<{
     id: number;
@@ -73,6 +74,7 @@ export default async function AdminDashboardPage() {
       sourceHealthResult,
       lastDiscoveryResult,
       recentRunsResult,
+      activeEventResult,
     ] = await Promise.all([
       db.select({ count: count() }).from(venues),
       db
@@ -126,6 +128,10 @@ export default async function AdminDashboardPage() {
         .from(discovery_runs)
         .orderBy(desc(discovery_runs.completed_at))
         .limit(10),
+      db
+        .select({ count: count() })
+        .from(events)
+        .where(gte(events.event_date, sql`CURRENT_DATE`)),
     ]);
 
     venueCount = venueResult[0]?.count ?? 0;
@@ -135,6 +141,7 @@ export default async function AdminDashboardPage() {
     sourceRows = sourceHealthResult;
     lastDiscoveryRun = lastDiscoveryResult[0] ?? null;
     recentRuns = recentRunsResult;
+    activeEventCount = activeEventResult[0]?.count ?? 0;
   } catch {
     loadError = true;
   }
@@ -150,6 +157,8 @@ export default async function AdminDashboardPage() {
   const nowStr = new Date().toLocaleTimeString('en-CA', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: 'America/Halifax',
+    timeZoneName: 'short',
   });
 
   return (
@@ -165,44 +174,50 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
         {/* Total Venues */}
         <Link href="/admin/venues" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
             <p className="text-sm text-gray-500">Total Venues</p>
             <p className="text-3xl font-bold text-gray-900 mt-1">{venueCount}</p>
           </div>
         </Link>
 
         {/* Active Sources */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
           <p className="text-sm text-gray-500">Active Sources</p>
           <p className="text-3xl font-bold text-gray-900 mt-1">{activeSourceCount}</p>
         </div>
 
+        {/* Active Events */}
+        <Link href="/admin/events" className="block">
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
+            <p className="text-sm text-gray-500">Active Events</p>
+            <p className="text-3xl font-bold text-gray-900 mt-1">{activeEventCount}</p>
+          </div>
+        </Link>
+
         {/* Pending Discoveries */}
         <Link href="/admin/discovery" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
             <p className="text-sm text-gray-500">Pending Discoveries</p>
             <p className="text-3xl font-bold text-gray-900 mt-1">{pendingDiscoveryCount}</p>
           </div>
         </Link>
 
-        {/* Last Scrape */}
-        <div className="bg-white rounded-lg shadow-sm border p-6">
-          <p className="text-sm text-gray-500">Last Scrape</p>
-          <p
-            className={`text-3xl font-bold mt-1 ${
-              isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'
-            }`}
-          >
-            {relativeTime(lastScrapeTime)}
-          </p>
-        </div>
-
-        {/* Last Discovery */}
-        <Link href="/admin/discovery" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
+        {/* Last Scrape & Discovery */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+          <div className="mb-3">
+            <p className="text-sm text-gray-500">Last Scrape</p>
+            <p
+              className={`text-lg font-bold mt-1 ${
+                isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'
+              }`}
+            >
+              {relativeTime(lastScrapeTime)}
+            </p>
+          </div>
+          <div className="border-t pt-3">
             <p className="text-sm text-gray-500">Last Discovery</p>
             <p
-              className={`text-3xl font-bold mt-1 ${
+              className={`text-lg font-bold mt-1 ${
                 lastDiscoveryRun && lastDiscoveryRun.errors > 0
                   ? 'text-red-600'
                   : isStale(lastDiscoveryRun?.completedAt ?? null)
@@ -213,7 +228,7 @@ export default async function AdminDashboardPage() {
               {relativeTime(lastDiscoveryRun?.completedAt ?? null)}
             </p>
           </div>
-        </Link>
+        </div>
       </div>
 
       {/* Manual trigger actions */}
@@ -221,7 +236,7 @@ export default async function AdminDashboardPage() {
 
       {/* Source Health table */}
       <h2 className="text-lg font-semibold text-gray-900 mb-3">Source Health</h2>
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden max-h-96 overflow-y-auto">
         {sourceRows.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             No scrape sources configured
