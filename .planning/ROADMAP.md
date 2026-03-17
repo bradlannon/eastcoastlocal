@@ -203,5 +203,5 @@ Plans:
 | 29. Schema Foundation | v2.2 | 1/1 | Complete | 2026-03-16 |
 | 30. Archival | 2/2 | Complete    | 2026-03-16 | - |
 | 31. Series Detection | 2/2 | Complete    | 2026-03-17 | - |
-| 32. Series UI | 1/1 | Complete   | 2026-03-17 | - |
+| 32. Series UI | 1/1 | Complete    | 2026-03-17 | - |
 | 33. Admin Manual Triggers | 1/1 | Complete    | 2026-03-17 | - |
