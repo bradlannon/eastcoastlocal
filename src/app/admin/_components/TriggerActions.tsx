@@ -92,10 +92,11 @@ export default function TriggerActions() {
   const [result, setResult] = useState<JobResult>(null);
   const [discoveryType, setDiscoveryType] = useState('discover');
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelledRef = useRef(false);
 
-  // Auto-dismiss toast after 8 seconds
+  // Auto-dismiss toast after 8 seconds (only for final results, not progress)
   useEffect(() => {
-    if (result) {
+    if (result && !result.isWarning) {
       if (dismissTimerRef.current) {
         clearTimeout(dismissTimerRef.current);
       }
@@ -116,51 +117,55 @@ export default function TriggerActions() {
 
     // Gemini discovery: run one city at a time to avoid 60s timeout
     if (job === 'discover') {
-      // First call gets totalCities from the API response; start optimistic with city 0
+      cancelledRef.current = false;
       const totals = { candidatesFound: 0, autoApproved: 0, queuedPending: 0, errors: 0 };
-      let totalCities = 0;
 
-      for (let i = 0; ; i++) {
+      // Fetch city list first
+      setResult({ success: true, message: 'Loading city list...', isWarning: true });
+      let cities: string[] = [];
+      try {
+        const listRes = await fetch('/api/admin/trigger/discover?city=list', { method: 'POST' });
+        const listBody = await listRes.json();
+        cities = listBody.cities ?? [];
+      } catch {
+        setResult({ success: false, message: 'Failed to load city list' });
+        setRunningJob(null);
+        return;
+      }
+
+      for (let i = 0; i < cities.length; i++) {
+        if (cancelledRef.current) {
+          setResult({
+            success: true,
+            message: `Cancelled after ${i}/${cities.length} — ${totals.candidatesFound} found, ${totals.autoApproved} approved`,
+            isWarning: true,
+          });
+          // Let auto-dismiss handle it by marking as non-warning after a moment
+          setTimeout(() => setResult((prev) => prev ? { ...prev, isWarning: false } : null), 100);
+          setRunningJob(null);
+          router.refresh();
+          return;
+        }
+
         setResult({
           success: true,
-          message: totalCities
-            ? `Searching ${i + 1}/${totalCities}...`
-            : 'Starting discovery...',
+          message: `Searching ${i + 1}/${cities.length}... ${cities[i]}`,
           isWarning: true,
         });
 
         try {
           const res = await fetch(`/api/admin/trigger/discover?city=${i}`, { method: 'POST' });
           const body = await res.json();
-
-          if (!body.success && body.error?.includes('Invalid city index')) break;
-
-          if (totalCities === 0) totalCities = body.totalCities ?? 1;
-
-          // Show the city name we just finished
-          const found = body.candidatesFound ?? 0;
-          setResult({
-            success: true,
-            message: `Searching ${i + 1}/${totalCities}: ${body.cityName ?? `city ${i}`} — ${found} found`,
-            isWarning: true,
-          });
-
           if (body.success) {
-            totals.candidatesFound += found;
+            totals.candidatesFound += body.candidatesFound ?? 0;
             totals.autoApproved += body.autoApproved ?? 0;
             totals.queuedPending += body.queuedPending ?? 0;
             totals.errors += body.errors ?? 0;
           } else {
             totals.errors++;
-            console.error(`Discovery city ${i} failed:`, body.error);
           }
-
-          if (i + 1 >= totalCities) break;
-        } catch (err) {
+        } catch {
           totals.errors++;
-          console.error(`Discovery city ${i} error:`, err);
-          if (totalCities > 0 && i + 1 >= totalCities) break;
-          if (totalCities === 0) break; // Can't continue if we never learned the count
         }
       }
 
@@ -258,16 +263,26 @@ export default function TriggerActions() {
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className={buttonClass}
-              disabled={isAnyJobRunning}
-              onClick={() => trigger(discoveryType)}
-            >
-              Run Discovery
-              {runningJob === discoveryType &&
-                DISCOVERY_OPTIONS.some((o) => o.job === discoveryType) && <Spinner />}
-            </button>
+            {runningJob === 'discover' ? (
+              <button
+                type="button"
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 inline-flex items-center"
+                onClick={() => { cancelledRef.current = true; }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={buttonClass}
+                disabled={isAnyJobRunning}
+                onClick={() => trigger(discoveryType)}
+              >
+                Run Discovery
+                {runningJob === discoveryType &&
+                  DISCOVERY_OPTIONS.some((o) => o.job === discoveryType) && <Spinner />}
+              </button>
+            )}
             <Tooltip text={TOOLTIPS[discoveryType] ?? 'Run the selected discovery method.'} />
           </div>
 

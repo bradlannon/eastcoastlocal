@@ -48,6 +48,14 @@ export async function POST(
         const url = new URL(_request.url);
         const cityParam = url.searchParams.get('city');
 
+        // Return city list for the frontend progress display
+        if (cityParam === 'list') {
+          return NextResponse.json({
+            success: true,
+            cities: ATLANTIC_CITIES.map((c) => `${c.city}, ${c.province}`),
+          });
+        }
+
         if (cityParam === null) {
           // Legacy: run all cities (may timeout)
           const { runDiscoveryJob } = await import('@/lib/scraper/discovery-orchestrator');
