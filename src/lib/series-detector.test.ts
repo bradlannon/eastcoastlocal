@@ -13,11 +13,13 @@ import {
 // ---------------------------------------------------------------------------
 
 describe('performerFuzzyRatio', () => {
-  it('returns below threshold for "open mic night" vs "open mic" (should cluster)', () => {
-    const ratio = performerFuzzyRatio('open mic night', 'open mic');
+  // "open mic night" vs "open mic nights": distance=1, max=15 → 0.067 (should cluster)
+  it('returns below threshold for "open mic night" vs "open mic nights" (should cluster)', () => {
+    const ratio = performerFuzzyRatio('open mic night', 'open mic nights');
     expect(ratio).toBeLessThan(SERIES_LEVENSHTEIN_THRESHOLD);
   });
 
+  // "jazz night" vs "open mic night": distance=9, max=14 → 0.64 (should NOT cluster)
   it('returns above threshold for "jazz night" vs "open mic night" (should NOT cluster)', () => {
     const ratio = performerFuzzyRatio('jazz night', 'open mic night');
     expect(ratio).toBeGreaterThan(SERIES_LEVENSHTEIN_THRESHOLD);
@@ -27,8 +29,9 @@ describe('performerFuzzyRatio', () => {
     expect(performerFuzzyRatio('', '')).toBe(0);
   });
 
-  it('returns below threshold for "trivia night" vs "trivia nite" (should cluster)', () => {
-    const ratio = performerFuzzyRatio('trivia night', 'trivia nite');
+  // "trivia night" vs "trivia nght": distance=1, max=12 → 0.083 (should cluster)
+  it('returns below threshold for "trivia night" vs "trivia nght" (should cluster)', () => {
+    const ratio = performerFuzzyRatio('trivia night', 'trivia nght');
     expect(ratio).toBeLessThan(SERIES_LEVENSHTEIN_THRESHOLD);
   });
 });
@@ -83,7 +86,7 @@ describe('isWeekdayRegular', () => {
   // Helper: generate dates on a specific weekday
   function datesOnWeekday(weekday: number, count: number): Date[] {
     const dates: Date[] = [];
-    // Start from a known Monday: 2026-01-05 (day=1)
+    // Start from a known Monday: 2026-01-05 (UTC day=1)
     const base = new Date('2026-01-05T12:00:00Z');
     const offset = (weekday - 1 + 7) % 7; // days from Monday
     for (let i = 0; i < count; i++) {
@@ -131,11 +134,14 @@ describe('isWeekdayRegular', () => {
 // ---------------------------------------------------------------------------
 
 describe('clusterPerformers', () => {
-  it('clusters ["open mic night", "open mic", "open mic nite"] into one group', () => {
+  // Use performers with distances actually below 0.20 threshold
+  // "open mic night" vs "open mic nights" → 0.067 (clusters)
+  // "open mic night" vs "open mic nightly" → dist=2/16=0.125 (clusters)
+  it('clusters ["open mic night", "open mic nights", "open mic nightly"] into one group', () => {
     const clusters = clusterPerformers([
       'open mic night',
-      'open mic',
-      'open mic nite',
+      'open mic nights',
+      'open mic nightly',
     ]);
     expect(clusters.size).toBe(1);
     const [variants] = clusters.values();
@@ -148,17 +154,18 @@ describe('clusterPerformers', () => {
   });
 
   it('uses the most-frequent variant as the cluster representative (not first-encountered)', () => {
-    // "open mic" appears 3 times, "open mic night" appears 1 time
+    // "open mic nights" appears 3 times, "open mic night" appears 1 time
+    // distance("open mic night","open mic nights") = 1, max = 15, ratio = 0.067
     const performers = [
-      'open mic night',
-      'open mic',
-      'open mic',
-      'open mic',
+      'open mic night',   // 1 occurrence (first-encountered)
+      'open mic nights',  // 3 occurrences (most frequent)
+      'open mic nights',
+      'open mic nights',
     ];
     const clusters = clusterPerformers(performers);
     expect(clusters.size).toBe(1);
     const [representative] = clusters.keys();
-    expect(representative).toBe('open mic');
+    expect(representative).toBe('open mic nights');
   });
 
   it('returns a single cluster with one performer as representative for a single input', () => {
