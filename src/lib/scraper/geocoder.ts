@@ -36,8 +36,7 @@ export async function geocodeAddress(
   const { location, location_type } = data.results[0].geometry;
 
   if (location_type === 'APPROXIMATE') {
-    console.warn(`Geocoding APPROXIMATE result rejected for address: ${address}`);
-    return null;
+    console.warn(`Geocoding APPROXIMATE result for address: ${address} — using as fallback`);
   }
 
   return { lat: location.lat, lng: location.lng };

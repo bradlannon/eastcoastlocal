@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { db } from '@/lib/db/client';
 import { venues, scrape_sources, discovered_sources } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
+import { geocodeAddress } from './geocoder';
 
 /**
  * Promotes a discovered source from 'pending' status to active scraping.
@@ -35,6 +36,17 @@ export async function promoteSource(discoveredId: number): Promise<void> {
   // Prefer structured address from Places API; fall back to placeholder
   const address = staged.address ?? `${city}, ${province}, Canada`.trim();
 
+  // Geocode if discovered_sources doesn't already have lat/lng
+  let lat = staged.lat;
+  let lng = staged.lng;
+  if (lat == null || lng == null) {
+    const coords = await geocodeAddress(`${address}, Canada`);
+    if (coords) {
+      lat = coords.lat;
+      lng = coords.lng;
+    }
+  }
+
   const [venue] = await db
     .insert(venues)
     .values({
@@ -42,8 +54,8 @@ export async function promoteSource(discoveredId: number): Promise<void> {
       address,
       city,
       province,
-      ...(staged.lat != null ? { lat: staged.lat } : {}),
-      ...(staged.lng != null ? { lng: staged.lng } : {}),
+      ...(lat != null ? { lat } : {}),
+      ...(lng != null ? { lng } : {}),
       ...(staged.google_place_id != null ? { google_place_id: staged.google_place_id } : {}),
       ...(staged.place_types != null ? { venue_type: staged.place_types } : {}),
     })
