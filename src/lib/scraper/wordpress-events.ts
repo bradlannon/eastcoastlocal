@@ -60,7 +60,7 @@ export interface WpEventFeed {
   id: string;
   name: string;
   url: string;
-  type: 'tribe' | 'wp-event' | 'drupal-json' | 'livewhale' | 'rss';
+  type: 'tribe' | 'wp-event' | 'drupal-json' | 'livewhale' | 'rss' | '25live';
   province: string; // Default province when venue data is missing
   defaultCity?: string;
   defaultVenue?: string; // For RSS feeds where venue isn't in the data
@@ -128,6 +128,67 @@ export const WP_EVENT_FEEDS: WpEventFeed[] = [
     province: 'NB',
     defaultCity: 'Fredericton',
     defaultVenue: 'University of New Brunswick',
+  },
+  {
+    id: 'mount-allison',
+    name: 'Mount Allison University',
+    url: 'https://25livepub.collegenet.com/calendars/mta_events.json',
+    type: '25live',
+    province: 'NB',
+    defaultCity: 'Sackville',
+    defaultVenue: 'Mount Allison University',
+  },
+  {
+    id: 'upei',
+    name: 'UPEI',
+    url: 'https://www.upei.ca/export/rss/events/connector.rss',
+    type: 'rss',
+    province: 'PEI',
+    defaultCity: 'Charlottetown',
+    defaultVenue: 'University of Prince Edward Island',
+  },
+  {
+    id: 'powwow-calendar',
+    name: 'Pow Wow Calendar (Atlantic)',
+    url: 'https://calendar.powwows.com/events/categories/pow-wows/pow-wows-in-nova-scotia/feed',
+    type: 'rss',
+    province: 'NS',
+  },
+  {
+    id: 'halifax-chamber',
+    name: 'Halifax Chamber of Commerce',
+    url: 'https://halifaxchamberns.chambermaster.com/events/rss',
+    type: 'rss',
+    province: 'NS',
+    defaultCity: 'Halifax',
+    defaultVenue: 'Halifax Chamber of Commerce',
+  },
+  {
+    id: 'fredericton-chamber',
+    name: 'Fredericton Chamber of Commerce',
+    url: 'https://frederictonchamber.chambermaster.com/events/rss',
+    type: 'rss',
+    province: 'NB',
+    defaultCity: 'Fredericton',
+    defaultVenue: 'Fredericton Chamber of Commerce',
+  },
+  {
+    id: 'saintjohn-chamber',
+    name: 'Saint John Region Chamber',
+    url: 'https://sjboardoftrade.chambermaster.com/events/rss',
+    type: 'rss',
+    province: 'NB',
+    defaultCity: 'Saint John',
+    defaultVenue: 'Saint John Region Chamber of Commerce',
+  },
+  {
+    id: 'charlottetown-chamber',
+    name: 'Charlottetown Chamber of Commerce',
+    url: 'https://charlottetownchamber.chambermaster.com/events/rss',
+    type: 'rss',
+    province: 'PEI',
+    defaultCity: 'Charlottetown',
+    defaultVenue: 'Charlottetown Chamber of Commerce',
   },
 ];
 
@@ -442,6 +503,67 @@ async function fetchWpEventFeed(feed: WpEventFeed): Promise<FeedResult> {
   return result;
 }
 
+async function fetch25LiveFeed(feed: WpEventFeed): Promise<FeedResult> {
+  const result: FeedResult = { feedId: feed.id, feedName: feed.name, eventsFound: 0, eventsUpserted: 0, errors: 0 };
+  const now = new Date();
+
+  const response = await fetch(feed.url, {
+    headers: { 'User-Agent': 'EastCoastLocal/1.0 (events aggregator)' },
+  });
+
+  if (!response.ok) throw new Error(`${feed.name}: HTTP ${response.status}`);
+
+  const events = (await response.json()) as Array<{
+    eventID?: number;
+    title?: string;
+    description?: string;
+    location?: string;
+    startDateTime?: string;
+    endDateTime?: string;
+    permaLinkUrl?: string;
+    customFields?: Record<string, string>;
+  }>;
+
+  result.eventsFound = events.length;
+
+  for (const event of events) {
+    try {
+      if (!event.title || !event.startDateTime) continue;
+
+      const start = new Date(event.startDateTime);
+      if (isNaN(start.getTime()) || start < now) continue;
+
+      const eventDate = start.toISOString().slice(0, 10);
+      const eventTime = start.toISOString().slice(11, 16);
+
+      const venueName = event.location?.split(',')[0]?.trim() || feed.defaultVenue || feed.name;
+      const city = feed.defaultCity || '';
+
+      const venueId = await findOrCreateVenue(venueName, city, feed.province, event.location || city);
+
+      const extracted: ExtractedEvent = {
+        performer: stripHtml(event.title),
+        event_date: eventDate,
+        event_time: eventTime !== '00:00' ? eventTime : null,
+        price: null,
+        ticket_link: event.permaLinkUrl || null,
+        description: stripHtml(event.description ?? '').slice(0, 500) || null,
+        cover_image_url: null,
+        confidence: 0.95,
+        event_category: guessCategoryFromString(event.title + ' ' + (event.description ?? '')),
+      };
+
+      await upsertEvent(venueId, extracted, event.permaLinkUrl ?? feed.url, null, 'scrape');
+      result.eventsUpserted++;
+    } catch (err) {
+      console.error(`  [${feed.id}] Event ${event.eventID} error:`, err instanceof Error ? err.message : err);
+      result.errors++;
+    }
+  }
+
+  return result;
+}
+
 async function fetchRssFeed(feed: WpEventFeed): Promise<FeedResult> {
   const result: FeedResult = { feedId: feed.id, feedName: feed.name, eventsFound: 0, eventsUpserted: 0, errors: 0 };
   const now = new Date();
@@ -524,6 +646,7 @@ export async function fetchAllWpEventFeeds(feedIds?: string[]): Promise<FeedResu
         'drupal-json': fetchDrupalJsonFeed,
         livewhale: fetchLiveWhaleFeed,
         rss: fetchRssFeed,
+        '25live': fetch25LiveFeed,
       }[feed.type];
 
       const result = await fetcher(feed);
