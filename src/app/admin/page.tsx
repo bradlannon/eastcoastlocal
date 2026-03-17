@@ -154,12 +154,14 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  const nowStr = new Date().toLocaleTimeString('en-CA', {
+  const now = new Date();
+  const formatter = new Intl.DateTimeFormat('en-CA', {
     hour: '2-digit',
     minute: '2-digit',
     timeZone: 'America/Halifax',
-    timeZoneName: 'short',
+    hour12: false,
   });
+  const nowStr = `${formatter.format(now)} AT`;
 
   return (
     <div>
@@ -187,12 +189,10 @@ export default async function AdminDashboardPage() {
         </div>
 
         {/* Active Events */}
-        <Link href="/admin/events" className="block">
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center hover:shadow-md transition-shadow">
-            <p className="text-sm text-gray-500">Active Events</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{activeEventCount}</p>
-          </div>
-        </Link>
+        <div className="bg-white rounded-lg shadow-sm border p-6 text-center">
+          <p className="text-sm text-gray-500">Active Events</p>
+          <p className="text-3xl font-bold text-gray-900 mt-1">{activeEventCount}</p>
+        </div>
 
         {/* Pending Discoveries */}
         <Link href="/admin/discovery" className="block">
