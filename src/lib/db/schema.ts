@@ -110,6 +110,7 @@ export const scrape_sources = pgTable('scrape_sources', {
   consecutive_failures: integer('consecutive_failures').notNull().default(0),
   total_scrapes: integer('total_scrapes').notNull().default(0),
   total_events_extracted: integer('total_events_extracted').notNull().default(0),
+  last_scrape_error: text('last_scrape_error'),
   created_at: timestamp('created_at').defaultNow().notNull(),
 });
 

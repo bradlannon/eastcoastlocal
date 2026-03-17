@@ -274,6 +274,7 @@ export async function scrapeOneSource(sourceId: number): Promise<{
       .set({
         last_scraped_at: new Date(),
         last_scrape_status: 'success',
+        last_scrape_error: null,
         last_event_count: sourceEventCount,
         avg_confidence: avgConf,
         consecutive_failures: 0,
@@ -284,12 +285,14 @@ export async function scrapeOneSource(sourceId: number): Promise<{
 
     return { success: true, events: sourceEventCount ?? 0, venueName };
   } catch (err) {
-    console.error(`Scrape source ${sourceId} (${source.url}):`, err instanceof Error ? err.message : err);
+    const errorMsg = err instanceof Error ? err.message : String(err);
+    console.error(`Scrape source ${sourceId} (${source.url}):`, errorMsg);
     await db
       .update(scrape_sources)
       .set({
         last_scraped_at: new Date(),
         last_scrape_status: 'failure',
+        last_scrape_error: errorMsg.slice(0, 500),
         consecutive_failures: sql`consecutive_failures + 1`,
         total_scrapes: sql`total_scrapes + 1`,
       })

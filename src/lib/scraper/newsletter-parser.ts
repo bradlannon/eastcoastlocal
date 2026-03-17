@@ -258,7 +258,7 @@ export interface NewsletterResult {
 }
 
 export async function parseNewsletters(): Promise<NewsletterResult> {
-  const label = process.env.GMAIL_LABEL ?? 'ECL/events';
+  const label = process.env.GMAIL_LABEL ?? 'ECL';
   const accessToken = await getAccessToken();
 
   console.log(`Fetching unread newsletters from label "${label}"...`);

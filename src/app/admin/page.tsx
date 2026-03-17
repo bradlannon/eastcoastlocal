@@ -4,6 +4,7 @@ import { db } from '@/lib/db/client';
 import { venues, scrape_sources, discovered_sources, discovery_runs } from '@/lib/db/schema';
 import RefreshButton from './_components/RefreshButton';
 import TriggerActions from './_components/TriggerActions';
+import SourceHealthTable from './_components/SourceHealthTable';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,28 +25,6 @@ function isStale(date: Date | null): boolean {
   return Date.now() - date.getTime() > 24 * 60 * 60 * 1000;
 }
 
-function statusBadge(status: string | null) {
-  if (status === 'success') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-        success
-      </span>
-    );
-  }
-  if (status === 'failure') {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-        failure
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-      pending
-    </span>
-  );
-}
-
 function formatMethodName(method: string): string {
   const names: Record<string, string> = {
     google_places: 'Google Places',
@@ -53,19 +32,6 @@ function formatMethodName(method: string): string {
     reddit_gemini: 'Reddit',
   };
   return names[method] ?? method;
-}
-
-function failuresBadge(count: number | null) {
-  if (count == null) return <span className="text-gray-400 text-sm">—</span>;
-  if (count >= 3) {
-    return (
-      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-        {count} failures
-      </span>
-    );
-  }
-  if (count === 0) return <span className="text-sm text-gray-700">0</span>;
-  return <span className="text-sm text-gray-700">{count}</span>;
 }
 
 export default async function AdminDashboardPage() {
@@ -83,6 +49,7 @@ export default async function AdminDashboardPage() {
     lastEventCount: number | null;
     avgConfidence: number | null;
     consecutiveFailures: number | null;
+    lastScrapeError: string | null;
   }> = [];
   let lastDiscoveryRun: { completedAt: Date; errors: number } | null = null;
   let recentRuns: Array<{
@@ -130,6 +97,7 @@ export default async function AdminDashboardPage() {
           lastEventCount: scrape_sources.last_event_count,
           avgConfidence: scrape_sources.avg_confidence,
           consecutiveFailures: scrape_sources.consecutive_failures,
+          lastScrapeError: scrape_sources.last_scrape_error,
         })
         .from(scrape_sources)
         .innerJoin(venues, eq(scrape_sources.venue_id, venues.id))
@@ -259,68 +227,20 @@ export default async function AdminDashboardPage() {
             No scrape sources configured
           </div>
         ) : (
-          <table className="w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Venue
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Source URL
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Last Scraped
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Events
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Confidence
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Failures
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {sourceRows.map((row) => (
-                <tr
-                  key={row.sourceId}
-                  className={row.enabled ? '' : 'opacity-50'}
-                >
-                  <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">
-                    {row.venueName}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
-                    <span
-                      className="block max-w-xs truncate"
-                      title={row.url}
-                    >
-                      {row.url}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm whitespace-nowrap">
-                    {statusBadge(row.status)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                    {relativeTime(row.lastScrapedAt)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                    {row.lastEventCount ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                    {row.avgConfidence?.toFixed(2) ?? '—'}
-                  </td>
-                  <td className="px-4 py-3 text-sm whitespace-nowrap">
-                    {failuresBadge(row.consecutiveFailures)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <SourceHealthTable
+            rows={sourceRows.map((row) => ({
+              sourceId: row.sourceId,
+              url: row.url,
+              status: row.status,
+              lastScrapedAt: row.lastScrapedAt?.toISOString() ?? null,
+              enabled: row.enabled,
+              venueName: row.venueName,
+              lastEventCount: row.lastEventCount,
+              avgConfidence: row.avgConfidence,
+              consecutiveFailures: row.consecutiveFailures,
+              lastScrapeError: row.lastScrapeError ?? null,
+            }))}
+          />
         )}
       </div>
 
