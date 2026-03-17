@@ -37,6 +37,8 @@ describe('WP_EVENT_FEEDS registry', () => {
     expect(ids).toContain('theatre-ns');
     expect(ids).toContain('dalhousie');
     expect(ids).toContain('tourism-pei');
+    expect(ids).toContain('downtown-moncton');
+    expect(ids).toContain('unb');
   });
 
   it('every feed has required fields', () => {
@@ -44,7 +46,7 @@ describe('WP_EVENT_FEEDS registry', () => {
       expect(feed.id).toBeTruthy();
       expect(feed.name).toBeTruthy();
       expect(feed.url).toMatch(/^https?:\/\//);
-      expect(['tribe', 'wp-event', 'drupal-json', 'livewhale']).toContain(feed.type);
+      expect(['tribe', 'wp-event', 'drupal-json', 'livewhale', 'rss']).toContain(feed.type);
       expect(feed.province).toMatch(/^(NS|NB|PEI|NL)$/);
     }
   });
@@ -179,6 +181,33 @@ describe('fetchAllWpEventFeeds — LiveWhale feed', () => {
       'NS',
       'Student Union Building, Halifax'
     );
+  });
+});
+
+describe('fetchAllWpEventFeeds — RSS feed', () => {
+  const rssXml = `<?xml version="1.0"?>
+<rss version="2.0"><channel><title>UNB Events</title>
+<item><title>Jazz Concert</title><link>https://unb.ca/event/1</link><description>Live jazz at the SUB</description><pubDate>Fri, 15 Jun 2027 20:00:00 GMT</pubDate></item>
+<item><title>Old Event</title><link>https://unb.ca/event/2</link><description>Past</description><pubDate>Mon, 01 Jan 2020 10:00:00 GMT</pubDate></item>
+</channel></rss>`;
+
+  it('parses RSS items and skips past events', async () => {
+    mockFetch.mockResolvedValue({ ok: true, text: async () => rssXml, json: async () => ({}) });
+
+    const results = await fetchAllWpEventFeeds(['unb']);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].eventsFound).toBe(2);
+    expect(results[0].eventsUpserted).toBe(1); // past event skipped
+    expect(mockFindOrCreateVenue).toHaveBeenCalledWith(
+      'University of New Brunswick',
+      'Fredericton',
+      'NB',
+      'University of New Brunswick, Fredericton'
+    );
+    const extracted = mockUpsertEvent.mock.calls[0][1];
+    expect(extracted.performer).toBe('Jazz Concert');
+    expect(extracted.event_date).toBe('2027-06-15');
   });
 });
 

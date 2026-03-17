@@ -60,9 +60,10 @@ export interface WpEventFeed {
   id: string;
   name: string;
   url: string;
-  type: 'tribe' | 'wp-event' | 'drupal-json' | 'livewhale';
+  type: 'tribe' | 'wp-event' | 'drupal-json' | 'livewhale' | 'rss';
   province: string; // Default province when venue data is missing
   defaultCity?: string;
+  defaultVenue?: string; // For RSS feeds where venue isn't in the data
 }
 
 export const WP_EVENT_FEEDS: WpEventFeed[] = [
@@ -110,6 +111,23 @@ export const WP_EVENT_FEEDS: WpEventFeed[] = [
     url: 'https://www.tourismpei.com/events-json',
     type: 'drupal-json',
     province: 'PEI',
+  },
+  {
+    id: 'downtown-moncton',
+    name: 'Downtown Moncton',
+    url: 'https://www.downtownmoncton.com/wp-json/tribe/events/v1/events',
+    type: 'tribe',
+    province: 'NB',
+    defaultCity: 'Moncton',
+  },
+  {
+    id: 'unb',
+    name: 'University of New Brunswick',
+    url: 'https://www.unb.ca/event-calendar/index.xml',
+    type: 'rss',
+    province: 'NB',
+    defaultCity: 'Fredericton',
+    defaultVenue: 'University of New Brunswick',
   },
 ];
 
@@ -424,6 +442,70 @@ async function fetchWpEventFeed(feed: WpEventFeed): Promise<FeedResult> {
   return result;
 }
 
+async function fetchRssFeed(feed: WpEventFeed): Promise<FeedResult> {
+  const result: FeedResult = { feedId: feed.id, feedName: feed.name, eventsFound: 0, eventsUpserted: 0, errors: 0 };
+  const now = new Date();
+
+  const response = await fetch(feed.url, {
+    headers: { 'User-Agent': 'EastCoastLocal/1.0 (events aggregator)' },
+  });
+
+  if (!response.ok) throw new Error(`${feed.name}: HTTP ${response.status}`);
+
+  const xml = await response.text();
+
+  // Simple XML parsing — extract <item> blocks
+  const items = xml.match(/<item>[\s\S]*?<\/item>/g) ?? [];
+  result.eventsFound = items.length;
+
+  for (const item of items) {
+    try {
+      const title = extractTag(item, 'title');
+      const link = extractTag(item, 'link');
+      const description = extractTag(item, 'description');
+      const pubDate = extractTag(item, 'pubDate');
+
+      if (!title || !pubDate) continue;
+
+      const date = new Date(pubDate);
+      if (isNaN(date.getTime()) || date < now) continue;
+
+      const eventDate = date.toISOString().slice(0, 10);
+      const eventTime = date.toISOString().slice(11, 16);
+
+      const venueName = feed.defaultVenue || feed.name;
+      const city = feed.defaultCity || '';
+
+      const venueId = await findOrCreateVenue(venueName, city, feed.province, `${venueName}, ${city}`);
+
+      const extracted: ExtractedEvent = {
+        performer: stripHtml(title),
+        event_date: eventDate,
+        event_time: eventTime !== '00:00' ? eventTime : null,
+        price: null,
+        ticket_link: link || null,
+        description: stripHtml(description ?? '').slice(0, 500) || null,
+        cover_image_url: null,
+        confidence: 0.9,
+        event_category: guessCategoryFromString(title + ' ' + (description ?? '')),
+      };
+
+      await upsertEvent(venueId, extracted, link ?? feed.url, null, 'scrape');
+      result.eventsUpserted++;
+    } catch (err) {
+      console.error(`  [${feed.id}] RSS item error:`, err instanceof Error ? err.message : err);
+      result.errors++;
+    }
+  }
+
+  return result;
+}
+
+function extractTag(xml: string, tag: string): string | null {
+  const match = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`));
+  return match ? match[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1').trim() : null;
+}
+
 // ─── Orchestrator ─────────────────────────────────────────────────────────
 
 export async function fetchAllWpEventFeeds(feedIds?: string[]): Promise<FeedResult[]> {
@@ -441,6 +523,7 @@ export async function fetchAllWpEventFeeds(feedIds?: string[]): Promise<FeedResu
         'wp-event': fetchWpEventFeed,
         'drupal-json': fetchDrupalJsonFeed,
         livewhale: fetchLiveWhaleFeed,
+        rss: fetchRssFeed,
       }[feed.type];
 
       const result = await fetcher(feed);
