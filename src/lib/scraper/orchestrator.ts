@@ -183,6 +183,122 @@ export async function runScrapeForProvince(province: Province): Promise<ScrapeRe
   return { province, success: successCount, failed: failCount, skipped: skippedCount, events: eventCount };
 }
 
+/** Return list of sources that need scraping (stale or never scraped). */
+export async function getStaleSources(): Promise<
+  Array<{ id: number; url: string; venueName: string; province: string; sourceType: string }>
+> {
+  const staleThreshold = new Date(Date.now() - STALE_THRESHOLD_HOURS * 60 * 60 * 1000);
+
+  const allSources = await db.query.scrape_sources.findMany({
+    where: eq(scrape_sources.enabled, true),
+  });
+
+  const staleSources = allSources.filter(
+    (s) => s.last_scraped_at === null || s.last_scraped_at < staleThreshold
+  );
+
+  const allVenues = await db.query.venues.findMany();
+  const venueMap = new Map(allVenues.map((v) => [v.id, v]));
+
+  return staleSources.map((s) => {
+    const venue = venueMap.get(s.venue_id);
+    return {
+      id: s.id,
+      url: s.url,
+      venueName: venue?.name ?? `Source ${s.id}`,
+      province: venue?.province ?? '??',
+      sourceType: s.source_type,
+    };
+  });
+}
+
+/** Scrape a single source by ID. Returns events extracted count. */
+export async function scrapeOneSource(sourceId: number): Promise<{
+  success: boolean;
+  events: number;
+  venueName: string;
+}> {
+  const source = await db.query.scrape_sources.findFirst({
+    where: eq(scrape_sources.id, sourceId),
+  });
+  if (!source) throw new Error(`Source ${sourceId} not found`);
+
+  const venue = await db.query.venues.findFirst({
+    where: eq(venues.id, source.venue_id),
+  });
+  const venueName = venue?.name ?? `Source ${sourceId}`;
+
+  try {
+    let sourceEventCount: number | null = null;
+    let avgConf: number | null = null;
+
+    if (source.source_type === 'venue_website') {
+      if (!venue) throw new Error(`Venue not found for source ${sourceId}`);
+
+      if (venue.lat == null || venue.lng == null) {
+        const address = `${venue.address}, ${venue.city}, ${venue.province}, Canada`;
+        const coords = await geocodeAddress(address);
+        if (coords) {
+          await db.update(venues).set({ lat: coords.lat, lng: coords.lng }).where(eq(venues.id, venue.id));
+        }
+      }
+
+      const { text, rawHtml } = await fetchAndPreprocess(source.url, { maxPages: source.max_pages ?? 1 });
+      const jsonLdEvents = extractJsonLdEvents(rawHtml);
+
+      let extracted: ExtractedEvent[];
+      if (jsonLdEvents.length > 0) {
+        extracted = jsonLdEvents;
+      } else {
+        extracted = await extractEvents(text, source.url);
+      }
+
+      sourceEventCount = extracted.length;
+      avgConf = sourceEventCount > 0
+        ? extracted.reduce((sum, e) => sum + (e.confidence ?? 0), 0) / sourceEventCount
+        : null;
+
+      for (const event of extracted) {
+        await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
+      }
+    } else if (source.source_type === 'eventbrite') {
+      await scrapeEventbrite(source);
+    } else if (source.source_type === 'bandsintown') {
+      await scrapeBandsintown(source);
+    } else if (source.source_type === 'ticketmaster') {
+      await scrapeTicketmaster(source);
+    }
+
+    await db
+      .update(scrape_sources)
+      .set({
+        last_scraped_at: new Date(),
+        last_scrape_status: 'success',
+        last_event_count: sourceEventCount,
+        avg_confidence: avgConf,
+        consecutive_failures: 0,
+        total_scrapes: sql`total_scrapes + 1`,
+        total_events_extracted: sql`total_events_extracted + ${sourceEventCount ?? 0}`,
+      })
+      .where(eq(scrape_sources.id, source.id));
+
+    return { success: true, events: sourceEventCount ?? 0, venueName };
+  } catch (err) {
+    console.error(`Scrape source ${sourceId} (${source.url}):`, err instanceof Error ? err.message : err);
+    await db
+      .update(scrape_sources)
+      .set({
+        last_scraped_at: new Date(),
+        last_scrape_status: 'failure',
+        consecutive_failures: sql`consecutive_failures + 1`,
+        total_scrapes: sql`total_scrapes + 1`,
+      })
+      .where(eq(scrape_sources.id, source.id));
+
+    return { success: false, events: 0, venueName };
+  }
+}
+
 /** Run all provinces concurrently, each province processes its sources sequentially. */
 export async function runScrapeJob(): Promise<ScrapeResult[]> {
   console.log(`Scraping all provinces concurrently (stale threshold: ${STALE_THRESHOLD_HOURS}h)...`);

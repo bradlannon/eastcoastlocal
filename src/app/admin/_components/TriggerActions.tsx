@@ -178,6 +178,75 @@ export default function TriggerActions() {
       return;
     }
 
+    // Scrape: run one source at a time to avoid 60s timeout
+    if (job === 'scrape') {
+      cancelledRef.current = false;
+      const totals = { scraped: 0, failed: 0, events: 0 };
+
+      setResult({ success: true, message: 'Loading sources...', isWarning: true });
+      let sources: Array<{ id: number; venueName: string; province: string }> = [];
+      try {
+        const listRes = await fetch('/api/admin/trigger/scrape?source=list', { method: 'POST' });
+        const listBody = await listRes.json();
+        sources = listBody.sources ?? [];
+      } catch {
+        setResult({ success: false, message: 'Failed to load source list' });
+        setRunningJob(null);
+        return;
+      }
+
+      if (sources.length === 0) {
+        setResult({ success: true, message: 'No stale sources to scrape' });
+        setRunningJob(null);
+        return;
+      }
+
+      for (let i = 0; i < sources.length; i++) {
+        if (cancelledRef.current) {
+          setResult({
+            success: true,
+            message: `Cancelled after ${i}/${sources.length} — ${totals.scraped} scraped, ${totals.events} events`,
+            isWarning: true,
+          });
+          setTimeout(() => setResult((prev) => prev ? { ...prev, isWarning: false } : null), 100);
+          setRunningJob(null);
+          router.refresh();
+          return;
+        }
+
+        const src = sources[i];
+        setResult({
+          success: true,
+          message: `Scraping ${i + 1}/${sources.length}... ${src.venueName} (${src.province})`,
+          isWarning: true,
+        });
+
+        try {
+          const res = await fetch(`/api/admin/trigger/scrape?source=${src.id}`, { method: 'POST' });
+          const body = await res.json();
+          if (body.success) {
+            totals.scraped += body.scraped ?? 0;
+            totals.failed += body.failed ?? 0;
+            totals.events += body.events ?? 0;
+          } else {
+            totals.failed++;
+          }
+        } catch {
+          totals.failed++;
+        }
+      }
+
+      const parts = [`${totals.scraped} scraped`, `${totals.events} events`];
+      if (totals.failed > 0) parts.push(`${totals.failed} failed`);
+      setResult({
+        success: totals.failed === 0,
+        message: `Scrape complete — ${parts.join(', ')}`,
+      });
+      setRunningJob(null);
+      router.refresh();
+      return;
+    }
+
     // All other jobs: single request
     const startTime = Date.now();
     const warningTimer = setTimeout(() => {
@@ -236,15 +305,24 @@ export default function TriggerActions() {
         <div className="flex flex-wrap gap-4">
           {/* Run Scrape */}
           <div className="inline-flex items-center">
-            <button
-              type="button"
-              className={buttonClass}
-              disabled={isAnyJobRunning}
-              onClick={() => trigger('scrape')}
-            >
-              Run Scrape
-              {runningJob === 'scrape' && <Spinner />}
-            </button>
+            {runningJob === 'scrape' ? (
+              <button
+                type="button"
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 inline-flex items-center"
+                onClick={() => { cancelledRef.current = true; }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={buttonClass}
+                disabled={isAnyJobRunning}
+                onClick={() => trigger('scrape')}
+              >
+                Run Scrape
+              </button>
+            )}
             <Tooltip text={TOOLTIPS.scrape} />
           </div>
 

@@ -22,6 +22,33 @@ export async function POST(
   try {
     switch (job) {
       case 'scrape': {
+        const url = new URL(_request.url);
+        const sourceParam = url.searchParams.get('source');
+
+        if (sourceParam === 'list') {
+          const { getStaleSources } = await import('@/lib/scraper/orchestrator');
+          const sources = await getStaleSources();
+          return NextResponse.json({ success: true, sources });
+        }
+
+        if (sourceParam !== null) {
+          const sourceId = parseInt(sourceParam, 10);
+          if (isNaN(sourceId)) {
+            return NextResponse.json({ success: false, error: 'Invalid source ID' }, { status: 400 });
+          }
+          const { scrapeOneSource } = await import('@/lib/scraper/orchestrator');
+          const result = await scrapeOneSource(sourceId);
+          return NextResponse.json({
+            success: true,
+            scraped: result.success ? 1 : 0,
+            failed: result.success ? 0 : 1,
+            events: result.events,
+            venueName: result.venueName,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Legacy: run all at once
         const { runScrapeJob } = await import('@/lib/scraper/orchestrator');
         const results = await runScrapeJob();
         const totals = results.reduce(
