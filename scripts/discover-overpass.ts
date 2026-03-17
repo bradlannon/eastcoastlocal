@@ -30,29 +30,34 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
-async function queryOverpass(): Promise<OverpassElement[]> {
-  const amenityFilter = AMENITY_TYPES.map(t => `["amenity"="${t}"]`).join('');
-  // Query nodes and ways with these amenity types in the bounding box
-  const query = `
-    [out:json][timeout:60];
-    (
-      node${amenityFilter.split(']').map(f => f + ']').join('').replace(/\]\]/g, ']')}(${BBOX});
-      ${AMENITY_TYPES.map(t => `node["amenity"="${t}"](${BBOX});`).join('\n      ')}
-      ${AMENITY_TYPES.map(t => `way["amenity"="${t}"](${BBOX});`).join('\n      ')}
-    );
-    out center tags;
-  `;
+async function queryOverpassByType(amenityType: string): Promise<OverpassElement[]> {
+  const query = `[out:json][timeout:30];(node["amenity"="${amenityType}"](${BBOX});way["amenity"="${amenityType}"](${BBOX}););out center tags;`;
 
-  console.log('Querying Overpass API for Atlantic Canada venues...');
   const resp = await fetch(OVERPASS_API, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: `data=${encodeURIComponent(query)}`,
   });
 
-  if (!resp.ok) throw new Error(`Overpass API error: ${resp.status}`);
+  if (!resp.ok) {
+    console.warn(`  ⚠ Overpass query for "${amenityType}" failed: ${resp.status} — skipping`);
+    return [];
+  }
   const data = await resp.json() as { elements: OverpassElement[] };
   return data.elements;
+}
+
+async function queryOverpass(): Promise<OverpassElement[]> {
+  const all: OverpassElement[] = [];
+  for (const type of AMENITY_TYPES) {
+    console.log(`  Querying amenity=${type}...`);
+    const elements = await queryOverpassByType(type);
+    console.log(`    → ${elements.length} results`);
+    all.push(...elements);
+    // 2s courtesy delay between queries
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  return all;
 }
 
 // Province lookup by rough longitude/latitude
