@@ -33,6 +33,8 @@ export const REDDIT_SUBREDDITS: Record<string, SubredditEntry[]> = {
   NS: [
     { subreddit: 'halifax', province: 'NS' },
     { subreddit: 'novascotia', province: 'NS' },
+    { subreddit: 'CapeBreton', province: 'NS' },
+    { subreddit: 'lunenburg', province: 'NS' },
   ],
   NB: [
     { subreddit: 'fredericton', province: 'NB' },
@@ -47,6 +49,7 @@ export const REDDIT_SUBREDDITS: Record<string, SubredditEntry[]> = {
   NL: [
     { subreddit: 'stjohnsnl', province: 'NL' },
     { subreddit: 'newfoundland', province: 'NL' },
+    { subreddit: 'cornerbrook', province: 'NL' },
   ],
 };
 

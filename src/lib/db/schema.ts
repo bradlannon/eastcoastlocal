@@ -188,6 +188,25 @@ export const discovered_sources = pgTable(
   ]
 );
 
+export const submissionStatusEnum = pgEnum('submission_status', ['pending', 'approved', 'rejected']);
+
+export const community_submissions = pgTable('community_submissions', {
+  id: serial('id').primaryKey(),
+  performer: text('performer').notNull(),
+  venue_name: text('venue_name').notNull(),
+  city: text('city').notNull(),
+  province: text('province').notNull(),
+  event_date: timestamp('event_date').notNull(),
+  event_time: text('event_time'),
+  event_category: eventCategoryEnum('event_category').default('community'),
+  price: text('price'),
+  link: text('link'),
+  description: text('description'),
+  status: submissionStatusEnum('submission_status').default('pending').notNull(),
+  created_at: timestamp('created_at').defaultNow().notNull(),
+  reviewed_at: timestamp('reviewed_at'),
+});
+
 export const app_settings = pgTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

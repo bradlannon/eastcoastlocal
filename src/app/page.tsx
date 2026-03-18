@@ -7,6 +7,7 @@ import MapClientWrapper from '@/components/map/MapClientWrapper';
 import EventList from '@/components/events/EventList';
 import EventFilters from '@/components/events/EventFilters';
 import MobileTabBar from '@/components/layout/MobileTabBar';
+import SubmitEventModal from '@/components/events/SubmitEventModal';
 import { filterByBounds, filterByDateRange, filterByProvince, filterByCategory, filterBySearch } from '@/lib/filter-utils';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 import {
@@ -38,6 +39,7 @@ function HomeContent() {
   const [loading, setLoading] = useState(true);
   const [highlightedVenueId, setHighlightedVenueId] = useState<number | null>(null);
   const [flyToTarget, setFlyToTarget] = useState<FlyToTarget | null>(null);
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
 
   // Timelapse state
   const [mapMode, setMapMode] = useState<MapMode>('cluster');
@@ -174,6 +176,12 @@ function HomeContent() {
           East Coast Local
         </h1>
         <div className="flex-1" />
+        <button
+          onClick={() => setSubmitModalOpen(true)}
+          className="text-xs font-medium text-gray-500 hover:text-[#E85D26] transition-colors whitespace-nowrap mr-3"
+        >
+          + Submit Event
+        </button>
         <div className="relative w-64">
           <input
             type="text"
@@ -264,6 +272,9 @@ function HomeContent() {
 
       {/* Mobile tab bar */}
       <MobileTabBar activeTab={activeTab} onTabChange={setActiveTab} />
+
+      {/* Submit event modal */}
+      <SubmitEventModal open={submitModalOpen} onClose={() => setSubmitModalOpen(false)} />
     </div>
   );
 }

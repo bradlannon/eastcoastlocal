@@ -14,7 +14,7 @@ export interface DiscoveryJobResult {
 }
 
 export const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
-  // Nova Scotia
+  // Nova Scotia — cities
   { city: 'Halifax', province: 'NS' },
   { city: 'Sydney', province: 'NS' },
   { city: 'Truro', province: 'NS' },
@@ -24,7 +24,22 @@ export const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
   { city: 'Yarmouth', province: 'NS' },
   { city: 'Kentville', province: 'NS' },
   { city: 'Bridgewater', province: 'NS' },
-  // New Brunswick
+  // Nova Scotia — smaller towns
+  { city: 'Lunenburg', province: 'NS' },
+  { city: 'Mahone Bay', province: 'NS' },
+  { city: 'Liverpool', province: 'NS' },
+  { city: 'Shelburne', province: 'NS' },
+  { city: 'Digby', province: 'NS' },
+  { city: 'Annapolis Royal', province: 'NS' },
+  { city: 'Pictou', province: 'NS' },
+  { city: 'Parrsboro', province: 'NS' },
+  { city: 'Inverness', province: 'NS' },
+  { city: 'Baddeck', province: 'NS' },
+  { city: 'Port Hawkesbury', province: 'NS' },
+  { city: 'Amherst', province: 'NS' },
+  { city: 'Chester', province: 'NS' },
+  { city: 'Tatamagouche', province: 'NS' },
+  // New Brunswick — cities
   { city: 'Moncton', province: 'NB' },
   { city: 'Fredericton', province: 'NB' },
   { city: 'Saint John', province: 'NB' },
@@ -33,14 +48,49 @@ export const ATLANTIC_CITIES: Array<{ city: string; province: string }> = [
   { city: 'Edmundston', province: 'NB' },
   { city: 'Sackville', province: 'NB' },
   { city: 'Woodstock', province: 'NB' },
+  // New Brunswick — smaller towns
+  { city: 'Sussex', province: 'NB' },
+  { city: 'St. Andrews', province: 'NB' },
+  { city: 'St. Stephen', province: 'NB' },
+  { city: 'Shediac', province: 'NB' },
+  { city: 'Caraquet', province: 'NB' },
+  { city: 'Campbellton', province: 'NB' },
+  { city: 'Grand Falls', province: 'NB' },
+  { city: 'Bouctouche', province: 'NB' },
+  { city: 'Tracadie-Sheila', province: 'NB' },
+  { city: 'Dalhousie', province: 'NB' },
+  { city: 'Hampton', province: 'NB' },
+  { city: 'Grand Manan', province: 'NB' },
+  { city: 'Alma', province: 'NB' },
   // PEI
   { city: 'Charlottetown', province: 'PEI' },
   { city: 'Summerside', province: 'PEI' },
-  // Newfoundland & Labrador
+  // PEI — smaller towns
+  { city: 'Montague', province: 'PEI' },
+  { city: 'Souris', province: 'PEI' },
+  { city: 'Kensington', province: 'PEI' },
+  { city: 'Cavendish', province: 'PEI' },
+  { city: 'North Rustico', province: 'PEI' },
+  { city: 'Victoria', province: 'PEI' },
+  // Newfoundland & Labrador — cities
   { city: "St. John's", province: 'NL' },
   { city: 'Corner Brook', province: 'NL' },
   { city: 'Gander', province: 'NL' },
   { city: 'Grand Falls-Windsor', province: 'NL' },
+  // Newfoundland & Labrador — smaller towns
+  { city: 'Carbonear', province: 'NL' },
+  { city: 'Bay Roberts', province: 'NL' },
+  { city: 'Clarenville', province: 'NL' },
+  { city: 'Bonavista', province: 'NL' },
+  { city: 'Twillingate', province: 'NL' },
+  { city: 'Deer Lake', province: 'NL' },
+  { city: 'Stephenville', province: 'NL' },
+  { city: 'Channel-Port aux Basques', province: 'NL' },
+  { city: 'Marystown', province: 'NL' },
+  { city: 'Fogo Island', province: 'NL' },
+  { city: 'St. Anthony', province: 'NL' },
+  { city: 'Happy Valley-Goose Bay', province: 'NL' },
+  { city: 'Placentia', province: 'NL' },
 ];
 
 const AGGREGATOR_DOMAINS = ['eventbrite.com', 'bandsintown.com', 'facebook.com', 'ticketmaster.com'];

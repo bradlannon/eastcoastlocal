@@ -145,6 +145,10 @@ export default function ClusterLayer({
               }
             }
           }}
+          eventHandlers={{
+            mouseover: (e) => e.target.openPopup(),
+            mouseout: (e) => e.target.closePopup(),
+          }}
         >
           <Popup>
             <VenuePopup venue={venue} events={venueEvents} />

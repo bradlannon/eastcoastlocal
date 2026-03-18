@@ -7,6 +7,7 @@ import { db } from '@/lib/db/client';
 import { events, venues } from '@/lib/db/schema';
 import { MiniMapWrapper } from '@/components/map/MapWrapper';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
+import { toAffiliateUrl } from '@/lib/affiliate';
 
 interface EventPageProps {
   params: Promise<{ id: string }>;
@@ -82,14 +83,15 @@ export default async function EventPage({
     backParams.set('category', sp.category);
   const backHref = backParams.toString() ? `/?${backParams.toString()}` : '/';
 
-  // Derive ticket/source URL and hostname
-  const ctaUrl = event.ticket_link ?? event.source_url;
+  // Derive ticket/source URL and hostname (with affiliate tracking)
+  const rawCtaUrl = event.ticket_link ?? event.source_url;
+  const ctaUrl = rawCtaUrl ? toAffiliateUrl(rawCtaUrl) : null;
   let ctaHostname: string | null = null;
-  if (ctaUrl) {
+  if (rawCtaUrl) {
     try {
-      ctaHostname = new URL(ctaUrl).hostname.replace(/^www\./, '');
+      ctaHostname = new URL(rawCtaUrl).hostname.replace(/^www\./, '');
     } catch {
-      ctaHostname = ctaUrl;
+      ctaHostname = rawCtaUrl;
     }
   }
 

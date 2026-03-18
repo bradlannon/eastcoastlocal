@@ -17,3 +17,12 @@ body {
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
 }
+
+/* Hide Leaflet popup tip (triangle) and blue outline */
+.leaflet-popup-tip-container {
+  display: none;
+}
+.leaflet-popup-content-wrapper {
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
