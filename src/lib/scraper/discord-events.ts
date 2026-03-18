@@ -19,12 +19,22 @@ const DISCORD_API = 'https://discord.com/api/v10';
 
 /** Province/city mapping for known Atlantic Canada Discord servers. */
 const GUILD_METADATA: Record<string, { province: string; defaultCity: string }> = {
-  '111208661371592704': { province: 'NS', defaultCity: 'Halifax' },         // Halifax
+  // Nova Scotia
+  '111208661371592704': { province: 'NS', defaultCity: 'Halifax' },         // Halifax community
   '411241752398266368': { province: 'NS', defaultCity: 'Halifax' },         // /r/Halifax
-  '478720986561380352': { province: 'NB', defaultCity: 'Fredericton' },     // New Brunswick
-  '504331737912836097': { province: 'NL', defaultCity: "St. John's" },      // Newfoundland & Labrador
-  '798005281257685003': { province: 'PEI', defaultCity: 'Charlottetown' },  // r/PEI
+  '953634008728731748': { province: 'NS', defaultCity: 'Halifax' },         // Halifornia (Maritimes community)
+  '1376284634022809700': { province: 'NS', defaultCity: 'Halifax' },        // Nova Scotia (DISBOARD)
+  '542980426002796547': { province: 'NS', defaultCity: 'Halifax' },         // Nova Scotia (top.gg)
+  '759881688506957844': { province: 'NS', defaultCity: 'Halifax' },         // CS Dal / Dalhousie students
   '1483615762706075731': { province: 'NS', defaultCity: 'Halifax' },        // ECL Atlantic Events
+  // New Brunswick
+  '478720986561380352': { province: 'NB', defaultCity: 'Fredericton' },     // New Brunswick
+  '508773773013549056': { province: 'NB', defaultCity: 'Moncton' },        // Moncton Gaming Community
+  // Prince Edward Island
+  '798005281257685003': { province: 'PEI', defaultCity: 'Charlottetown' },  // r/PEI
+  '632417591939432448': { province: 'PEI', defaultCity: 'Charlottetown' },  // PEI community (top.gg)
+  // Newfoundland & Labrador
+  '504331737912836097': { province: 'NL', defaultCity: "St. John's" },      // Newfoundland & Labrador
 };
 
 /** Guild IDs to skip (not Atlantic Canada related). */
