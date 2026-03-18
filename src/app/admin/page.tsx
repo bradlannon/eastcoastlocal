@@ -172,66 +172,41 @@ export default async function AdminDashboardPage() {
         <RefreshButton />
       </div>
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
-        {/* Total Venues */}
-        <Link href="/admin/venues" className="block h-full">
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center hover:shadow-md transition-shadow">
-            <p className="text-sm text-gray-500">Total Venues</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{venueCount}</p>
+      {/* Stat bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+        <Link href="/admin/venues" className="block">
+          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500">Venues</p>
+            <p className="text-xl font-bold text-gray-900">{venueCount}</p>
           </div>
         </Link>
-
-        {/* Active Sources */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center">
-          <p className="text-sm text-gray-500">Active Sources</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{activeSourceCount}</p>
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+          <p className="text-xs text-gray-500">Sources</p>
+          <p className="text-xl font-bold text-gray-900">{activeSourceCount}</p>
         </div>
-
-        {/* Active Events */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center">
-          <p className="text-sm text-gray-500">Active Events</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">{activeEventCount}</p>
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+          <p className="text-xs text-gray-500">Events</p>
+          <p className="text-xl font-bold text-gray-900">{activeEventCount}</p>
         </div>
-
-        {/* Pending Discoveries */}
-        <Link href="/admin/discovery" className="block h-full">
-          <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col items-center justify-center hover:shadow-md transition-shadow">
-            <p className="text-sm text-gray-500">Pending Discoveries</p>
-            <p className="text-3xl font-bold text-gray-900 mt-1">{pendingDiscoveryCount}</p>
+        <Link href="/admin/discovery" className="block">
+          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 hover:shadow-md transition-shadow">
+            <p className="text-xs text-gray-500">Pending</p>
+            <p className="text-xl font-bold text-gray-900">{pendingDiscoveryCount}</p>
           </div>
         </Link>
-
-        {/* Last Scrape & Discovery */}
-        <div className="bg-white rounded-lg shadow-sm border p-6 text-center h-full flex flex-col justify-center">
-          <div className="mb-3">
-            <p className="text-sm text-gray-500">Last Scrape</p>
-            <p
-              className={`text-lg font-bold mt-1 ${
-                isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'
-              }`}
-            >
-              {relativeTime(lastScrapeTime)}
-            </p>
-          </div>
-          <div className="border-t pt-3">
-            <p className="text-sm text-gray-500">Last Discovery</p>
-            <p
-              className={`text-lg font-bold mt-1 ${
-                lastDiscoveryRun && lastDiscoveryRun.errors > 0
-                  ? 'text-red-600'
-                  : isStale(lastDiscoveryRun?.completedAt ?? null)
-                  ? 'text-amber-600'
-                  : 'text-gray-900'
-              }`}
-            >
-              {relativeTime(lastDiscoveryRun?.completedAt ?? null)}
-            </p>
-          </div>
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+          <p className="text-xs text-gray-500">Last Scrape</p>
+          <p className={`text-sm font-semibold mt-0.5 ${isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'}`}>
+            {relativeTime(lastScrapeTime)}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">Last Discovery</p>
+          <p className={`text-sm font-semibold mt-0.5 ${lastDiscoveryRun && lastDiscoveryRun.errors > 0 ? 'text-red-600' : isStale(lastDiscoveryRun?.completedAt ?? null) ? 'text-amber-600' : 'text-gray-900'}`}>
+            {relativeTime(lastDiscoveryRun?.completedAt ?? null)}
+          </p>
         </div>
       </div>
 
-      {/* Manual trigger actions */}
+      {/* Toolbar + Live Log */}
       <TriggerActions />
 
       {/* Source Health table */}
