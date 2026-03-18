@@ -1,26 +1,34 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 
 interface BoxZoomToolProps {
   active: boolean;
   onDeactivate: () => void;
+  mapContainer: HTMLElement | null;
+  fitBounds: (bounds: L.LatLngBounds) => void;
+  containerPointToLatLng: (point: L.Point) => L.LatLng;
 }
 
 /**
- * Draw-a-box zoom tool. Renders a transparent overlay that captures mouse
- * events and draws a selection rectangle. Zooms into the selected area on release.
+ * Draw-a-box zoom overlay. Renders on top of the map, captures mouse
+ * events, draws a selection rectangle, and zooms into the area on release.
+ *
+ * Does NOT use useMap() — receives map functions as props so it can render
+ * outside <MapContainer>.
  */
-export default function BoxZoomTool({ active, onDeactivate }: BoxZoomToolProps) {
-  const map = useMap();
+export default function BoxZoomTool({
+  active,
+  onDeactivate,
+  containerPointToLatLng,
+  fitBounds,
+}: BoxZoomToolProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
   const [start, setStart] = useState<{ x: number; y: number } | null>(null);
   const [current, setCurrent] = useState<{ x: number; y: number } | null>(null);
 
-  // Escape key to cancel
   useEffect(() => {
     if (!active) return;
     function onKey(e: KeyboardEvent) {
@@ -64,24 +72,23 @@ export default function BoxZoomTool({ active, onDeactivate }: BoxZoomToolProps) 
     const height = Math.abs(endY - start.y);
 
     if (width > 15 && height > 15) {
-      const sw = map.containerPointToLatLng(
+      const sw = containerPointToLatLng(
         L.point(Math.min(start.x, endX), Math.max(start.y, endY))
       );
-      const ne = map.containerPointToLatLng(
+      const ne = containerPointToLatLng(
         L.point(Math.max(start.x, endX), Math.min(start.y, endY))
       );
-      map.fitBounds(L.latLngBounds(sw, ne), { animate: true });
+      fitBounds(L.latLngBounds(sw, ne));
     }
 
     setDragging(false);
     setStart(null);
     setCurrent(null);
     onDeactivate();
-  }, [dragging, start, map, onDeactivate]);
+  }, [dragging, start, containerPointToLatLng, fitBounds, onDeactivate]);
 
   if (!active) return null;
 
-  // Calculate selection box style
   let boxStyle: React.CSSProperties | null = null;
   if (dragging && start && current) {
     boxStyle = {

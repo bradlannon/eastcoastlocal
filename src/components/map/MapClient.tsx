@@ -16,6 +16,7 @@ import ModeToggle from './ModeToggle';
 import ZoomControls from './ZoomControls';
 import PopupController from './PopupController';
 import BoxZoomTool from './BoxZoomTool';
+import MapRef from './MapRef';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
@@ -70,10 +71,20 @@ export default function MapClient({
   timeFilteredEvents,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  const mapInstanceRef = useRef<L.Map | null>(null);
   const [boxZoomActive, setBoxZoomActive] = useState(false);
 
   const toggleBoxZoom = useCallback(() => setBoxZoomActive(prev => !prev), []);
   const deactivateBoxZoom = useCallback(() => setBoxZoomActive(false), []);
+  const handleMapRef = useCallback((map: L.Map) => { mapInstanceRef.current = map; }, []);
+
+  const containerPointToLatLng = useCallback((point: L.Point) => {
+    return mapInstanceRef.current!.containerPointToLatLng(point);
+  }, []);
+
+  const fitBounds = useCallback((bounds: L.LatLngBounds) => {
+    mapInstanceRef.current?.fitBounds(bounds, { animate: true });
+  }, []);
 
   const visibleVenueCount = new Set(
     events
@@ -122,6 +133,7 @@ export default function MapClient({
           onToggleBoxZoom={toggleBoxZoom}
         />
         <PopupController markersRef={markersRef} />
+        <MapRef onMap={handleMapRef} />
         <MapViewController
           province={province ?? null}
           flyToTarget={flyToTarget ?? null}
@@ -130,7 +142,13 @@ export default function MapClient({
       </MapContainer>
 
       {/* Box zoom overlay — rendered OUTSIDE MapContainer so it covers the map */}
-      <BoxZoomTool active={boxZoomActive} onDeactivate={deactivateBoxZoom} />
+      <BoxZoomTool
+        active={boxZoomActive}
+        onDeactivate={deactivateBoxZoom}
+        mapContainer={mapInstanceRef.current?.getContainer() ?? null}
+        containerPointToLatLng={containerPointToLatLng}
+        fitBounds={fitBounds}
+      />
 
       {/* Mode toggle button */}
       <ModeToggle
