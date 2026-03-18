@@ -6,7 +6,7 @@ import 'react-leaflet-cluster/dist/assets/MarkerCluster.Default.css';
 import 'leaflet-defaulticon-compatibility/dist/leaflet-defaulticon-compatibility.css';
 import 'leaflet-defaulticon-compatibility';
 
-import { useRef } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import { MapContainer, TileLayer } from 'react-leaflet';
 import type L from 'leaflet';
 import MapBoundsTracker from './MapBoundsTracker';
@@ -15,6 +15,7 @@ import HeatmapLayer from './HeatmapLayer';
 import ModeToggle from './ModeToggle';
 import ZoomControls from './ZoomControls';
 import PopupController from './PopupController';
+import BoxZoomTool from './BoxZoomTool';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
@@ -69,6 +70,10 @@ export default function MapClient({
   timeFilteredEvents,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
+  const [boxZoomActive, setBoxZoomActive] = useState(false);
+
+  const toggleBoxZoom = useCallback(() => setBoxZoomActive(prev => !prev), []);
+  const deactivateBoxZoom = useCallback(() => setBoxZoomActive(false), []);
 
   const visibleVenueCount = new Set(
     events
@@ -111,7 +116,11 @@ export default function MapClient({
             />
           </>
         )}
-        <ZoomControls activeProvince={province} />
+        <ZoomControls
+          activeProvince={province}
+          boxZoomActive={boxZoomActive}
+          onToggleBoxZoom={toggleBoxZoom}
+        />
         <PopupController markersRef={markersRef} />
         <MapViewController
           province={province ?? null}
@@ -119,6 +128,9 @@ export default function MapClient({
           markersRef={markersRef}
         />
       </MapContainer>
+
+      {/* Box zoom overlay — rendered OUTSIDE MapContainer so it covers the map */}
+      <BoxZoomTool active={boxZoomActive} onDeactivate={deactivateBoxZoom} />
 
       {/* Mode toggle button */}
       <ModeToggle
