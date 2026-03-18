@@ -283,6 +283,103 @@ export default function TriggerActions() {
     }
   }
 
+  // ─── Full Sync ───────────────────────────────────────────────────────────
+
+  const SYNC_STEPS = [
+    { job: 'fetch-feeds', label: 'Fetching feeds + Discord events' },
+    { job: 'scrape', label: 'Scraping venue websites' },
+    { job: 'parse-newsletters', label: 'Parsing newsletters' },
+    { job: 'detect-series', label: 'Detecting recurring series' },
+    { job: 'archive', label: 'Archiving past events' },
+  ] as const;
+
+  async function runFullSync() {
+    cancelledRef.current = false;
+    setRunningJob('full-sync');
+    setResult(null);
+
+    const syncResults: Array<{ step: string; success: boolean; message: string }> = [];
+
+    for (let i = 0; i < SYNC_STEPS.length; i++) {
+      if (cancelledRef.current) {
+        setResult({
+          success: true,
+          message: `Sync cancelled after ${i}/${SYNC_STEPS.length} steps`,
+        });
+        setRunningJob(null);
+        router.refresh();
+        return;
+      }
+
+      const step = SYNC_STEPS[i];
+      setResult({
+        success: true,
+        message: `Full Sync ${i + 1}/${SYNC_STEPS.length}: ${step.label}...`,
+        isWarning: true,
+        progress: `${Math.round((i / SYNC_STEPS.length) * 100)}%`,
+      });
+
+      // Scrape and discover use the iterative approach
+      if (step.job === 'scrape') {
+        const totals = { scraped: 0, failed: 0, events: 0 };
+        try {
+          const listRes = await fetch('/api/admin/trigger/scrape?source=list', { method: 'POST' });
+          const listBody = await listRes.json();
+          const sources = listBody.sources ?? [];
+
+          for (let s = 0; s < sources.length; s++) {
+            if (cancelledRef.current) break;
+            const src = sources[s];
+            setResult({
+              success: true,
+              message: `Full Sync ${i + 1}/${SYNC_STEPS.length}: Scraping ${s + 1}/${sources.length} — ${src.venueName}`,
+              isWarning: true,
+              progress: `${Math.round(((i + s / sources.length) / SYNC_STEPS.length) * 100)}%`,
+            });
+            try {
+              const res = await fetch(`/api/admin/trigger/scrape?source=${src.id}`, { method: 'POST' });
+              const body = await res.json();
+              if (body.success) { totals.scraped++; totals.events += body.events ?? 0; }
+              else totals.failed++;
+            } catch { totals.failed++; }
+          }
+        } catch { totals.failed++; }
+        syncResults.push({
+          step: step.label,
+          success: totals.failed === 0,
+          message: `${totals.scraped} scraped, ${totals.events} events${totals.failed > 0 ? `, ${totals.failed} failed` : ''}`,
+        });
+        continue;
+      }
+
+      // All other jobs: single request
+      try {
+        const res = await fetch(`/api/admin/trigger/${step.job}`, { method: 'POST' });
+        const body = await res.json();
+        if (body.success) {
+          syncResults.push({
+            step: step.label,
+            success: true,
+            message: formatSuccessMessage(step.job, body),
+          });
+        } else {
+          syncResults.push({ step: step.label, success: false, message: body.error ?? 'Failed' });
+        }
+      } catch (err) {
+        syncResults.push({ step: step.label, success: false, message: String(err) });
+      }
+    }
+
+    const totalSuccess = syncResults.filter(r => r.success).length;
+    const summary = syncResults.map(r => `${r.success ? '+' : '-'} ${r.step}: ${r.message}`).join('\n');
+    setResult({
+      success: totalSuccess === syncResults.length,
+      message: `Full Sync complete: ${totalSuccess}/${syncResults.length} steps succeeded\n${summary}`,
+    });
+    setRunningJob(null);
+    router.refresh();
+  }
+
   const isAnyJobRunning = runningJob !== null;
 
   function Spinner() {
@@ -305,6 +402,32 @@ export default function TriggerActions() {
       <h2 className="text-lg font-semibold text-gray-900 mb-3">Actions</h2>
       <div className="bg-white rounded-lg shadow-sm border p-6">
         <div className="flex flex-wrap gap-4">
+          {/* Full Sync */}
+          <div className="inline-flex items-center">
+            {runningJob === 'full-sync' ? (
+              <button
+                type="button"
+                className="px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 inline-flex items-center"
+                onClick={() => { cancelledRef.current = true; }}
+              >
+                Cancel Sync
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-md hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center"
+                disabled={isAnyJobRunning}
+                onClick={() => runFullSync()}
+              >
+                Full Sync
+                {runningJob === 'full-sync' && <Spinner />}
+              </button>
+            )}
+            <Tooltip text="Run all jobs in order: Fetch Feeds + Discord, Scrape Venues, Parse Newsletters, Detect Series, Archive Past Events. Each step runs to completion before the next begins." />
+          </div>
+
+          <div className="w-px h-8 bg-gray-300 self-center" />
+
           {/* Run Scrape */}
           <div className="inline-flex items-center">
             {runningJob === 'scrape' ? (
@@ -434,7 +557,7 @@ export default function TriggerActions() {
                 : 'bg-red-50 border border-red-200 text-red-700'
             }`}
           >
-            <span>{result.message}</span>
+            <span className="whitespace-pre-line">{result.message}</span>
             {!result.isWarning && (
               <button
                 type="button"
