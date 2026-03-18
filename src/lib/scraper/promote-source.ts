@@ -47,29 +47,66 @@ export async function promoteSource(discoveredId: number): Promise<void> {
     }
   }
 
-  const [venue] = await db
-    .insert(venues)
-    .values({
-      name: venueName,
-      address,
-      city,
-      province,
-      ...(lat != null ? { lat } : {}),
-      ...(lng != null ? { lng } : {}),
-      ...(staged.google_place_id != null ? { google_place_id: staged.google_place_id } : {}),
-      ...(staged.place_types != null ? { venue_type: staged.place_types } : {}),
-    })
-    .returning({ id: venues.id });
+  // Check if venue already exists by google_place_id
+  let venueId: number;
+  if (staged.google_place_id) {
+    const existing = await db.query.venues.findFirst({
+      where: eq(venues.google_place_id, staged.google_place_id),
+      columns: { id: true },
+    });
+    if (existing) {
+      venueId = existing.id;
+      console.log(`Venue already exists (google_place_id match) — reusing venue ID: ${venueId}`);
+    } else {
+      const [venue] = await db
+        .insert(venues)
+        .values({
+          name: venueName,
+          address,
+          city,
+          province,
+          ...(lat != null ? { lat } : {}),
+          ...(lng != null ? { lng } : {}),
+          google_place_id: staged.google_place_id,
+          ...(staged.place_types != null ? { venue_type: staged.place_types } : {}),
+        })
+        .returning({ id: venues.id });
+      venueId = venue.id;
+    }
+  } else {
+    const [venue] = await db
+      .insert(venues)
+      .values({
+        name: venueName,
+        address,
+        city,
+        province,
+        ...(lat != null ? { lat } : {}),
+        ...(lng != null ? { lng } : {}),
+        ...(staged.place_types != null ? { venue_type: staged.place_types } : {}),
+      })
+      .returning({ id: venues.id });
+    venueId = venue.id;
+  }
 
   // Step 4: Insert into scrape_sources (skip for no_website stubs)
+  // Check if source URL already exists to avoid duplicate key error
   if (staged.status === 'pending') {
-    await db.insert(scrape_sources).values({
-      url: staged.url,
-      venue_id: venue.id,
-      source_type: 'venue_website',
-      scrape_frequency: 'daily',
-      enabled: true,
+    const existingSource = await db.query.scrape_sources.findFirst({
+      where: eq(scrape_sources.url, staged.url),
+      columns: { id: true },
     });
+    if (!existingSource) {
+      await db.insert(scrape_sources).values({
+        url: staged.url,
+        venue_id: venueId,
+        source_type: 'venue_website',
+        scrape_frequency: 'daily',
+        enabled: true,
+      });
+    } else {
+      console.log(`Scrape source already exists for URL: ${staged.url}`);
+    }
   }
 
   // Step 5: Update discovered_sources status to approved with timestamps
@@ -85,7 +122,7 @@ export async function promoteSource(discoveredId: number): Promise<void> {
 
   // Step 6: Confirmation
   const type = staged.status === 'no_website' ? 'stub' : 'full';
-  console.log(`Promoted discovered source ${discoveredId} (${type}) — venue ID: ${venue.id}`);
+  console.log(`Promoted discovered source ${discoveredId} (${type}) — venue ID: ${venueId}`);
 }
 
 // CLI entry point
