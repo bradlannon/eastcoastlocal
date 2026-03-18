@@ -33,9 +33,14 @@ export default function TriggerActions() {
   const logIdRef = useRef(0);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll log to bottom
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const userScrolledUpRef = useRef(false);
+
+  // Auto-scroll log to bottom, but only if user hasn't scrolled up
   useEffect(() => {
-    logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = logContainerRef.current;
+    if (!container || userScrolledUpRef.current) return;
+    container.scrollTop = container.scrollHeight;
   }, [logs]);
 
   // Restore logs from sessionStorage on mount
@@ -80,7 +85,9 @@ export default function TriggerActions() {
       log('error', label, `Request failed: ${String(err)}`);
     }
     setRunningJob(null);
+    const scrollY = window.scrollY;
     router.refresh();
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 
   async function triggerScrape() {
@@ -137,7 +144,9 @@ export default function TriggerActions() {
 
     log(failed > 0 ? 'warn' : 'success', 'Scrape', `Done: ${success} ok, ${failed} failed, ${totalEvents} events`);
     setRunningJob(null);
+    const scrollY = window.scrollY;
     router.refresh();
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 
   async function triggerDiscovery() {
@@ -190,7 +199,9 @@ export default function TriggerActions() {
 
     log(errors > 0 ? 'warn' : 'success', 'Discovery', `Done: ${totalFound} found, ${totalApproved} approved, ${errors} errors`);
     setRunningJob(null);
+    const scrollY = window.scrollY;
     router.refresh();
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 
   async function runFullSync() {
@@ -325,7 +336,9 @@ export default function TriggerActions() {
       log('success', 'Full Sync', '--- Sync complete ---');
     }
     setRunningJob(null);
+    const scrollY = window.scrollY;
     router.refresh();
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 
   // ─── Helpers ─────────────────────────────────────────────────────────
@@ -460,6 +473,18 @@ export default function TriggerActions() {
             <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
               Activity Log
             </span>
+            {userScrolledUpRef.current && logs.length > 0 && (
+              <button
+                className="text-[10px] text-blue-400 hover:text-blue-300 ml-2"
+                onClick={() => {
+                  userScrolledUpRef.current = false;
+                  const container = logContainerRef.current;
+                  if (container) container.scrollTop = container.scrollHeight;
+                }}
+              >
+                Jump to latest
+              </button>
+            )}
           </div>
           {isAnyJobRunning && (
             <span className="text-xs text-amber-400 animate-pulse">
@@ -467,7 +492,17 @@ export default function TriggerActions() {
             </span>
           )}
         </div>
-        <div className="overflow-y-auto max-h-80 font-mono text-xs leading-relaxed">
+        <div
+          ref={logContainerRef}
+          className="overflow-y-auto font-mono text-xs leading-relaxed"
+          style={{ maxHeight: '60vh' }}
+          onScroll={() => {
+            const el = logContainerRef.current;
+            if (!el) return;
+            // User scrolled up if not near the bottom (within 40px)
+            userScrolledUpRef.current = el.scrollHeight - el.scrollTop - el.clientHeight > 40;
+          }}
+        >
           {logs.length === 0 ? (
             <div className="p-8 text-center text-gray-600">
               No activity yet. Click a button above to start.

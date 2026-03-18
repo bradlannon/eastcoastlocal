@@ -61,6 +61,7 @@ export default async function AdminDashboardPage() {
     autoApproved: number;
     queuedPending: number;
     errors: number;
+    errorDetail: string | null;
     completedAt: Date;
   }> = [];
   let loadError = false;
@@ -123,6 +124,7 @@ export default async function AdminDashboardPage() {
           autoApproved: discovery_runs.auto_approved,
           queuedPending: discovery_runs.queued_pending,
           errors: discovery_runs.errors,
+          errorDetail: discovery_runs.error_detail,
           completedAt: discovery_runs.completed_at,
         })
         .from(discovery_runs)
@@ -285,7 +287,16 @@ export default async function AdminDashboardPage() {
                     {run.queuedPending}
                   </td>
                   <td className={`px-4 py-3 text-sm whitespace-nowrap ${run.errors > 0 ? 'text-red-600 font-medium' : 'text-gray-700'}`}>
-                    {run.errors}
+                    {run.errors > 0 && run.errorDetail ? (
+                      <span className="group relative cursor-help underline decoration-dotted">
+                        {run.errors}
+                        <span className="invisible group-hover:visible absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-80 max-h-48 overflow-y-auto bg-gray-900 text-gray-100 text-xs rounded-lg px-3 py-2 shadow-lg whitespace-pre-wrap break-words">
+                          {run.errorDetail}
+                        </span>
+                      </span>
+                    ) : (
+                      run.errors
+                    )}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                     {relativeTime(run.completedAt)}

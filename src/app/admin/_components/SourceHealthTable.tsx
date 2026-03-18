@@ -138,13 +138,17 @@ export default function SourceHealthTable({ rows }: { rows: SourceRow[] }) {
                 </span>
               </td>
               <td className="px-3 py-3 text-sm text-gray-700 whitespace-nowrap">{row.avgConfidence?.toFixed(2) ?? '—'}</td>
-              <td className="px-3 py-3 text-sm whitespace-nowrap">
+              <td
+                className="px-3 py-3 text-sm whitespace-nowrap"
+                onMouseEnter={(e) => (row.consecutiveFailures ?? 0) > 0 && row.lastScrapeError ? handleErrorHover(row.sourceId, e) : undefined}
+                onMouseLeave={handleMouseLeave}
+              >
                 {row.consecutiveFailures === 0 ? (
                   <span className="text-green-600">0</span>
                 ) : (row.consecutiveFailures ?? 0) >= 3 ? (
-                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">{row.consecutiveFailures}</span>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 cursor-help">{row.consecutiveFailures}</span>
                 ) : (
-                  <span className="text-amber-600">{row.consecutiveFailures}</span>
+                  <span className="text-amber-600 cursor-help">{row.consecutiveFailures}</span>
                 )}
               </td>
               <td className="px-3 py-3 text-sm whitespace-nowrap">
