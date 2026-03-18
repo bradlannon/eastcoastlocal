@@ -313,18 +313,67 @@ export default function TriggerActions() {
       {
         label: 'Feeds + Discord',
         run: async () => {
-          log('info', 'Feeds', 'Fetching all feeds + Discord events...');
+          // Load feed list
+          let feeds: Array<{ id: string; name: string }> = [];
+          let discordGuilds = 0;
           try {
-            const res = await fetch('/api/admin/trigger/fetch-feeds', { method: 'POST' });
-            const body = await res.json();
-            if (body.success) {
-              log('success', 'Feeds', `${body.eventsUpserted ?? 0}/${body.eventsFound ?? 0} events from ${body.feeds ?? 0} feeds`);
-            } else {
-              log('error', 'Feeds', `Failed: ${body.error ?? 'Unknown'}`);
-            }
-          } catch (err) {
-            log('error', 'Feeds', `Request failed: ${String(err)}`);
+            const listRes = await fetch('/api/admin/trigger/fetch-feeds?feed=list', { method: 'POST' });
+            const listBody = await listRes.json();
+            feeds = listBody.feeds ?? [];
+            discordGuilds = listBody.discordGuilds ?? 0;
+          } catch {
+            log('error', 'Feeds', 'Failed to load feed list');
+            return;
           }
+
+          log('info', 'Feeds', `${feeds.length} feeds + ${discordGuilds} Discord guilds`);
+          let totalFound = 0, totalUpserted = 0, feedErrors = 0;
+
+          for (const feed of feeds) {
+            if (cancelledRef.current) { log('warn', 'Feeds', 'Cancelled'); break; }
+            try {
+              const res = await fetch(`/api/admin/trigger/fetch-feeds?feed=${feed.id}`, { method: 'POST' });
+              const body = await res.json();
+              if (body.success) {
+                totalFound += body.eventsFound ?? 0;
+                totalUpserted += body.eventsUpserted ?? 0;
+                if ((body.eventsUpserted ?? 0) > 0) {
+                  log('success', 'Feeds', `${feed.name}: ${body.eventsUpserted}/${body.eventsFound} events`);
+                } else if ((body.errors ?? 0) > 0) {
+                  feedErrors++;
+                  log('error', 'Feeds', `${feed.name}: failed`);
+                }
+              } else {
+                feedErrors++;
+                log('error', 'Feeds', `${feed.name}: ${body.error ?? 'failed'}`);
+              }
+            } catch {
+              feedErrors++;
+              log('error', 'Feeds', `${feed.name}: timeout`);
+            }
+          }
+
+          // Discord
+          if (!cancelledRef.current && discordGuilds > 0) {
+            log('info', 'Feeds', `Scanning ${discordGuilds} Discord guilds...`);
+            try {
+              const res = await fetch('/api/admin/trigger/fetch-feeds?feed=discord', { method: 'POST' });
+              const body = await res.json();
+              if (body.success) {
+                totalFound += body.eventsFound ?? 0;
+                totalUpserted += body.eventsUpserted ?? 0;
+                log('success', 'Feeds', `Discord: ${body.eventsUpserted}/${body.eventsFound} events from ${body.guilds} guilds`);
+              } else {
+                feedErrors++;
+                log('error', 'Feeds', `Discord: ${body.error ?? 'failed'}`);
+              }
+            } catch {
+              feedErrors++;
+              log('error', 'Feeds', 'Discord: timeout');
+            }
+          }
+
+          log(feedErrors > 0 ? 'warn' : 'success', 'Feeds', `Done: ${totalUpserted}/${totalFound} events, ${feedErrors} errors`);
         },
       },
       {
