@@ -126,7 +126,7 @@ export async function runScrapeForProvince(province: Province): Promise<ScrapeRe
               extracted = discoveredEvents;
               console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events (discovered feed)`);
             } else {
-              extracted = await extractEvents(text, source.url);
+              extracted = await extractEvents(text, source.url, { venueId: source.venue_id, scrapeSourceId: source.id });
               console.log(`  ✓ [${province}] ${venue.name}: ${extracted.length} events`);
               if (AI_THROTTLE_MS > 0) {
                 await delay(AI_THROTTLE_MS);

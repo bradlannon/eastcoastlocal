@@ -1,10 +1,18 @@
 import { generateText, Output } from 'ai';
 import { ExtractedEventSchema, type ExtractedEvent } from '@/lib/schemas/extracted-event';
 import { getExtractionModel } from '@/lib/ai/model';
+import { db } from '@/lib/db/client';
+import { rejected_events } from '@/lib/db/schema';
+
+interface ExtractOptions {
+  venueId?: number;
+  scrapeSourceId?: number | null;
+}
 
 export async function extractEvents(
   pageText: string,
-  sourceUrl: string
+  sourceUrl: string,
+  options?: ExtractOptions
 ): Promise<ExtractedEvent[]> {
   const today = new Date().toISOString().slice(0, 10);
   const model = await getExtractionModel();
@@ -53,20 +61,54 @@ ${pageText}`,
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  // Only keep events within the next 30 days — locals care about what's coming up soon
+  // Accept events up to 90 days out (relaxed from 30)
   const maxDate = new Date(now);
-  maxDate.setDate(maxDate.getDate() + 30);
+  maxDate.setDate(maxDate.getDate() + 90);
 
-  return raw.filter((event) => {
-    if (!event.performer) return false;
-    if (!event.event_date) return false;
-    if (event.confidence < 0.5) return false;
+  const accepted: ExtractedEvent[] = [];
 
-    const eventDate = new Date(event.event_date);
-    if (isNaN(eventDate.getTime())) return false;
-    if (eventDate < now) return false;
-    if (eventDate > maxDate) return false;
+  for (const event of raw) {
+    let reason: string | null = null;
 
-    return true;
-  });
+    if (!event.performer) {
+      reason = 'missing_performer';
+    } else if (!event.event_date) {
+      reason = 'missing_date';
+    } else if (event.confidence < 0.3) {
+      // Relaxed from 0.5 to 0.3
+      reason = `low_confidence (${event.confidence})`;
+    } else {
+      const eventDate = new Date(event.event_date);
+      if (isNaN(eventDate.getTime())) {
+        reason = `invalid_date (${event.event_date})`;
+      } else if (eventDate < now) {
+        reason = `past_event (${event.event_date})`;
+      } else if (eventDate > maxDate) {
+        reason = `too_far_out (${event.event_date}, >90 days)`;
+      }
+    }
+
+    if (reason) {
+      // Log rejection — fire and forget, don't block scraping
+      try {
+        db.insert(rejected_events).values({
+          venue_id: options?.venueId ?? null,
+          scrape_source_id: options?.scrapeSourceId ?? null,
+          performer: event.performer ?? null,
+          event_date: event.event_date ?? null,
+          event_time: event.event_time ?? null,
+          confidence: event.confidence ?? null,
+          event_category: event.event_category ?? null,
+          source_url: sourceUrl,
+          rejection_reason: reason,
+          raw_data: JSON.stringify(event),
+        }).then(() => {}).catch(() => {});
+      } catch { /* ignore */ }
+      continue;
+    }
+
+    accepted.push(event);
+  }
+
+  return accepted;
 }

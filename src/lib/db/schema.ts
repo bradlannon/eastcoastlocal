@@ -207,6 +207,21 @@ export const community_submissions = pgTable('community_submissions', {
   reviewed_at: timestamp('reviewed_at'),
 });
 
+export const rejected_events = pgTable('rejected_events', {
+  id: serial('id').primaryKey(),
+  venue_id: integer('venue_id').references(() => venues.id),
+  scrape_source_id: integer('scrape_source_id').references(() => scrape_sources.id),
+  performer: text('performer'),
+  event_date: text('event_date'),         // raw string from extraction (may be invalid)
+  event_time: text('event_time'),
+  confidence: doublePrecision('confidence'),
+  event_category: text('event_category'),
+  source_url: text('source_url'),
+  rejection_reason: text('rejection_reason').notNull(),
+  raw_data: text('raw_data'),             // JSON of full extracted event for debugging
+  created_at: timestamp('created_at').defaultNow().notNull(),
+});
+
 export const app_settings = pgTable('app_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),

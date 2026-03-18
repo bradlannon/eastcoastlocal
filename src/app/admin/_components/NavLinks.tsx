@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: '/admin/discovery', label: 'Discovery', exact: false },
   { href: '/admin/merge-review', label: 'Merge Review', exact: false },
   { href: '/admin/submissions', label: 'Submissions', exact: false },
+  { href: '/admin/rejected', label: 'Rejected', exact: false },
   { href: '/admin/archived', label: 'Archived', exact: false },
   { href: '/admin/settings', label: 'Settings', exact: false },
 ];
