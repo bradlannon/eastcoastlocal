@@ -55,14 +55,8 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
         })}
       </div>
 
-      {/* Center: Submit + Search */}
+      {/* Center: Search + Submit */}
       <div className="flex items-center gap-2 flex-1 justify-center">
-        <button
-          onClick={onSubmitEvent}
-          className="text-xs font-medium text-gray-500 hover:text-[#E85D26] transition-colors whitespace-nowrap"
-        >
-          + Submit Event
-        </button>
         <div className="relative w-48">
           <input
             type="text"
@@ -75,6 +69,12 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
+        <button
+          onClick={onSubmitEvent}
+          className="text-xs font-medium text-gray-500 hover:text-[#E85D26] transition-colors whitespace-nowrap"
+        >
+          + Submit Event
+        </button>
       </div>
 
       {/* Category chip filters — right side */}
