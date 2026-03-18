@@ -18,7 +18,7 @@ const DISCORD_API = 'https://discord.com/api/v10';
 // ─── Atlantic Canada guild mapping ───────────────────────────────────────
 
 /** Province/city mapping for known Atlantic Canada Discord servers. */
-const GUILD_METADATA: Record<string, { province: string; defaultCity: string }> = {
+export const GUILD_METADATA: Record<string, { province: string; defaultCity: string }> = {
   // Nova Scotia
   '111208661371592704': { province: 'NS', defaultCity: 'Halifax' },         // Halifax community
   '411241752398266368': { province: 'NS', defaultCity: 'Halifax' },         // /r/Halifax

@@ -240,7 +240,52 @@ export async function POST(
       }
 
       case 'fetch-feeds': {
-        const { fetchAllWpEventFeeds } = await import('@/lib/scraper/wordpress-events');
+        const url = new URL(_request.url);
+        const feedParam = url.searchParams.get('feed');
+
+        const { fetchAllWpEventFeeds, WP_EVENT_FEEDS } = await import('@/lib/scraper/wordpress-events');
+        const { fetchAllDiscordEvents, GUILD_METADATA } = await import('@/lib/scraper/discord-events');
+
+        // Return list of feeds + discord guilds for frontend iteration
+        if (feedParam === 'list') {
+          const guildIds = Object.keys(GUILD_METADATA);
+          return NextResponse.json({
+            success: true,
+            feeds: WP_EVENT_FEEDS.map((f: { id: string; name: string }) => ({ id: f.id, name: f.name })),
+            discordGuilds: guildIds.length,
+          });
+        }
+
+        // Single feed by id
+        if (feedParam === 'discord') {
+          const results = await fetchAllDiscordEvents();
+          const totals = results.reduce(
+            (acc, r) => ({
+              guilds: acc.guilds + 1,
+              eventsFound: acc.eventsFound + r.eventsFound,
+              eventsUpserted: acc.eventsUpserted + r.eventsUpserted,
+              errors: acc.errors + r.errors,
+            }),
+            { guilds: 0, eventsFound: 0, eventsUpserted: 0, errors: 0 }
+          );
+          return NextResponse.json({ success: true, source: 'discord', ...totals, timestamp: new Date().toISOString() });
+        }
+
+        if (feedParam !== null) {
+          const results = await fetchAllWpEventFeeds([feedParam]);
+          const r = results[0];
+          return NextResponse.json({
+            success: true,
+            feedId: r?.feedId ?? feedParam,
+            feedName: r?.feedName ?? feedParam,
+            eventsFound: r?.eventsFound ?? 0,
+            eventsUpserted: r?.eventsUpserted ?? 0,
+            errors: r?.errors ?? 1,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Legacy: all at once
         const results = await fetchAllWpEventFeeds();
         const totals = results.reduce(
           (acc, r) => ({

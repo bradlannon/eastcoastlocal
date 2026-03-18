@@ -90,6 +90,83 @@ export default function TriggerActions() {
     requestAnimationFrame(() => window.scrollTo(0, scrollY));
   }
 
+  async function triggerFeeds() {
+    cancelledRef.current = false;
+    setRunningJob('fetch-feeds');
+    log('info', 'Feeds', 'Loading feed list...');
+
+    let feeds: Array<{ id: string; name: string }> = [];
+    let discordGuilds = 0;
+    try {
+      const listRes = await fetch('/api/admin/trigger/fetch-feeds?feed=list', { method: 'POST' });
+      const listBody = await listRes.json();
+      feeds = listBody.feeds ?? [];
+      discordGuilds = listBody.discordGuilds ?? 0;
+    } catch {
+      log('error', 'Feeds', 'Failed to load feed list');
+      setRunningJob(null);
+      return;
+    }
+
+    log('info', 'Feeds', `${feeds.length} feeds + ${discordGuilds} Discord guilds`);
+    let totalFound = 0, totalUpserted = 0, errors = 0;
+
+    for (let i = 0; i < feeds.length; i++) {
+      if (cancelledRef.current) {
+        log('warn', 'Feeds', `Cancelled after ${i}/${feeds.length} feeds`);
+        break;
+      }
+      try {
+        const res = await fetch(`/api/admin/trigger/fetch-feeds?feed=${feeds[i].id}`, { method: 'POST' });
+        const body = await res.json();
+        if (body.success) {
+          totalFound += body.eventsFound ?? 0;
+          totalUpserted += body.eventsUpserted ?? 0;
+          if ((body.eventsUpserted ?? 0) > 0) {
+            log('success', 'Feeds', `${feeds[i].name}: ${body.eventsUpserted}/${body.eventsFound} events`);
+          } else if ((body.errors ?? 0) > 0) {
+            errors++;
+            log('error', 'Feeds', `${feeds[i].name}: failed`);
+          } else {
+            log('info', 'Feeds', `${feeds[i].name}: 0 events`);
+          }
+        } else {
+          errors++;
+          log('error', 'Feeds', `${feeds[i].name}: ${body.error ?? 'failed'}`);
+        }
+      } catch (err) {
+        errors++;
+        log('error', 'Feeds', `${feeds[i].name}: ${String(err)}`);
+      }
+    }
+
+    // Discord guilds
+    if (!cancelledRef.current && discordGuilds > 0) {
+      log('info', 'Feeds', `Scanning ${discordGuilds} Discord guilds...`);
+      try {
+        const res = await fetch('/api/admin/trigger/fetch-feeds?feed=discord', { method: 'POST' });
+        const body = await res.json();
+        if (body.success) {
+          totalFound += body.eventsFound ?? 0;
+          totalUpserted += body.eventsUpserted ?? 0;
+          log('success', 'Feeds', `Discord: ${body.eventsUpserted}/${body.eventsFound} events from ${body.guilds} guilds`);
+        } else {
+          errors++;
+          log('error', 'Feeds', `Discord: ${body.error ?? 'failed'}`);
+        }
+      } catch (err) {
+        errors++;
+        log('error', 'Feeds', `Discord: ${String(err)}`);
+      }
+    }
+
+    log(errors > 0 ? 'warn' : 'success', 'Feeds', `Done: ${totalUpserted}/${totalFound} events, ${errors} errors`);
+    setRunningJob(null);
+    const scrollY = window.scrollY;
+    router.refresh();
+    requestAnimationFrame(() => window.scrollTo(0, scrollY));
+  }
+
   async function triggerScrape() {
     cancelledRef.current = false;
     setRunningJob('scrape');
@@ -430,7 +507,7 @@ export default function TriggerActions() {
           <div className="w-px h-5 bg-gray-200" />
 
           {/* Individual jobs */}
-          <button className={btnPrimary} disabled={isAnyJobRunning} onClick={() => triggerSingleJob('fetch-feeds')}>
+          <button className={btnPrimary} disabled={isAnyJobRunning} onClick={triggerFeeds}>
             Feeds
             {runningJob === 'fetch-feeds' && <Spinner />}
           </button>
