@@ -7,7 +7,7 @@ import MapClientWrapper from '@/components/map/MapClientWrapper';
 import EventList from '@/components/events/EventList';
 import EventFilters from '@/components/events/EventFilters';
 import MobileTabBar from '@/components/layout/MobileTabBar';
-import { filterByBounds, filterByDateRange, filterByProvince, filterByCategory } from '@/lib/filter-utils';
+import { filterByBounds, filterByDateRange, filterByProvince, filterByCategory, filterBySearch } from '@/lib/filter-utils';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 import {
   STEP_SIZE,
@@ -66,6 +66,7 @@ function HomeContent() {
   const [when] = useQueryState('when');
   const [province] = useQueryState('province');
   const [category] = useQueryState('category');
+  const [search, setSearch] = useQueryState('q');
 
   useEffect(() => {
     fetch('/api/events')
@@ -86,23 +87,25 @@ function HomeContent() {
       const timeWindowed = filterByTimeWindow(allEvents, center.getTime(), 24);
       const provinceFiltered = filterByProvince(timeWindowed, province);
       const categoryFiltered = filterByCategory(provinceFiltered, category);
+      const searched = filterBySearch(categoryFiltered, search);
       return {
-        sidebarEvents: filterByBounds(categoryFiltered, bounds),
-        heatPoints: computeVenueHeatPoints(categoryFiltered),
-        timeFilteredEvents: categoryFiltered,
-        mapEvents: categoryFiltered,
+        sidebarEvents: filterByBounds(searched, bounds),
+        heatPoints: computeVenueHeatPoints(searched),
+        timeFilteredEvents: searched,
+        mapEvents: searched,
       };
     }
     const dateFiltered = filterByDateRange(allEvents, when);
     const provinceFiltered = filterByProvince(dateFiltered, province);
     const categoryFiltered = filterByCategory(provinceFiltered, category);
+    const searched = filterBySearch(categoryFiltered, search);
     return {
-      sidebarEvents: filterByBounds(categoryFiltered, bounds),
+      sidebarEvents: filterByBounds(searched, bounds),
       heatPoints: [],
       timeFilteredEvents: [],
-      mapEvents: categoryFiltered,
+      mapEvents: searched,
     };
-  }, [mapMode, timePosition, allEvents, when, province, category, bounds, referenceDate]);
+  }, [mapMode, timePosition, allEvents, when, province, category, search, bounds, referenceDate]);
 
   // Current time label for TimelineBar
   const currentLabel = useMemo(() => {
@@ -134,6 +137,7 @@ function HomeContent() {
         when === 'today' ? 'today'
         : when === 'weekend' ? 'this weekend'
         : when === 'week' ? 'this week'
+        : when === 'month' ? 'in the next 30 days'
         : when;
       return `No events ${whenLabel}. Try a different date range.`;
     }
@@ -169,15 +173,26 @@ function HomeContent() {
         <h1 className="text-base font-bold text-gray-900 tracking-tight whitespace-nowrap mr-3">
           East Coast Local
         </h1>
+        <div className="flex-1" />
+        <div className="relative w-64">
+          <input
+            type="text"
+            placeholder="Search events or venues..."
+            value={search ?? ''}
+            onChange={(e) => setSearch(e.target.value || null)}
+            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] placeholder-gray-400"
+          />
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
       </header>
 
       {/* Filter bar — hidden in timelapse mode (TimelineBar replaces date filtering) */}
       {loading ? (
         <div className="flex-shrink-0 h-[44px] bg-white border-b border-gray-200 animate-pulse" />
       ) : mapMode === 'cluster' ? (
-        <EventFilters
-          eventCount={mapEvents.length}
-        />
+        <EventFilters eventCount={mapEvents.length} />
       ) : null}
 
       {/* Main content */}
@@ -188,6 +203,12 @@ function HomeContent() {
             activeTab === 'list' ? 'hidden md:block' : 'block'
           }`}
         >
+          {/* Event count — bottom left corner of map */}
+          {!loading && (
+            <div className="absolute bottom-3 left-3 z-[500] bg-white/90 backdrop-blur-sm text-xs font-semibold text-gray-700 px-2.5 py-1 rounded-full shadow-sm border border-gray-200">
+              {mapEvents.length} event{mapEvents.length !== 1 ? 's' : ''}
+            </div>
+          )}
           {loading ? (
             <div className="w-full h-full bg-gray-100 animate-pulse" />
           ) : (

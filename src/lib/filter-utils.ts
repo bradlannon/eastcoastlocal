@@ -77,7 +77,31 @@ export function filterByDateRange(
     );
   }
 
+  if (when === 'month') {
+    const start = startOfDay(now);
+    const end = endOfDay(addDays(now, 30));
+    return events.filter((e) =>
+      isWithinInterval(e.events.event_date, { start, end })
+    );
+  }
+
   return events;
+}
+
+/**
+ * Filter events by search query (matches performer name or venue name).
+ */
+export function filterBySearch(
+  events: EventWithVenue[],
+  query: string | null
+): EventWithVenue[] {
+  if (!query || !query.trim()) return events;
+  const q = query.toLowerCase().trim();
+  return events.filter((e) => {
+    const performer = e.events.performer?.toLowerCase() ?? '';
+    const venue = e.venues.name?.toLowerCase() ?? '';
+    return performer.includes(q) || venue.includes(q);
+  });
 }
 
 /**

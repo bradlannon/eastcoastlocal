@@ -1,13 +1,11 @@
 'use client';
 
 import { useQueryState } from 'nuqs';
-import { PROVINCE_LABELS } from '@/lib/province-bounds';
 import { EVENT_CATEGORIES } from '@/lib/db/schema';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface EventFiltersProps {
   eventCount: number;
-  onProvinceChange?: (province: string | null) => void;
 }
 
 const DATE_CHIPS = [
@@ -15,41 +13,28 @@ const DATE_CHIPS = [
   { value: 'today', label: 'Today' },
   { value: 'weekend', label: 'This Weekend' },
   { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'Next 30 Days' },
 ] as const;
 
-export default function EventFilters({ eventCount, onProvinceChange }: EventFiltersProps) {
+export default function EventFilters({ eventCount }: EventFiltersProps) {
   const [when, setWhen] = useQueryState('when');
-  const [province, setProvince] = useQueryState('province');
   const [category, setCategory] = useQueryState('category');
 
-  const hasFilters = !!(when || province || category);
+  const hasFilters = !!(when || category);
 
   function handleChipClick(value: string | null) {
     setWhen(value);
   }
 
-  function handleProvinceChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const value = e.target.value || null;
-    setProvince(value);
-    onProvinceChange?.(value);
-  }
-
   function handleClearFilters() {
     setWhen(null);
-    setProvince(null);
     setCategory(null);
-    onProvinceChange?.(null);
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0">
-      {/* Event count */}
-      <span className="text-sm font-semibold text-gray-800 mr-1 whitespace-nowrap">
-        {eventCount} event{eventCount !== 1 ? 's' : ''}
-      </span>
-
-      {/* Date chip filters */}
-      <div className="flex flex-wrap gap-1">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-gray-200 bg-white flex-shrink-0">
+      {/* Date chip filters — left side */}
+      <div className="flex gap-1 flex-shrink-0">
         {DATE_CHIPS.map((chip) => {
           const isActive = when === chip.value;
           return (
@@ -68,8 +53,11 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
         })}
       </div>
 
-      {/* Category chip filters */}
-      <div className="flex gap-1 overflow-x-auto no-scrollbar">
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* Category chip filters — right side */}
+      <div className="flex gap-1 overflow-x-auto no-scrollbar flex-shrink-0">
         <button
           onClick={() => setCategory(null)}
           className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
@@ -78,7 +66,7 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
               : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
           }`}
         >
-          All
+          All Types
         </button>
         {EVENT_CATEGORIES.map((cat) => {
           const isActive = category === cat;
@@ -99,27 +87,13 @@ export default function EventFilters({ eventCount, onProvinceChange }: EventFilt
         })}
       </div>
 
-      {/* Province dropdown */}
-      <select
-        value={province ?? ''}
-        onChange={handleProvinceChange}
-        className="text-xs border border-gray-300 rounded-full px-3 py-1 bg-white text-gray-600 hover:border-gray-400 focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] cursor-pointer"
-      >
-        <option value="">All Provinces</option>
-        {Object.entries(PROVINCE_LABELS).map(([code, label]) => (
-          <option key={code} value={code}>
-            {label}
-          </option>
-        ))}
-      </select>
-
       {/* Clear filters */}
       {hasFilters && (
         <button
           onClick={handleClearFilters}
-          className="text-xs text-[#E85D26] hover:text-orange-700 underline whitespace-nowrap transition-colors"
+          className="text-xs text-[#E85D26] hover:text-orange-700 underline whitespace-nowrap transition-colors flex-shrink-0"
         >
-          Clear filters
+          Clear
         </button>
       )}
     </div>
