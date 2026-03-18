@@ -170,12 +170,22 @@ function HomeContent() {
 
   return (
     <div className="flex flex-col" style={{ height: '100dvh' }}>
-      {/* Header */}
-      <header className="flex-shrink-0 flex items-center px-4 border-b border-gray-200 bg-white z-10 h-[52px]">
-        <h1 className="text-base font-bold text-gray-900 tracking-tight whitespace-nowrap mr-3">
-          East Coast Local
-        </h1>
-        <div className="flex-1" />
+      {/* Header — matches bradlannon.ca portfolio nav */}
+      <header className="flex-shrink-0 flex items-center justify-between bg-white z-10 h-[64px] border-b-2 border-[#2A9D8F]" style={{ padding: '0 60px', fontFamily: 'var(--font-nunito-sans), "Nunito Sans", sans-serif' }}>
+        <nav className="flex items-center gap-9">
+          <a href="https://www.bradlannon.ca/#portfolio" className="text-[15px] font-semibold uppercase tracking-[0.5px] text-[#6B6B6B] hover:text-[#2A9D8F] transition-colors no-underline">
+            Portfolio
+          </a>
+          <a href="https://www.bradlannon.ca/apps.html" className="text-[15px] font-semibold uppercase tracking-[0.5px] text-[#2A9D8F] no-underline">
+            Apps
+          </a>
+          <a href="https://www.bradlannon.ca/av.html" className="text-[15px] font-semibold uppercase tracking-[0.5px] text-[#6B6B6B] hover:text-[#2A9D8F] transition-colors no-underline">
+            A/V
+          </a>
+          <a href="https://www.bradlannon.ca/#about" className="text-[15px] font-semibold uppercase tracking-[0.5px] text-[#6B6B6B] hover:text-[#2A9D8F] transition-colors no-underline">
+            About me
+          </a>
+        </nav>
       </header>
 
       {/* Filter bar — hidden in timelapse mode (TimelineBar replaces date filtering) */}
