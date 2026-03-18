@@ -177,6 +177,8 @@ export default function TriggerActions() {
     log('info', label, `Searching ${cities.length} cities`);
     let totalFound = 0, totalApproved = 0, errors = 0;
 
+    let totalPending = 0, totalNoWebsite = 0, totalEnriched = 0;
+
     for (let i = 0; i < cities.length; i++) {
       if (cancelledRef.current) {
         log('warn', label, `Cancelled after ${i}/${cities.length} cities`);
@@ -186,10 +188,23 @@ export default function TriggerActions() {
         const res = await fetch(`/api/admin/trigger/${job}?city=${i}`, { method: 'POST' });
         const body = await res.json();
         if (body.success) {
-          totalFound += body.candidatesFound ?? 0;
-          totalApproved += body.autoApproved ?? 0;
-          if ((body.candidatesFound ?? 0) > 0) {
-            log('success', label, `${cities[i]}: ${body.candidatesFound} found, ${body.autoApproved} approved`);
+          const found = body.candidatesFound ?? 0;
+          const approved = body.autoApproved ?? 0;
+          const pending = body.stagedPending ?? 0;
+          const noWebsite = body.stagedNoWebsite ?? 0;
+          const enriched = body.enriched ?? 0;
+          totalFound += found;
+          totalApproved += approved;
+          totalPending += pending;
+          totalNoWebsite += noWebsite;
+          totalEnriched += enriched;
+          if (found > 0) {
+            const parts = [`${found} found`];
+            if (approved > 0) parts.push(`${approved} approved`);
+            if (pending > 0) parts.push(`${pending} pending review`);
+            if (enriched > 0) parts.push(`${enriched} existing updated`);
+            if (noWebsite > 0) parts.push(`${noWebsite} no website`);
+            log(approved > 0 ? 'success' : 'info', label, `${cities[i]}: ${parts.join(', ')}`);
           }
         } else {
           errors++;
@@ -201,7 +216,11 @@ export default function TriggerActions() {
       }
     }
 
-    log(errors > 0 ? 'warn' : 'success', label, `Done: ${totalFound} found, ${totalApproved} approved, ${errors} errors`);
+    const summary = [`${totalFound} found`, `${totalApproved} auto-approved`, `${totalPending} pending review`];
+    if (totalEnriched > 0) summary.push(`${totalEnriched} existing updated`);
+    if (totalNoWebsite > 0) summary.push(`${totalNoWebsite} no website`);
+    if (errors > 0) summary.push(`${errors} errors`);
+    log(errors > 0 ? 'warn' : 'success', label, `Done: ${summary.join(', ')}`);
     setRunningJob(null);
     const scrollY = window.scrollY;
     router.refresh();
@@ -364,7 +383,13 @@ export default function TriggerActions() {
     if (job === 'fetch-feeds') return `${body.eventsUpserted}/${body.eventsFound} events from ${body.feeds} feeds`;
     if (job === 'parse-newsletters') return `${body.emailsProcessed} emails, ${body.eventsUpserted}/${body.eventsFound} events`;
     if (job === 'detect-series') return `${body.seriesUpserted} series, ${body.eventsTagged} tagged`;
-    if (job.startsWith('discover')) return `${body.candidatesFound} found, ${body.autoApproved} approved`;
+    if (job.startsWith('discover')) {
+      const parts = [`${body.candidatesFound} found`, `${body.autoApproved} approved`];
+      if (body.stagedPending) parts.push(`${body.stagedPending} pending review`);
+      if (body.enriched) parts.push(`${body.enriched} existing updated`);
+      if (body.stagedNoWebsite) parts.push(`${body.stagedNoWebsite} no website`);
+      return parts.join(', ');
+    }
     return 'Done';
   }
 
