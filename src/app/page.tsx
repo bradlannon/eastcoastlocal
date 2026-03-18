@@ -176,31 +176,18 @@ function HomeContent() {
           East Coast Local
         </h1>
         <div className="flex-1" />
-        <button
-          onClick={() => setSubmitModalOpen(true)}
-          className="text-xs font-medium text-gray-500 hover:text-[#E85D26] transition-colors whitespace-nowrap mr-3"
-        >
-          + Submit Event
-        </button>
-        <div className="relative w-64">
-          <input
-            type="text"
-            placeholder="Search events or venues..."
-            value={search ?? ''}
-            onChange={(e) => setSearch(e.target.value || null)}
-            className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] placeholder-gray-400"
-          />
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
       </header>
 
       {/* Filter bar — hidden in timelapse mode (TimelineBar replaces date filtering) */}
       {loading ? (
         <div className="flex-shrink-0 h-[44px] bg-white border-b border-gray-200 animate-pulse" />
       ) : mapMode === 'cluster' ? (
-        <EventFilters eventCount={mapEvents.length} />
+        <EventFilters
+          eventCount={mapEvents.length}
+          search={search}
+          onSearchChange={setSearch}
+          onSubmitEvent={() => setSubmitModalOpen(true)}
+        />
       ) : null}
 
       {/* Main content */}
