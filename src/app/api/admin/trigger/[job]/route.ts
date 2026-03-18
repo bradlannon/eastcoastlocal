@@ -165,87 +165,65 @@ export async function POST(
         });
       }
 
-      case 'discover-places-ns': {
-        const { runPlacesDiscovery, PLACES_CITIES } = await import(
-          '@/lib/scraper/places-discoverer'
-        );
-        const startedAt = new Date();
-        const result = await runPlacesDiscovery(PLACES_CITIES.NS);
-        await db.insert(discovery_runs).values({
-          discovery_method: 'google_places',
-          province: 'NS',
-          started_at: startedAt,
-          completed_at: new Date(),
-          candidates_found: result.candidatesFound,
-          auto_approved: result.autoApproved,
-          queued_pending: result.stagedPending,
-          skipped_dedup: result.enriched,
-          errors: result.errors,
-        });
-        return NextResponse.json({
-          success: true,
-          ...result,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      case 'discover-places-nb': {
-        const { runPlacesDiscovery, PLACES_CITIES } = await import(
-          '@/lib/scraper/places-discoverer'
-        );
-        const startedAt = new Date();
-        const result = await runPlacesDiscovery(PLACES_CITIES.NB);
-        await db.insert(discovery_runs).values({
-          discovery_method: 'google_places',
-          province: 'NB',
-          started_at: startedAt,
-          completed_at: new Date(),
-          candidates_found: result.candidatesFound,
-          auto_approved: result.autoApproved,
-          queued_pending: result.stagedPending,
-          skipped_dedup: result.enriched,
-          errors: result.errors,
-        });
-        return NextResponse.json({
-          success: true,
-          ...result,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
-      case 'discover-places-pei': {
-        const { runPlacesDiscovery, PLACES_CITIES } = await import(
-          '@/lib/scraper/places-discoverer'
-        );
-        const startedAt = new Date();
-        const result = await runPlacesDiscovery(PLACES_CITIES.PEI);
-        await db.insert(discovery_runs).values({
-          discovery_method: 'google_places',
-          province: 'PEI',
-          started_at: startedAt,
-          completed_at: new Date(),
-          candidates_found: result.candidatesFound,
-          auto_approved: result.autoApproved,
-          queued_pending: result.stagedPending,
-          skipped_dedup: result.enriched,
-          errors: result.errors,
-        });
-        return NextResponse.json({
-          success: true,
-          ...result,
-          timestamp: new Date().toISOString(),
-        });
-      }
-
+      case 'discover-places-ns':
+      case 'discover-places-nb':
+      case 'discover-places-pei':
       case 'discover-places-nl': {
         const { runPlacesDiscovery, PLACES_CITIES } = await import(
           '@/lib/scraper/places-discoverer'
         );
+        const provinceCode = job.replace('discover-places-', '').toUpperCase();
+        const cities = PLACES_CITIES[provinceCode] ?? [];
+        const url = new URL(_request.url);
+        const cityParam = url.searchParams.get('city');
+
+        // Return city list for frontend iteration
+        if (cityParam === 'list') {
+          return NextResponse.json({
+            success: true,
+            cities: cities.map((c: { city: string; province: string }) => `${c.city}, ${c.province}`),
+          });
+        }
+
+        // Single-city mode
+        if (cityParam !== null) {
+          const cityIndex = parseInt(cityParam, 10);
+          if (isNaN(cityIndex) || cityIndex < 0 || cityIndex >= cities.length) {
+            return NextResponse.json(
+              { success: false, error: `Invalid city index (0-${cities.length - 1})` },
+              { status: 400 }
+            );
+          }
+          const startedAt = new Date();
+          const result = await runPlacesDiscovery([cities[cityIndex]]);
+          await db.insert(discovery_runs).values({
+            discovery_method: 'google_places',
+            province: provinceCode,
+            started_at: startedAt,
+            completed_at: new Date(),
+            candidates_found: result.candidatesFound,
+            auto_approved: result.autoApproved,
+            queued_pending: result.stagedPending,
+            skipped_dedup: result.enriched,
+            errors: result.errors,
+            error_detail: result.errors > 0 ? `City: ${cities[cityIndex].city}` : null,
+          });
+          return NextResponse.json({
+            success: true,
+            ...result,
+            cityIndex,
+            cityName: cities[cityIndex].city,
+            totalCities: cities.length,
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // Legacy: all cities at once (may timeout on large provinces)
         const startedAt = new Date();
-        const result = await runPlacesDiscovery(PLACES_CITIES.NL);
+        const result = await runPlacesDiscovery(cities);
         await db.insert(discovery_runs).values({
           discovery_method: 'google_places',
-          province: 'NL',
+          province: provinceCode,
           started_at: startedAt,
           completed_at: new Date(),
           candidates_found: result.candidatesFound,

@@ -151,53 +151,57 @@ export default function TriggerActions() {
 
   async function triggerDiscovery() {
     const job = discoveryType;
-    if (job !== 'discover') {
+    const isPlaces = job.startsWith('discover-places-');
+    const isCityIterable = job === 'discover' || isPlaces;
+
+    if (!isCityIterable) {
       return triggerSingleJob(job);
     }
 
     cancelledRef.current = false;
-    setRunningJob('discover');
-    log('info', 'Discovery', 'Loading city list...');
+    setRunningJob(job);
+    const label = jobLabel(job);
+    log('info', label, 'Loading city list...');
 
     let cities: string[] = [];
     try {
-      const listRes = await fetch('/api/admin/trigger/discover?city=list', { method: 'POST' });
+      const listRes = await fetch(`/api/admin/trigger/${job}?city=list`, { method: 'POST' });
       const listBody = await listRes.json();
       cities = listBody.cities ?? [];
     } catch {
-      log('error', 'Discovery', 'Failed to load city list');
+      log('error', label, 'Failed to load city list');
       setRunningJob(null);
       return;
     }
 
-    log('info', 'Discovery', `Searching ${cities.length} cities`);
+    log('info', label, `Searching ${cities.length} cities`);
     let totalFound = 0, totalApproved = 0, errors = 0;
 
     for (let i = 0; i < cities.length; i++) {
       if (cancelledRef.current) {
-        log('warn', 'Discovery', `Cancelled after ${i}/${cities.length} cities`);
+        log('warn', label, `Cancelled after ${i}/${cities.length} cities`);
         break;
       }
       try {
-        const res = await fetch(`/api/admin/trigger/discover?city=${i}`, { method: 'POST' });
+        const res = await fetch(`/api/admin/trigger/${job}?city=${i}`, { method: 'POST' });
         const body = await res.json();
         if (body.success) {
           totalFound += body.candidatesFound ?? 0;
           totalApproved += body.autoApproved ?? 0;
           if ((body.candidatesFound ?? 0) > 0) {
-            log('success', 'Discovery', `${cities[i]}: ${body.candidatesFound} found, ${body.autoApproved} approved`);
+            log('success', label, `${cities[i]}: ${body.candidatesFound} found, ${body.autoApproved} approved`);
           }
         } else {
           errors++;
-          log('error', 'Discovery', `${cities[i]}: failed`);
+          log('error', label, `${cities[i]}: ${body.error ?? 'failed'}`);
         }
-      } catch {
+      } catch (err) {
         errors++;
-        log('error', 'Discovery', `${cities[i]}: timeout/error`);
+        log('error', label, `${cities[i]}: ${String(err)}`);
       }
     }
 
-    log(errors > 0 ? 'warn' : 'success', 'Discovery', `Done: ${totalFound} found, ${totalApproved} approved, ${errors} errors`);
+    log(errors > 0 ? 'warn' : 'success', label, `Done: ${totalFound} found, ${totalApproved} approved, ${errors} errors`);
     setRunningJob(null);
     const scrollY = window.scrollY;
     router.refresh();
@@ -445,7 +449,7 @@ export default function TriggerActions() {
               <option key={opt.job} value={opt.job}>{opt.label}</option>
             ))}
           </select>
-          {runningJob === 'discover' || runningJob === discoveryType ? (
+          {runningJob === discoveryType || runningJob === 'discover' ? (
             <button className={btnCancel} onClick={() => { cancelledRef.current = true; }}>
               Cancel
             </button>
