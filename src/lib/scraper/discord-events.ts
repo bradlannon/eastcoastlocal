@@ -27,10 +27,9 @@ export interface DiscordGuild {
  * Add guild IDs here after inviting the bot to each server.
  */
 export const DISCORD_GUILDS: DiscordGuild[] = [
-  // Uncomment and add guild IDs after creating the bot and joining servers:
-  // { id: '123456789012345678', name: 'r/Halifax', province: 'NS', defaultCity: 'Halifax' },
-  // { id: '234567890123456789', name: 'Nova Scotia Community', province: 'NS', defaultCity: 'Halifax' },
-  // { id: '345678901234567890', name: 'Fredericton Events', province: 'NB', defaultCity: 'Fredericton' },
+  { id: '1483615762706075731', name: 'ECL Atlantic Events', province: 'NS', defaultCity: 'Halifax' },
+  // Add more guilds here after inviting the bot to other servers:
+  // Bot invite: https://discord.com/oauth2/authorize?client_id=1483607791250706582&permissions=1024&scope=bot
 ];
 
 // ─── Discord API types ───────────────────────────────────────────────────
