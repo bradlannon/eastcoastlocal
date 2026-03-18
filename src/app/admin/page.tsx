@@ -175,34 +175,36 @@ export default async function AdminDashboardPage() {
       </div>
 
       {/* Stat bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 mb-4">
         <Link href="/admin/venues" className="block">
-          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center hover:shadow-md transition-shadow">
             <p className="text-xs text-gray-500">Venues</p>
             <p className="text-xl font-bold text-gray-900">{venueCount}</p>
           </div>
         </Link>
-        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center">
           <p className="text-xs text-gray-500">Sources</p>
           <p className="text-xl font-bold text-gray-900">{activeSourceCount}</p>
         </div>
-        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center">
           <p className="text-xs text-gray-500">Events</p>
           <p className="text-xl font-bold text-gray-900">{activeEventCount}</p>
         </div>
         <Link href="/admin/discovery" className="block">
-          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 hover:shadow-md transition-shadow">
+          <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center hover:shadow-md transition-shadow">
             <p className="text-xs text-gray-500">Pending</p>
             <p className="text-xl font-bold text-gray-900">{pendingDiscoveryCount}</p>
           </div>
         </Link>
-        <div className="bg-white rounded-lg shadow-sm border px-4 py-3">
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center">
           <p className="text-xs text-gray-500">Last Scrape</p>
-          <p className={`text-sm font-semibold mt-0.5 ${isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'}`}>
+          <p className={`text-sm font-semibold ${isStale(lastScrapeTime) ? 'text-amber-600' : 'text-gray-900'}`}>
             {relativeTime(lastScrapeTime)}
           </p>
-          <p className="text-xs text-gray-500 mt-1">Last Discovery</p>
-          <p className={`text-sm font-semibold mt-0.5 ${lastDiscoveryRun && lastDiscoveryRun.errors > 0 ? 'text-red-600' : isStale(lastDiscoveryRun?.completedAt ?? null) ? 'text-amber-600' : 'text-gray-900'}`}>
+        </div>
+        <div className="bg-white rounded-lg shadow-sm border px-4 py-3 h-[72px] flex flex-col items-center justify-center">
+          <p className="text-xs text-gray-500">Last Discovery</p>
+          <p className={`text-sm font-semibold ${lastDiscoveryRun && lastDiscoveryRun.errors > 0 ? 'text-red-600' : isStale(lastDiscoveryRun?.completedAt ?? null) ? 'text-amber-600' : 'text-gray-900'}`}>
             {relativeTime(lastDiscoveryRun?.completedAt ?? null)}
           </p>
         </div>
