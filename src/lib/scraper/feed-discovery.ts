@@ -1,6 +1,28 @@
 import * as cheerio from 'cheerio';
-import { gotScraping } from 'got-scraping';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
+
+// Realistic Chrome UA for fetch fallback
+const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/** Fetch a URL with got-scraping if available, otherwise native fetch with Chrome headers. */
+async function stealthFetch(url: string, timeoutMs = 10_000): Promise<{ body: string; statusCode: number }> {
+  try {
+    const { gotScraping } = await import('got-scraping');
+    const resp = await gotScraping({
+      url,
+      timeout: { request: timeoutMs },
+      headerGeneratorOptions: { browsers: ['chrome'], operatingSystems: ['macos'], locales: ['en-US'] },
+    });
+    return { body: resp.body, statusCode: resp.statusCode };
+  } catch {
+    // Fallback to native fetch
+    const resp = await fetch(url, {
+      headers: { 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    return { body: await resp.text(), statusCode: resp.status };
+  }
+}
 
 // ─── Feed auto-discovery ─────────────────────────────────────────────────
 
@@ -70,15 +92,7 @@ export async function probeFeedUrls(siteUrl: string): Promise<{ url: string; bod
   for (const path of FEED_PATH_PATTERNS) {
     const feedUrl = origin + path;
     try {
-      const resp = await gotScraping({
-        url: feedUrl,
-        timeout: { request: 8_000 },
-        headerGeneratorOptions: {
-          browsers: ['chrome'],
-          operatingSystems: ['macos'],
-          locales: ['en-US'],
-        },
-      });
+      const resp = await stealthFetch(feedUrl, 8_000);
 
       if (resp.statusCode !== 200 || resp.body.length < 100) continue;
 
@@ -101,15 +115,7 @@ export async function probeFeedUrls(siteUrl: string): Promise<{ url: string; bod
  */
 export async function fetchFeedUrl(url: string): Promise<{ body: string; type: 'rss' | 'atom' | 'ical' } | null> {
   try {
-    const resp = await gotScraping({
-      url,
-      timeout: { request: 10_000 },
-      headerGeneratorOptions: {
-        browsers: ['chrome'],
-        operatingSystems: ['macos'],
-        locales: ['en-US'],
-      },
-    });
+    const resp = await stealthFetch(url, 10_000);
 
     if (resp.statusCode !== 200 || resp.body.length < 100) return null;
 

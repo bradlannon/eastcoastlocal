@@ -1,9 +1,11 @@
 import * as cheerio from 'cheerio';
-import { gotScraping } from 'got-scraping';
 
 // Module-level per-domain rate limiting state
 const domainLastRequest = new Map<string, number>();
 const DOMAIN_MIN_GAP_MS = 2000; // 2s base + up to 500ms jitter
+
+// Realistic Chrome UA for fallback fetch
+const CHROME_UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 function delay(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -20,37 +22,85 @@ async function applyDomainRateLimit(url: string): Promise<void> {
   domainLastRequest.set(domain, Date.now());
 }
 
+// ─── got-scraping with fallback ──────────────────────────────────────────
+
+let _gotScraping: typeof import('got-scraping').gotScraping | null = null;
+let _gotLoaded = false;
+
+async function getGotScraping() {
+  if (_gotLoaded) return _gotScraping;
+  _gotLoaded = true;
+  try {
+    const mod = await import('got-scraping');
+    _gotScraping = mod.gotScraping;
+  } catch {
+    // got-scraping unavailable (e.g. Vercel serverless) — will use fetch fallback
+    _gotScraping = null;
+  }
+  return _gotScraping;
+}
+
 /**
- * Fetch using got-scraping — browser-like TLS/JA3 fingerprint + auto-generated
- * realistic headers (User-Agent, Accept, sec-ch-ua, etc.).
- * Retries transient errors with exponential backoff.
+ * Fetch with got-scraping if available, otherwise fall back to native fetch
+ * with realistic Chrome headers. Retries transient errors with backoff.
  */
 async function fetchWithRetry(url: string, retries = 2): Promise<{ body: string; statusCode: number }> {
   let lastErr: Error | null = null;
+  const gotScraping = await getGotScraping();
 
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      const backoffMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s
+      const backoffMs = 1000 * Math.pow(2, attempt - 1);
       await delay(backoffMs);
     }
     try {
-      const resp = await gotScraping({
-        url,
-        timeout: { request: 15_000 },
-        headerGeneratorOptions: {
-          browsers: ['chrome'],
-          operatingSystems: ['macos', 'windows'],
-          locales: ['en-US', 'en-CA'],
-        },
-      });
-      // Only retry on transient errors
-      if (resp.statusCode === 429 || resp.statusCode === 503) {
+      let body: string;
+      let statusCode: number;
+
+      if (gotScraping) {
+        // got-scraping: browser-like TLS fingerprint + auto-generated headers
+        const resp = await gotScraping({
+          url,
+          timeout: { request: 15_000 },
+          headerGeneratorOptions: {
+            browsers: ['chrome'],
+            operatingSystems: ['macos', 'windows'],
+            locales: ['en-US', 'en-CA'],
+          },
+        });
+        body = resp.body;
+        statusCode = resp.statusCode;
+      } else {
+        // Fallback: native fetch with realistic Chrome headers
+        const resp = await fetch(url, {
+          headers: {
+            'User-Agent': CHROME_UA,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache',
+            'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"macOS"',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Sec-Fetch-User': '?1',
+            'Upgrade-Insecure-Requests': '1',
+          },
+          signal: AbortSignal.timeout(15_000),
+        });
+        body = await resp.text();
+        statusCode = resp.status;
+      }
+
+      if (statusCode === 429 || statusCode === 503) {
         if (attempt < retries) {
-          lastErr = new Error(`HTTP error: ${resp.statusCode} for ${url}`);
+          lastErr = new Error(`HTTP error: ${statusCode} for ${url}`);
           continue;
         }
       }
-      return { body: resp.body, statusCode: resp.statusCode };
+      return { body, statusCode };
     } catch (err) {
       lastErr = err as Error;
     }
