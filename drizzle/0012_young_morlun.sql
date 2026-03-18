@@ -1,5 +1,8 @@
-CREATE TYPE "public"."submission_status" AS ENUM('pending', 'approved', 'rejected');--> statement-breakpoint
-CREATE TABLE "community_submissions" (
+DO $$ BEGIN
+  CREATE TYPE "public"."submission_status" AS ENUM('pending', 'approved', 'rejected');
+EXCEPTION WHEN duplicate_object THEN null;
+END $$;--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "community_submissions" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"performer" text NOT NULL,
 	"venue_name" text NOT NULL,
@@ -16,4 +19,7 @@ CREATE TABLE "community_submissions" (
 	"reviewed_at" timestamp
 );
 --> statement-breakpoint
-ALTER TABLE "scrape_sources" ADD COLUMN "last_scrape_error" text;
+DO $$ BEGIN
+  ALTER TABLE "scrape_sources" ADD COLUMN "last_scrape_error" text;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
