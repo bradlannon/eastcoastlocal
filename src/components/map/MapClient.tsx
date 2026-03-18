@@ -13,7 +13,7 @@ import MapBoundsTracker from './MapBoundsTracker';
 import ClusterLayer from './ClusterLayer';
 import HeatmapLayer from './HeatmapLayer';
 import ModeToggle from './ModeToggle';
-import GeolocationButton from './GeolocationButton';
+import ZoomControls from './ZoomControls';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
@@ -85,6 +85,7 @@ export default function MapClient({
         maxBounds={ATLANTIC_CANADA_MAX_BOUNDS}
         maxBoundsViscosity={1.0}
         minZoom={MIN_ZOOM}
+        zoomControl={false}
       >
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -109,7 +110,7 @@ export default function MapClient({
             />
           </>
         )}
-        <GeolocationButton />
+        <ZoomControls activeProvince={province} />
         <MapViewController
           province={province ?? null}
           flyToTarget={flyToTarget ?? null}

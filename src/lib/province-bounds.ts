@@ -1,26 +1,26 @@
 import type { LatLngBoundsLiteral } from 'leaflet';
 
-// Center of Atlantic Canada (adjusted for Labrador) for initial map view
-export const ATLANTIC_CANADA_CENTER: [number, number] = [49.5, -61.0];
+// Center of Atlantic Canada — focused on the populated region
+// (NS/NB/PEI + island of Newfoundland, not Labrador)
+export const ATLANTIC_CANADA_CENTER: [number, number] = [46.8, -62.5];
 
-// Initial zoom level to show all four Atlantic provinces including Labrador
-export const INITIAL_ZOOM = 5;
+// Initial zoom to frame NS, NB, PEI, and island of Newfoundland without Labrador
+export const INITIAL_ZOOM = 6;
 
-// Minimum zoom — the level at which all four provinces are visible.
-// Further zoom-out is disabled.
+// Minimum zoom — still allows seeing all four provinces at a glance
 export const MIN_ZOOM = 5;
 
-// Bounding box for all of Atlantic Canada (NB, NS, PEI, NL including Labrador)
+// Bounding box for the populated region of Atlantic Canada
+// (southern Labrador coast is the northern extent, not full Labrador)
 export const ATLANTIC_CANADA_BOUNDS: LatLngBoundsLiteral = [
   [43.0, -68.0],
-  [61.0, -52.0],
+  [52.0, -52.5],
 ];
 
-// Tight bounds used as maxBounds to constrain map panning to Atlantic Canada only.
-// Small padding around the province extents to allow comfortable panning at zoom.
+// Max bounds — allows panning up into Labrador if desired but doesn't center on it
 export const ATLANTIC_CANADA_MAX_BOUNDS: LatLngBoundsLiteral = [
   [42.5, -69.0],
-  [61.5, -51.0],
+  [55.0, -51.0],
 ];
 
 // Per-province bounding boxes
