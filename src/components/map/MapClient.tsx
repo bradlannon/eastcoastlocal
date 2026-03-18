@@ -14,6 +14,7 @@ import ClusterLayer from './ClusterLayer';
 import HeatmapLayer from './HeatmapLayer';
 import ModeToggle from './ModeToggle';
 import ZoomControls from './ZoomControls';
+import PopupController from './PopupController';
 import MapViewController from './MapViewController';
 import type { FlyToTarget } from './MapViewController';
 import TimelineBar from '../timelapse/TimelineBar';
@@ -111,6 +112,7 @@ export default function MapClient({
           </>
         )}
         <ZoomControls activeProvince={province} />
+        <PopupController markersRef={markersRef} />
         <MapViewController
           province={province ?? null}
           flyToTarget={flyToTarget ?? null}

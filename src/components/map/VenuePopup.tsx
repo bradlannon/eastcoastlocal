@@ -14,28 +14,26 @@ export default function VenuePopup({ venue, events }: VenuePopupProps) {
   );
 
   return (
-    <div className="min-w-[200px] max-w-[260px]">
-      <div className="font-bold text-gray-900 text-sm mb-1">{venue.name}</div>
-      <div className="text-xs text-gray-500 mb-2">
-        {sortedEvents.length} upcoming event{sortedEvents.length !== 1 ? 's' : ''}
+    <div className="min-w-[180px] max-w-[220px]">
+      <div className="font-bold text-gray-900 text-xs leading-tight">{venue.name}</div>
+      <div className="text-[10px] text-gray-400 mb-1">
+        {sortedEvents.length} event{sortedEvents.length !== 1 ? 's' : ''}
       </div>
-      <div className="max-h-[180px] overflow-y-auto space-y-2">
+      <div className="max-h-[140px] overflow-y-auto space-y-1">
         {sortedEvents.map((item) => {
           const ev = item.events;
           return (
-            <div key={ev.id} className="border-t border-gray-100 pt-2 first:border-t-0 first:pt-0">
-              <div className="text-xs font-semibold text-gray-800">{ev.performer}</div>
-              <div className="text-xs text-gray-500">
+            <a
+              key={ev.id}
+              href={`/event/${ev.id}`}
+              className="block border-t border-gray-100 pt-1 first:border-t-0 first:pt-0 hover:bg-gray-50 -mx-1 px-1 rounded transition-colors"
+            >
+              <div className="text-[11px] font-semibold text-gray-800 leading-tight truncate">{ev.performer}</div>
+              <div className="text-[10px] text-gray-500 leading-tight">
                 {format(new Date(ev.event_date), 'EEE, MMM d')}
                 {ev.event_time ? ` · ${ev.event_time}` : ''}
               </div>
-              <a
-                href={`/event/${ev.id}`}
-                className="text-xs text-orange-600 hover:text-orange-700 font-medium"
-              >
-                View Details →
-              </a>
-            </div>
+            </a>
           );
         })}
       </div>
