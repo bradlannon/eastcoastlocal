@@ -1,8 +1,7 @@
 'use client';
 
 import { useQueryState } from 'nuqs';
-import { EVENT_CATEGORIES } from '@/lib/db/schema';
-import { CATEGORY_META, type EventCategory } from '@/lib/categories';
+import { CATEGORY_META, PUBLIC_CATEGORIES, type EventCategory } from '@/lib/categories';
 
 interface EventFiltersProps {
   eventCount: number;
@@ -68,7 +67,7 @@ export default function EventFilters({ eventCount }: EventFiltersProps) {
         >
           All Types
         </button>
-        {EVENT_CATEGORIES.map((cat) => {
+        {PUBLIC_CATEGORIES.map((cat) => {
           const isActive = category === cat;
           const meta = CATEGORY_META[cat as EventCategory];
           return (

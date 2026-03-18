@@ -122,11 +122,17 @@ export function filterByProvince(
  * @param events - Array of EventWithVenue objects
  * @param category - null (all) or a category string like 'live_music', 'comedy', etc.
  */
+// "Other" category on the public site also includes sports and festival
+const OTHER_GROUP = new Set(['other', 'sports', 'festival']);
+
 export function filterByCategory(
   events: EventWithVenue[],
   category: string | null
 ): EventWithVenue[] {
   if (!category) return events;
+  if (category === 'other') {
+    return events.filter((e) => OTHER_GROUP.has(e.events.event_category ?? 'other'));
+  }
   return events.filter((e) => e.events.event_category === category);
 }
 

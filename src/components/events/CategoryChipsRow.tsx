@@ -1,7 +1,7 @@
 'use client';
 
 import { useQueryState } from 'nuqs';
-import { EVENT_CATEGORIES } from '@/lib/db/schema';
+import { PUBLIC_CATEGORIES } from '@/lib/categories';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface CategoryChipsRowProps {
@@ -33,7 +33,7 @@ export default function CategoryChipsRow({ eventCount }: CategoryChipsRowProps) 
         </button>
 
         {/* Category buttons */}
-        {EVENT_CATEGORIES.map((cat) => {
+        {PUBLIC_CATEGORIES.map((cat) => {
           const isActive = category === cat;
           const meta = CATEGORY_META[cat as EventCategory];
           return (

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { EVENT_CATEGORIES } from '@/lib/db/schema';
+import { PUBLIC_CATEGORIES } from '@/lib/categories';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 
 interface SubmitEventModalProps {
@@ -130,7 +130,7 @@ export default function SubmitEventModal({ open, onClose }: SubmitEventModalProp
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Category *</label>
               <select name="event_category" required defaultValue="community" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] bg-white">
-                {EVENT_CATEGORIES.map((cat) => (
+                {PUBLIC_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {CATEGORY_META[cat as EventCategory].label}
                   </option>

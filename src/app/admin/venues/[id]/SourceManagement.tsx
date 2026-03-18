@@ -22,6 +22,7 @@ const SOURCE_TYPE_LABELS: Record<string, string> = {
   bandsintown: 'Bandsintown',
   ticketmaster: 'Ticketmaster',
   venue_website: 'Website',
+  facebook_page: 'Facebook',
 };
 
 function SourceTypeBadge({ type }: { type: string }) {
@@ -33,6 +34,8 @@ function SourceTypeBadge({ type }: { type: string }) {
       ? 'bg-green-100 text-green-700'
       : type === 'ticketmaster'
       ? 'bg-blue-100 text-blue-800'
+      : type === 'facebook_page'
+      ? 'bg-indigo-100 text-indigo-700'
       : 'bg-blue-100 text-blue-700';
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${colorClass}`}>

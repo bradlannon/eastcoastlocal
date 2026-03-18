@@ -142,6 +142,8 @@ export async function addSource(
     sourceType = 'bandsintown';
   } else if (url.includes('ticketmaster')) {
     sourceType = 'ticketmaster';
+  } else if (url.includes('facebook.com')) {
+    sourceType = 'facebook_page';
   }
 
   // Insert the new source

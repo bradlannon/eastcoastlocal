@@ -10,6 +10,7 @@ import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
 import { scrapeTicketmaster } from './ticketmaster';
 import { tryFeedFallback, tryDiscoveredFeeds } from './feed-discovery';
+import { scrapeFacebookEvents } from './facebook';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Delay between AI extraction requests to stay within Gemini rate limits.
@@ -171,6 +172,21 @@ export async function runScrapeForProvince(province: Province): Promise<ScrapeRe
       } else if (source.source_type === 'ticketmaster') {
         await scrapeTicketmaster(source);
         console.log(`  ✓ [${province}] Ticketmaster source ${source.id} (${source.url})`);
+      } else if (source.source_type === 'facebook_page') {
+        const fbEvents = await scrapeFacebookEvents(source.url, {
+          venueId: source.venue_id,
+          scrapeSourceId: source.id,
+        });
+        sourceEventCount = fbEvents.length;
+        for (const event of fbEvents) {
+          await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
+        }
+        eventCount += fbEvents.length;
+        const fbVenue = venueMap.get(source.venue_id);
+        console.log(`  ✓ [${province}] Facebook ${fbVenue?.name ?? source.id}: ${fbEvents.length} events`);
+        if (HTTP_THROTTLE_MS > 0) {
+          await delay(HTTP_THROTTLE_MS);
+        }
       } else {
         console.warn(`[${province}] Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }

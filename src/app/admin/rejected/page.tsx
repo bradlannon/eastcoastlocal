@@ -1,4 +1,5 @@
-import { desc, eq, sql, count } from 'drizzle-orm';
+import Link from 'next/link';
+import { desc, eq, sql, count, like } from 'drizzle-orm';
 import { db } from '@/lib/db/client';
 import { rejected_events, venues } from '@/lib/db/schema';
 import RejectedList from './_components/RejectedList';
@@ -22,7 +23,14 @@ function hasWeekday(text: string | null): boolean {
   return WEEKDAYS.some((d) => lower.includes(d));
 }
 
-export default async function RejectedEventsPage() {
+interface RejectedEventsPageProps {
+  searchParams?: Promise<{ reason?: string }>;
+}
+
+export default async function RejectedEventsPage({ searchParams }: RejectedEventsPageProps) {
+  const sp = searchParams ? await searchParams : {};
+  const activeReason = sp.reason ?? null;
+
   // Summary by reason
   const reasonCounts = await db
     .select({
@@ -41,7 +49,12 @@ export default async function RejectedEventsPage() {
     .groupBy(sql`1`)
     .orderBy(desc(count()));
 
-  // Recent rejections with venue name
+  // Build where clause for reason filter
+  const reasonFilter = activeReason
+    ? like(rejected_events.rejection_reason, `${activeReason}%`)
+    : undefined;
+
+  // Filtered rejections with venue name
   const rows = await db
     .select({
       id: rejected_events.id,
@@ -58,6 +71,7 @@ export default async function RejectedEventsPage() {
     })
     .from(rejected_events)
     .leftJoin(venues, eq(rejected_events.venue_id, venues.id))
+    .where(reasonFilter)
     .orderBy(desc(rejected_events.created_at))
     .limit(200);
 
@@ -89,19 +103,44 @@ export default async function RejectedEventsPage() {
         </h1>
       </div>
 
-      {/* Reason summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 mb-6">
+      {/* Reason filter cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-7 gap-3 mb-6">
+        <Link href="/admin/rejected" className="block">
+          <div className={`rounded-lg shadow-sm border px-4 py-3 transition-all cursor-pointer ${
+            !activeReason ? 'ring-2 ring-[#E85D26] bg-orange-50' : 'bg-white hover:shadow-md'
+          }`}>
+            <p className="text-xs text-gray-500">All</p>
+            <p className="text-xl font-bold text-gray-900">{totalRejected}</p>
+          </div>
+        </Link>
         {reasonCounts.map((r) => {
           const key = Object.keys(REASON_LABELS).find((k) => r.reason.startsWith(k));
           const meta = key ? REASON_LABELS[key] : { label: r.reason, color: 'bg-gray-100 text-gray-700' };
+          const isActive = activeReason === r.reason;
           return (
-            <div key={r.reason} className="bg-white rounded-lg shadow-sm border px-4 py-3">
-              <p className="text-xs text-gray-500">{meta.label}</p>
-              <p className="text-xl font-bold text-gray-900">{r.count}</p>
-            </div>
+            <Link key={r.reason} href={isActive ? '/admin/rejected' : `/admin/rejected?reason=${r.reason}`} className="block">
+              <div className={`rounded-lg shadow-sm border px-4 py-3 transition-all cursor-pointer ${
+                isActive ? 'ring-2 ring-[#E85D26] bg-orange-50' : 'bg-white hover:shadow-md'
+              }`}>
+                <p className="text-xs text-gray-500">{meta.label}</p>
+                <p className="text-xl font-bold text-gray-900">{r.count}</p>
+              </div>
+            </Link>
           );
         })}
       </div>
+
+      {/* Showing filter label */}
+      {activeReason && (
+        <div className="flex items-center gap-2 mb-4">
+          <span className="text-sm text-gray-500">
+            Showing {rows.length} results for <span className="font-medium text-gray-700">{REASON_LABELS[activeReason]?.label ?? activeReason}</span>
+          </span>
+          <Link href="/admin/rejected" className="text-xs text-[#E85D26] hover:text-orange-700 underline">
+            Clear filter
+          </Link>
+        </div>
+      )}
 
       {/* Rejection list */}
       <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
