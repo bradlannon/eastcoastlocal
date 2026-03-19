@@ -1,3 +1,4 @@
+import { verifyCronSecret } from '@/lib/cron-auth';
 import { runRedditDiscovery, ALL_REDDIT_SUBREDDITS } from '@/lib/scraper/reddit-discoverer';
 import { db } from '@/lib/db/client';
 import { discovery_runs } from '@/lib/db/schema';
@@ -5,8 +6,7 @@ import { discovery_runs } from '@/lib/db/schema';
 export const maxDuration = 60;
 
 export async function GET(request: Request): Promise<Response> {
-  const authHeader = request.headers.get('authorization');
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!verifyCronSecret(request.headers.get('authorization'))) {
     return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 

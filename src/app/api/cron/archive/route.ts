@@ -1,10 +1,8 @@
+import { verifyCronSecret } from '@/lib/cron-auth';
 import { archivePastEvents } from '@/lib/archiver';
 
 export async function GET(request: Request): Promise<Response> {
-  const authHeader = request.headers.get('authorization');
-  const expectedToken = `Bearer ${process.env.CRON_SECRET}`;
-
-  if (authHeader !== expectedToken) {
+  if (!verifyCronSecret(request.headers.get('authorization'))) {
     return Response.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 

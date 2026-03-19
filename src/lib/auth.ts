@@ -13,20 +13,71 @@ function getSecret(): Uint8Array {
   return new TextEncoder().encode(secret);
 }
 
+const PBKDF2_ITERATIONS = 100_000;
+const SALT_LENGTH = 16;
+
+/**
+ * Hash password with PBKDF2-SHA256 + random salt.
+ * Output format: hex(salt):hex(hash)
+ */
 export async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+  const salt = crypto.getRandomValues(new Uint8Array(SALT_LENGTH));
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(password),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+  const hashBuffer = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+    keyMaterial,
+    256
+  );
+  const saltHex = Array.from(salt).map((b) => b.toString(16).padStart(2, "0")).join("");
+  const hashHex = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return `${saltHex}:${hashHex}`;
 }
 
+/**
+ * Verify password against a stored hash.
+ * Supports both new PBKDF2 format (salt:hash) and legacy SHA-256 (plain hex).
+ */
 export async function verifyPassword(
   password: string,
-  hash: string
+  storedHash: string
 ): Promise<boolean> {
-  const inputHash = await hashPassword(password);
-  return inputHash === hash;
+  if (storedHash.includes(":")) {
+    // New PBKDF2 format
+    const [saltHex, expectedHash] = storedHash.split(":");
+    const salt = new Uint8Array(saltHex.match(/.{2}/g)!.map((b) => parseInt(b, 16)));
+    const keyMaterial = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode(password),
+      "PBKDF2",
+      false,
+      ["deriveBits"]
+    );
+    const hashBuffer = await crypto.subtle.deriveBits(
+      { name: "PBKDF2", salt, iterations: PBKDF2_ITERATIONS, hash: "SHA-256" },
+      keyMaterial,
+      256
+    );
+    const hashHex = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    // Timing-safe comparison
+    if (hashHex.length !== expectedHash.length) return false;
+    let mismatch = 0;
+    for (let i = 0; i < hashHex.length; i++) {
+      mismatch |= hashHex.charCodeAt(i) ^ expectedHash.charCodeAt(i);
+    }
+    return mismatch === 0;
+  }
+
+  // Legacy SHA-256 fallback (no salt)
+  const data = new TextEncoder().encode(password);
+  const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+  const inputHash = Array.from(new Uint8Array(hashBuffer)).map((b) => b.toString(16).padStart(2, "0")).join("");
+  return inputHash === storedHash;
 }
 
 export async function signToken(): Promise<string> {
