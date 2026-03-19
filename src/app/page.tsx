@@ -171,7 +171,7 @@ function HomeContent() {
   return (
     <div className="flex flex-col" style={{ height: '100dvh' }}>
       {/* Header — matches bradlannon.ca portfolio nav */}
-      <header className="flex-shrink-0 flex items-center justify-between bg-white z-10 h-[64px] border-b-2 border-[#2A9D8F]" style={{ padding: '0 60px', fontFamily: 'var(--font-nunito-sans), "Nunito Sans", sans-serif' }}>
+      <header className="flex-shrink-0 flex items-center justify-between bg-white z-10 h-[64px] border-b-2 border-[#2A9D8F]" style={{ padding: '0 60px', fontFamily: '"Nunito Sans", sans-serif' }}>
         <nav className="flex items-center gap-9">
           <a href="https://www.bradlannon.ca/#portfolio" className="text-[15px] font-semibold uppercase tracking-[0.5px] text-[#6B6B6B] hover:text-[#2A9D8F] transition-colors no-underline">
             Portfolio
