@@ -219,11 +219,17 @@ export default function ClusterLayer({
             }
           }}
           eventHandlers={{
-            mouseover: (e) => e.target.openPopup(),
-            mouseout: (e) => e.target.closePopup(),
+            click: (e) => {
+              const marker = e.target;
+              if (marker.isPopupOpen()) {
+                marker.closePopup();
+              } else {
+                marker.openPopup();
+              }
+            },
           }}
         >
-          <Popup>
+          <Popup autoClose={false} closeOnClick={false}>
             <VenuePopup venue={venue} events={venueEvents} />
           </Popup>
         </Marker>

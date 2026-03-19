@@ -23,17 +23,25 @@ export default function VenuePopup({ venue, events }: VenuePopupProps) {
         {sortedEvents.map((item) => {
           const ev = item.events;
           return (
-            <a
+            <div
               key={ev.id}
-              href={`/event/${ev.id}`}
-              className="block border-t border-gray-100 pt-1 first:border-t-0 first:pt-0 hover:bg-gray-50 -mx-1 px-1 rounded transition-colors"
+              className="border-t border-gray-100 pt-1 first:border-t-0 first:pt-0 -mx-1 px-1"
             >
               <div className="text-[11px] font-semibold text-gray-800 leading-tight truncate">{ev.performer}</div>
-              <div className="text-[10px] text-gray-500 leading-tight">
-                {format(new Date(ev.event_date), 'EEE, MMM d')}
-                {ev.event_time ? ` · ${ev.event_time}` : ''}
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 leading-tight">
+                  {format(new Date(ev.event_date), 'EEE, MMM d')}
+                  {ev.event_time ? ` · ${ev.event_time}` : ''}
+                </span>
+                <a
+                  href={`/event/${ev.id}`}
+                  className="text-[10px] font-medium text-[#2A9D8F] hover:text-[#237d72] transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Details
+                </a>
               </div>
-            </a>
+            </div>
           );
         })}
       </div>
