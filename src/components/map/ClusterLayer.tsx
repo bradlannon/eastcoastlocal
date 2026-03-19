@@ -202,6 +202,7 @@ export default function ClusterLayer({
     <MarkerClusterGroup
       chunkedLoading
       iconCreateFunction={createClusterIcon}
+      showCoverageOnHover={false}
     >
       {Array.from(venueMap.values()).map(({ venue, events: venueEvents }) => (
         <Marker
