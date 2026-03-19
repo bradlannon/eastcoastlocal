@@ -91,22 +91,22 @@ export default function SubmitEventModal({ open, onClose }: SubmitEventModalProp
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Event / Performer Name *</label>
-              <input name="performer" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+              <input name="performer" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Venue Name *</label>
-              <input name="venue_name" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+              <input name="venue_name" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">City *</label>
-                <input name="city" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+                <input name="city" required className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Province *</label>
-                <select name="province" required defaultValue="" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] bg-white">
+                <select name="province" required defaultValue="" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F] bg-white">
                   <option value="" disabled>Select</option>
                   <option value="NS">Nova Scotia</option>
                   <option value="NB">New Brunswick</option>
@@ -119,17 +119,17 @@ export default function SubmitEventModal({ open, onClose }: SubmitEventModalProp
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date *</label>
-                <input name="event_date" type="date" required min={new Date().toISOString().split('T')[0]} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+                <input name="event_date" type="date" required min={new Date().toISOString().split('T')[0]} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Time</label>
-                <input name="event_time" placeholder="e.g. 8pm" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+                <input name="event_time" placeholder="e.g. 8pm" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
               </div>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Category *</label>
-              <select name="event_category" required defaultValue="community" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] bg-white">
+              <select name="event_category" required defaultValue="community" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F] bg-white">
                 {PUBLIC_CATEGORIES.map((cat) => (
                   <option key={cat} value={cat}>
                     {CATEGORY_META[cat as EventCategory].label}
@@ -140,17 +140,17 @@ export default function SubmitEventModal({ open, onClose }: SubmitEventModalProp
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Price</label>
-              <input name="price" placeholder="e.g. $20, Free" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+              <input name="price" placeholder="e.g. $20, Free" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Link (tickets or website)</label>
-              <input name="link" type="url" placeholder="https://..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26]" />
+              <input name="link" type="url" placeholder="https://..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F]" />
             </div>
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
-              <textarea name="description" rows={3} placeholder="Tell us about this event..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] resize-none" />
+              <textarea name="description" rows={3} placeholder="Tell us about this event..." className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F] resize-none" />
             </div>
 
             {error && (
@@ -160,7 +160,7 @@ export default function SubmitEventModal({ open, onClose }: SubmitEventModalProp
             <button
               type="submit"
               disabled={submitting}
-              className="w-full py-2.5 bg-[#E85D26] text-white font-semibold rounded-lg hover:bg-[#d04e1f] transition-colors disabled:opacity-50 text-sm"
+              className="w-full py-2.5 bg-[#2A9D8F] text-white font-semibold rounded-lg hover:bg-[#237d72] transition-colors disabled:opacity-50 text-sm"
             >
               {submitting ? 'Submitting...' : 'Submit Event'}
             </button>

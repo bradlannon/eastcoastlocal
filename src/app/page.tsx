@@ -8,6 +8,7 @@ import EventList from '@/components/events/EventList';
 import EventFilters from '@/components/events/EventFilters';
 import MobileTabBar from '@/components/layout/MobileTabBar';
 import SubmitEventModal from '@/components/events/SubmitEventModal';
+import WelcomePopup from '@/components/layout/WelcomePopup';
 import { filterByBounds, filterByDateRange, filterByProvince, filterByCategory, filterBySearch } from '@/lib/filter-utils';
 import { CATEGORY_META, type EventCategory } from '@/lib/categories';
 import {
@@ -272,6 +273,9 @@ function HomeContent() {
 
       {/* Submit event modal */}
       <SubmitEventModal open={submitModalOpen} onClose={() => setSubmitModalOpen(false)} />
+
+      {/* First-visit welcome popup */}
+      <WelcomePopup />
     </div>
   );
 }
