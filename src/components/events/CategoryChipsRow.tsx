@@ -25,7 +25,7 @@ export default function CategoryChipsRow({ eventCount }: CategoryChipsRowProps) 
           onClick={() => setCategory(null)}
           className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
             !category
-              ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+              ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-sm'
               : 'bg-white/80 text-gray-600 border-gray-300 hover:border-gray-400'
           }`}
         >
@@ -42,7 +42,7 @@ export default function CategoryChipsRow({ eventCount }: CategoryChipsRowProps) 
               onClick={() => setCategory(cat)}
               className={`px-2.5 py-0.5 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
                 isActive
-                  ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+                  ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-sm'
                   : 'bg-white/80 text-gray-600 border-gray-300 hover:border-gray-400'
               }`}
             >

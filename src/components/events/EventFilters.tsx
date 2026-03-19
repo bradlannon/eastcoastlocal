@@ -45,7 +45,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
               onClick={() => handleChipClick(chip.value)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
                 isActive
-                  ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+                  ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-sm'
                   : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
               }`}
             >
@@ -63,7 +63,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
             placeholder="Search..."
             value={search ?? ''}
             onChange={(e) => onSearchChange(e.target.value || null)}
-            className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#E85D26] focus:border-[#E85D26] placeholder-gray-400"
+            className="w-full pl-7 pr-2 py-1 text-xs border border-gray-300 rounded-full bg-gray-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-[#2A9D8F] focus:border-[#2A9D8F] placeholder-gray-400"
           />
           <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -71,7 +71,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
         </div>
         <button
           onClick={onSubmitEvent}
-          className="text-xs font-medium text-gray-500 hover:text-[#E85D26] transition-colors whitespace-nowrap"
+          className="text-xs font-medium text-gray-500 hover:text-[#2A9D8F] transition-colors whitespace-nowrap"
         >
           + Submit Event
         </button>
@@ -83,7 +83,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
           onClick={() => setCategory(null)}
           className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
             !category
-              ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+              ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-sm'
               : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
           }`}
         >
@@ -98,7 +98,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
               onClick={() => setCategory(cat)}
               className={`px-3 py-1 rounded-full text-xs font-medium border transition-all duration-150 whitespace-nowrap ${
                 isActive
-                  ? 'bg-[#E85D26] text-white border-[#E85D26] shadow-sm'
+                  ? 'bg-[#2A9D8F] text-white border-[#2A9D8F] shadow-sm'
                   : 'bg-white text-gray-600 border-gray-300 hover:border-gray-400 hover:bg-gray-50'
               }`}
             >
@@ -112,7 +112,7 @@ export default function EventFilters({ eventCount, search, onSearchChange, onSub
       {hasFilters && (
         <button
           onClick={handleClearFilters}
-          className="text-xs text-[#E85D26] hover:text-orange-700 underline whitespace-nowrap transition-colors flex-shrink-0"
+          className="text-xs text-[#2A9D8F] hover:text-[#237d72] underline whitespace-nowrap transition-colors flex-shrink-0"
         >
           Clear
         </button>
