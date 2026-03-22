@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { Marker, Popup } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
@@ -206,11 +206,25 @@ export default function ClusterLayer({
     prevHighlightRef.current = next;
   }, [highlightedVenueId, markersRef, venueMap]);
 
+  // On mobile, intercept cluster clicks to switch to list instead of zooming
+  const clusterClickHandler = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (e: any) => {
+      if (onMarkerTap && window.innerWidth < 768) {
+        e.layer.zoomToBounds = () => {}; // prevent zoom
+        onMarkerTap(-1);
+      }
+    },
+    [onMarkerTap]
+  );
+
   return (
     <MarkerClusterGroup
       chunkedLoading
       iconCreateFunction={createClusterIcon}
       showCoverageOnHover={false}
+      zoomToBoundsOnClick={typeof window !== 'undefined' && window.innerWidth >= 768}
+      eventHandlers={{ clusterclick: clusterClickHandler }}
     >
       {Array.from(venueMap.values()).map(({ venue, events: venueEvents }) => (
         <Marker
