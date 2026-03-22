@@ -155,6 +155,14 @@ function HomeContent() {
     return 'No events in this area. Zoom out to see more.';
   }
 
+  // Mobile: tapping a map marker switches to the list tab
+  const handleMarkerTap = useCallback(
+    () => {
+      setActiveTab('list');
+    },
+    []
+  );
+
   const handleClickVenue = useCallback(
     (venueId: number, lat: number, lng: number) => {
       setFlyToTarget({ lat, lng, venueId });
@@ -238,6 +246,7 @@ function HomeContent() {
               onToggleHeatmap={handleToggleHeatmap}
               referenceDate={referenceDate}
               timeFilteredEvents={timeFilteredEvents}
+              onMarkerTap={handleMarkerTap}
             />
           )}
         </div>

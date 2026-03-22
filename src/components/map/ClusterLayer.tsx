@@ -11,6 +11,7 @@ interface ClusterLayerProps {
   events: EventWithVenue[];
   highlightedVenueId?: number | null;
   markersRef?: React.RefObject<Map<number, L.Marker>>;
+  onMarkerTap?: (venueId: number) => void;
 }
 
 // ─── Turquoise circle icons ──────────────────────────────────────────────
@@ -153,6 +154,7 @@ export default function ClusterLayer({
   events,
   highlightedVenueId,
   markersRef,
+  onMarkerTap,
 }: ClusterLayerProps) {
   const prevHighlightRef = useRef<number | null>(null);
 
@@ -231,6 +233,11 @@ export default function ClusterLayer({
           eventHandlers={{
             click: (e) => {
               const marker = e.target;
+              // On mobile (<768px), switch to list tab instead of toggling popup
+              if (onMarkerTap && window.innerWidth < 768) {
+                onMarkerTap(venue.id);
+                return;
+              }
               if (marker.isPopupOpen()) {
                 marker.closePopup();
               } else {

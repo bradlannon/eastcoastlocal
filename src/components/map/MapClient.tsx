@@ -46,6 +46,7 @@ interface MapClientProps {
   onToggleHeatmap?: () => void;
   referenceDate?: Date;
   timeFilteredEvents?: EventWithVenue[];
+  onMarkerTap?: (venueId: number) => void;
 }
 
 export default function MapClient({
@@ -68,6 +69,7 @@ export default function MapClient({
   onToggleHeatmap,
   referenceDate,
   timeFilteredEvents,
+  onMarkerTap,
 }: MapClientProps) {
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -114,6 +116,7 @@ export default function MapClient({
           events={mapMode === 'timelapse' ? (timeFilteredEvents ?? []) : events}
           highlightedVenueId={highlightedVenueId}
           markersRef={markersRef}
+          onMarkerTap={onMarkerTap}
         />
         {mapMode === 'timelapse' && showHeatmap && (
           <>

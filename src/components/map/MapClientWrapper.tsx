@@ -39,6 +39,7 @@ export interface MapClientWrapperProps {
   onToggleHeatmap?: () => void;
   referenceDate?: Date;
   timeFilteredEvents?: EventWithVenue[];
+  onMarkerTap?: (venueId: number) => void;
 }
 
 export default function MapClientWrapper(props: MapClientWrapperProps) {
