@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import L from 'leaflet';
-import { Marker, Popup } from 'react-leaflet';
+import { Marker, Popup, useMap } from 'react-leaflet';
 import MarkerClusterGroup from 'react-leaflet-cluster';
 import VenuePopup from './VenuePopup';
 import type { Venue, EventWithVenue } from '@/types/index';
@@ -206,25 +206,84 @@ export default function ClusterLayer({
     prevHighlightRef.current = next;
   }, [highlightedVenueId, markersRef, venueMap]);
 
-  // On mobile, intercept cluster clicks to switch to list instead of zooming
-  const clusterClickHandler = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any) => {
-      if (onMarkerTap && window.innerWidth < 768) {
-        e.layer.zoomToBounds = () => {}; // prevent zoom
-        onMarkerTap(-1);
+  // Long-press detection for mobile: hold > 1s on a marker/cluster → list view
+  const map = useMap();
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFired = useRef(false);
+
+  useEffect(() => {
+    if (!onMarkerTap) return;
+    const container = map.getContainer();
+
+    function clearTimer() {
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
       }
-    },
-    [onMarkerTap]
-  );
+    }
+
+    function isMarkerOrCluster(el: HTMLElement): boolean {
+      // Walk up from touch target to see if it's inside a marker/cluster icon
+      let node: HTMLElement | null = el;
+      while (node && node !== container) {
+        if (
+          node.classList.contains('leaflet-marker-icon') ||
+          node.closest('.leaflet-marker-icon')
+        ) return true;
+        node = node.parentElement;
+      }
+      return false;
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      longPressFired.current = false;
+      clearTimer();
+      const target = e.target as HTMLElement;
+      if (!isMarkerOrCluster(target)) return;
+      longPressTimer.current = setTimeout(() => {
+        longPressFired.current = true;
+        onMarkerTap!(-1);
+      }, 1000);
+    }
+
+    function onTouchEnd() { clearTimer(); }
+    function onTouchMove() { clearTimer(); }
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true });
+    container.addEventListener('touchend', onTouchEnd, { passive: true });
+    container.addEventListener('touchmove', onTouchMove, { passive: true });
+
+    return () => {
+      clearTimer();
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [map, onMarkerTap]);
+
+  // Suppress the click/clusterclick that fires after a long press
+  const suppressAfterLongPress = useCallback(() => {
+    if (longPressFired.current) {
+      longPressFired.current = false;
+      return true;
+    }
+    return false;
+  }, []);
 
   return (
     <MarkerClusterGroup
       chunkedLoading
       iconCreateFunction={createClusterIcon}
       showCoverageOnHover={false}
-      zoomToBoundsOnClick={typeof window !== 'undefined' && window.innerWidth >= 768}
-      eventHandlers={{ clusterclick: clusterClickHandler }}
+      eventHandlers={{
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        clusterclick: (e: any) => {
+          if (suppressAfterLongPress()) {
+            // Prevent zoom-in after long press
+            e.layer.zoomToBounds = () => {};
+          }
+        },
+      }}
     >
       {Array.from(venueMap.values()).map(({ venue, events: venueEvents }) => (
         <Marker
@@ -246,12 +305,8 @@ export default function ClusterLayer({
           }}
           eventHandlers={{
             click: (e) => {
+              if (suppressAfterLongPress()) return;
               const marker = e.target;
-              // On mobile (<768px), switch to list tab instead of toggling popup
-              if (onMarkerTap && window.innerWidth < 768) {
-                onMarkerTap(venue.id);
-                return;
-              }
               if (marker.isPopupOpen()) {
                 marker.closePopup();
               } else {
