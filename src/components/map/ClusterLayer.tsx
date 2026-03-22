@@ -72,11 +72,17 @@ function createCircleIcon(count: number, highlighted = false): L.DivIcon {
 }
 
 /**
- * Create cluster icon — same turquoise circle, sized by child count.
+ * Create cluster icon — same turquoise circle, sized by total event count.
+ * Sums up event counts from all child markers so numbers stay consistent
+ * when zooming in/out (cluster count matches sum of revealed markers).
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function createClusterIcon(cluster: any): L.DivIcon {
-  const count = cluster.getChildCount();
+  let count = 0;
+  const childMarkers = cluster.getAllChildMarkers();
+  for (const marker of childMarkers) {
+    count += marker.options.eventCount ?? 1;
+  }
   const size = circleSize(count);
   const font = fontSize(size);
 
@@ -210,6 +216,10 @@ export default function ClusterLayer({
           position={[venue.lat as number, venue.lng as number]}
           icon={getCachedIcon(venueEvents.length, false)}
           ref={(markerInstance) => {
+            if (markerInstance) {
+              // Store event count on marker options so cluster icons can sum it
+              (markerInstance.options as Record<string, unknown>).eventCount = venueEvents.length;
+            }
             if (markersRef?.current) {
               if (markerInstance) {
                 markersRef.current.set(venue.id, markerInstance);
