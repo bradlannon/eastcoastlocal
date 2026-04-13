@@ -12,6 +12,10 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/lib/db/seed.ts",
     "test": "jest",
+    "test:unit": "jest --selectProjects node",
+    "test:components": "jest --selectProjects jsdom",
+    "test:e2e": "playwright test",
+    "test:all": "npm test && npm run test:e2e",
     "discover:overpass": "tsx scripts/discover-overpass.ts",
     "seed:community": "tsx scripts/seed-community-sites.ts",
     "seed:festivals": "tsx scripts/seed-wikidata-festivals.ts"
