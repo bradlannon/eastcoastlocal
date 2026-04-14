@@ -23,6 +23,7 @@
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.58",
     "@ai-sdk/google": "^3.0.43",
+    "@mendable/firecrawl-js": "^4.18.2",
     "@neondatabase/serverless": "^1.0.2",
     "ai": "^6.0.116",
     "cheerio": "^1.2.0",
