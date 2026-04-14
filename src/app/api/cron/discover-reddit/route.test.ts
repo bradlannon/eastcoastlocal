@@ -8,6 +8,14 @@ jest.mock('@/lib/scraper/reddit-discoverer', () => ({
   ],
 }));
 
+jest.mock('@/lib/db/client', () => ({
+  db: {
+    insert: jest.fn().mockReturnValue({
+      values: jest.fn().mockResolvedValue([]),
+    }),
+  },
+}));
+
 import { runRedditDiscovery, ALL_REDDIT_SUBREDDITS } from '@/lib/scraper/reddit-discoverer';
 
 const mockRunRedditDiscovery = runRedditDiscovery as jest.MockedFunction<typeof runRedditDiscovery>;
