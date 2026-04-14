@@ -11,6 +11,12 @@ jest.mock('@/lib/db/client', () => ({
       discovered_sources: {
         findFirst: jest.fn(),
       },
+      venues: {
+        findFirst: jest.fn(),
+      },
+      scrape_sources: {
+        findFirst: jest.fn(),
+      },
     },
     insert: jest.fn(),
     update: jest.fn(),
@@ -67,6 +73,12 @@ function makeMockSource(overrides: Partial<{
 const mockDb = db as unknown as {
   query: {
     discovered_sources: {
+      findFirst: jest.Mock;
+    };
+    venues: {
+      findFirst: jest.Mock;
+    };
+    scrape_sources: {
       findFirst: jest.Mock;
     };
   };
