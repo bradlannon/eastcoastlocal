@@ -2,6 +2,10 @@
 
 Discover live music across Atlantic Canada on an interactive map. AI-powered scraping automatically extracts event data from venue websites and event platforms so you don't have to check dozens of sites.
 
+## Testing
+
+The project has a three-layer test suite: Jest unit tests (node), Jest component tests (jsdom/RTL), and Playwright end-to-end tests. Run `npm test` for the full Jest suite or `npm run test:unit` / `npm run test:components` for individual layers. See **[docs/testing.md](docs/testing.md)** for setup instructions, environment configuration, and conventions for adding new tests.
+
 ## Prerequisites
 
 - Node.js 18+
