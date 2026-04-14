@@ -37,7 +37,6 @@ jest.mock('next/navigation', () => ({
 
 import { db } from '@/lib/db/client';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 
 const mockDb = db as unknown as {
   select: jest.Mock;
@@ -54,7 +53,7 @@ function makeSelectChain(rows: unknown[]) {
       resolve(rows);
       return Promise.resolve(rows);
     },
-    catch: (_fn: unknown) => chain,
+    catch: (fn: unknown) => { void fn; return chain; },
     finally: (fn: () => void) => { fn(); return chain; },
   };
   return chain;
@@ -67,7 +66,7 @@ function makeDeleteChain() {
       resolve(undefined);
       return Promise.resolve(undefined);
     },
-    catch: (_fn: unknown) => chain,
+    catch: (fn: unknown) => { void fn; return chain; },
     finally: (fn: () => void) => { fn(); return chain; },
   };
   return chain;
