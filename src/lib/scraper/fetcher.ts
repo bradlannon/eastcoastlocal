@@ -209,7 +209,8 @@ async function fetchPageWithFirecrawlFallback(
     }
 
     // Primary succeeded — run the normal validation/parsing on the body
-    const html = rawResult.body;
+    // rawResult is guaranteed non-null here: needsFallback would have been true otherwise
+    const html = rawResult!.body;
 
     if (html.length < 5000) {
       throw new Error(`Page too short (${html.length} chars) — likely bot-blocked: ${url}`);
