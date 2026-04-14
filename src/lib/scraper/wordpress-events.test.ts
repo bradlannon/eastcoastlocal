@@ -46,7 +46,7 @@ describe('WP_EVENT_FEEDS registry', () => {
       expect(feed.id).toBeTruthy();
       expect(feed.name).toBeTruthy();
       expect(feed.url).toMatch(/^https?:\/\//);
-      expect(['tribe', 'wp-event', 'drupal-json', 'livewhale', 'rss']).toContain(feed.type);
+      expect(['tribe', 'wp-event', 'drupal-json', 'livewhale', 'rss', '25live']).toContain(feed.type);
       expect(feed.province).toMatch(/^(NS|NB|PEI|NL)$/);
     }
   });
