@@ -158,17 +158,14 @@ describe('scoreCandidate', () => {
 
 describe('runDiscoveryJob', () => {
   it('Test 1: fetches existing domains from scrape_sources and discovered_sources before querying Gemini', async () => {
-    const fromFn1 = jest.fn().mockResolvedValue([{ url: 'https://existingvenue.com' }]);
-    const fromFn2 = jest.fn().mockResolvedValue([{ url: 'https://stagedsource.com' }]);
-    let callCount = 0;
-    mockDb.select = jest.fn().mockImplementation(() => ({
-      from: callCount++ === 0 ? fromFn1 : fromFn2,
-    }));
+    const fromFn = jest.fn().mockResolvedValue([{ url: 'https://existingvenue.com' }]);
+    mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
     await runDiscoveryJob();
 
-    // Should query two tables before calling Gemini
-    expect(mockDb.select).toHaveBeenCalledTimes(2);
+    // Each of the 69 ATLANTIC_CITIES calls getKnownDomains() which selects from 2 tables
+    // Total = 69 * 2 = 138 select calls
+    expect(mockDb.select).toHaveBeenCalledTimes(138);
     expect(mockGenerateText).toHaveBeenCalled();
   });
 
@@ -257,16 +254,16 @@ describe('runDiscoveryJob', () => {
       geminiCallCount++;
       if (geminiCallCount === 1) {
         return {
-          experimental_output: {
+          text: JSON.stringify({
             candidates: [
-              { url: 'https://newvenue.com/events', name: 'New Venue', province: 'NS', city: 'Halifax', rawContext: 'A great bar' },
+              { url: 'https://newvenue.com/events', name: 'New Venue', province: 'NS', city: 'Halifax', address: '123 Main St', rawContext: 'A great bar' },
             ],
-          },
+          }),
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any;
       }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { experimental_output: { candidates: [] } } as any;
+      return { text: '{"candidates":[]}' } as any;
     });
 
     const { insertFn, valuesFn } = mockInsertChain();
@@ -286,31 +283,33 @@ describe('runDiscoveryJob', () => {
     const fromFn = jest.fn().mockResolvedValue([]);
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
+    // Orchestrator uses { text } from generateText and parses JSON manually
+    // Malformed candidates (invalid URL or empty URL) are skipped via try/catch
     mockGenerateText.mockResolvedValue({
-      experimental_output: {
+      text: JSON.stringify({
         candidates: [
-          { url: 'not-a-valid-url', name: 'Bad', province: 'NS', city: 'Halifax', rawContext: null },
-          { url: '', name: 'Empty', province: 'NS', city: 'Halifax', rawContext: null },
+          { url: 'not-a-valid-url', name: 'Bad', province: 'NS', city: 'Halifax', address: null, rawContext: null },
+          { url: '', name: 'Empty', province: 'NS', city: 'Halifax', address: null, rawContext: null },
         ],
-      },
+      }),
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } as any);
 
     const { insertFn } = mockInsertChain();
     mockDb.insert = insertFn;
 
-    // Should not throw
-    await expect(runDiscoveryJob()).resolves.toBeUndefined();
+    // Should not throw; runDiscoveryJob now returns a DiscoveryJobResult object
+    await expect(runDiscoveryJob()).resolves.toBeDefined();
     expect(mockDb.insert).not.toHaveBeenCalled();
   });
 
-  it('Test 7: generateText is called once per city (6 calls total for ATLANTIC_CITIES)', async () => {
+  it('Test 7: generateText is called once per city (69 calls total for ATLANTIC_CITIES)', async () => {
     const fromFn = jest.fn().mockResolvedValue([]);
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
     await runDiscoveryJob();
 
-    expect(mockGenerateText).toHaveBeenCalledTimes(6);
+    expect(mockGenerateText).toHaveBeenCalledTimes(69);
   });
 
   it('Test 8: promoteSource is called when a candidate scores >= 0.9', async () => {
@@ -318,20 +317,30 @@ describe('runDiscoveryJob', () => {
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
     // High-scoring candidate: https, city, province, name → 0.95
-    mockGenerateText.mockResolvedValue({
-      experimental_output: {
-        candidates: [
-          { url: 'https://highscore.com', name: 'High Score Venue', province: 'NS', city: 'Halifax', rawContext: null },
-        ],
-      },
+    // Only first city returns a candidate; rest return empty to keep test focused
+    let geminiCallCount = 0;
+    mockGenerateText.mockImplementation(async () => {
+      geminiCallCount++;
+      if (geminiCallCount === 1) {
+        return {
+          text: JSON.stringify({
+            candidates: [
+              { url: 'https://highscore.com', name: 'High Score Venue', province: 'NS', city: 'Halifax', address: null, rawContext: null },
+            ],
+          }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any;
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      return { text: '{"candidates":[]}' } as any;
+    });
 
     const { insertFn } = mockInsertChain();
     mockDb.insert = insertFn;
 
     await runDiscoveryJob();
 
+    // db.query.discovered_sources.findFirst is mocked in beforeEach to return {id:42, status:'pending'}
     expect(mockPromoteSource).toHaveBeenCalledWith(42);
   });
 
@@ -340,14 +349,22 @@ describe('runDiscoveryJob', () => {
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
     // Low-scoring candidate: http, no city, no province, no name → 0.50
-    mockGenerateText.mockResolvedValue({
-      experimental_output: {
-        candidates: [
-          { url: 'http://lowscore.com', name: null, province: null, city: null, rawContext: null },
-        ],
-      },
+    let geminiCallCount = 0;
+    mockGenerateText.mockImplementation(async () => {
+      geminiCallCount++;
+      if (geminiCallCount === 1) {
+        return {
+          text: JSON.stringify({
+            candidates: [
+              { url: 'http://lowscore.com', name: null, province: null, city: null, address: null, rawContext: null },
+            ],
+          }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any;
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      return { text: '{"candidates":[]}' } as any;
+    });
 
     const { insertFn } = mockInsertChain();
     mockDb.insert = insertFn;
@@ -361,14 +378,23 @@ describe('runDiscoveryJob', () => {
     const fromFn = jest.fn().mockResolvedValue([]);
     mockDb.select = jest.fn().mockReturnValue({ from: fromFn });
 
-    mockGenerateText.mockResolvedValue({
-      experimental_output: {
-        candidates: [
-          { url: 'https://venue1.com', name: 'Venue 1', province: 'NS', city: 'Halifax', rawContext: null },
-        ],
-      },
+    // Only first city returns a candidate to exercise the update path
+    let geminiCallCount = 0;
+    mockGenerateText.mockImplementation(async () => {
+      geminiCallCount++;
+      if (geminiCallCount === 1) {
+        return {
+          text: JSON.stringify({
+            candidates: [
+              { url: 'https://venue1.com', name: 'Venue 1', province: 'NS', city: 'Halifax', address: null, rawContext: null },
+            ],
+          }),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        } as any;
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    } as any);
+      return { text: '{"candidates":[]}' } as any;
+    });
 
     const { insertFn } = mockInsertChain();
     mockDb.insert = insertFn;
