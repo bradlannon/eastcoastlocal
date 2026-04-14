@@ -1,7 +1,20 @@
 import { GET } from './route';
 
 jest.mock('@/lib/scraper/discovery-orchestrator', () => ({
-  runDiscoveryJob: jest.fn().mockResolvedValue(undefined),
+  runDiscoveryJob: jest.fn().mockResolvedValue({
+    candidatesFound: 0,
+    autoApproved: 0,
+    queuedPending: 0,
+    errors: 0,
+  }),
+}));
+
+jest.mock('@/lib/db/client', () => ({
+  db: {
+    insert: jest.fn().mockReturnValue({
+      values: jest.fn().mockResolvedValue([]),
+    }),
+  },
 }));
 
 // Import after mock so we get the mocked version
