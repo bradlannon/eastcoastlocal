@@ -1,5 +1,11 @@
 import type { Config } from 'jest';
 
+// jose is ESM-only — tell ts-jest to transform it rather than ignore it
+const ESM_MODULES = ['jose'];
+const transformIgnorePatterns = [
+  `/node_modules/(?!(${ESM_MODULES.join('|')})/)`,
+];
+
 const config: Config = {
   projects: [
     {
@@ -8,6 +14,7 @@ const config: Config = {
       testEnvironment: 'node',
       moduleNameMapper: { '^@/(.*)$': '<rootDir>/src/$1' },
       testMatch: ['<rootDir>/src/**/*.test.ts'],
+      transformIgnorePatterns,
     },
     {
       displayName: 'jsdom',
