@@ -37,7 +37,7 @@ describe('scrapeEventsWithFirecrawl', () => {
             description: null,
             cover_image_url: null,
             confidence: 0.9,
-            event_category: 'music',
+            event_category: 'live_music',
           },
         ],
       })
@@ -56,7 +56,7 @@ describe('scrapeEventsWithFirecrawl', () => {
           description: 'A great show',
           cover_image_url: null,
           confidence: 0.85,
-          event_category: 'music',
+          event_category: 'live_music',
         },
         {
           performer: null,
