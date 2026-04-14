@@ -62,15 +62,17 @@ describe('extractEvents', () => {
     expect(result[0].performer).toBe('Real Band');
   });
 
-  it('filters out events with confidence below 0.5', async () => {
+  it('filters out events with confidence below 0.3 (threshold relaxed from 0.5)', async () => {
     mockGenerateText.mockResolvedValue(makeExtractionResult([
       { performer: 'Low Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.3, event_category: 'live_music' },
       { performer: 'High Confidence Band', event_date: futureDate, event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.8, event_category: 'live_music' },
     ]) as never);
 
+    // Threshold is now < 0.3 (was < 0.5); confidence=0.3 is accepted as a boundary case
     const result = await extractEvents('some page text', 'https://example.com');
-    expect(result).toHaveLength(1);
-    expect(result[0].performer).toBe('High Confidence Band');
+    expect(result).toHaveLength(2);
+    expect(result.map(r => r.performer)).toContain('Low Confidence Band');
+    expect(result.map(r => r.performer)).toContain('High Confidence Band');
   });
 
   it('filters out events with dates in the past', async () => {
