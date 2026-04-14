@@ -1,5 +1,11 @@
 import { fetchAndPreprocess } from './fetcher';
 
+const mockScrapeMarkdown = jest.fn();
+
+jest.mock('./firecrawl', () => ({
+  scrapeMarkdown: (...args: unknown[]) => mockScrapeMarkdown(...args),
+}));
+
 // Helper to make HTML longer than 5000 chars
 function makeLongHtml(body: string): string {
   const padding = 'x'.repeat(5500);
@@ -240,5 +246,94 @@ describe('fetchAndPreprocess', () => {
     const { text } = await fetchAndPreprocess('https://stopsatlastpage.com', { maxPages: 3 });
     expect(text).toContain('Only page content');
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('fetchAndPreprocess — Firecrawl fallback (FIRECRAWL_FALLBACK=1)', () => {
+  const originalFetch = global.fetch;
+  const originalFallbackEnv = process.env.FIRECRAWL_FALLBACK;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    process.env.FIRECRAWL_FALLBACK = originalFallbackEnv;
+    mockScrapeMarkdown.mockReset();
+    jest.useRealTimers();
+  });
+
+  it('does NOT call firecrawl when primary fetch succeeds with normal body and FIRECRAWL_FALLBACK is unset', async () => {
+    delete process.env.FIRECRAWL_FALLBACK;
+    const html = makeLongHtml('<main>Normal content here</main>');
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(html, 200));
+
+    await fetchAndPreprocess('https://nofallback.com');
+
+    expect(mockScrapeMarkdown).not.toHaveBeenCalled();
+  });
+
+  it('does NOT call firecrawl when primary fetch succeeds with normal body even if FIRECRAWL_FALLBACK=1', async () => {
+    process.env.FIRECRAWL_FALLBACK = '1';
+    const html = makeLongHtml('<main>Normal content here</main>');
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(html, 200));
+
+    const result = await fetchAndPreprocess('https://normalcontent-fallback.com');
+
+    expect(mockScrapeMarkdown).not.toHaveBeenCalled();
+    expect(result.text).toContain('Normal content here');
+  });
+
+  it('calls firecrawl when primary fetch returns 403 and FIRECRAWL_FALLBACK=1', async () => {
+    process.env.FIRECRAWL_FALLBACK = '1';
+    const shortHtml = '<html><body>Access Denied</body></html>';
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(shortHtml, 403));
+    mockScrapeMarkdown.mockResolvedValue({
+      markdown: '# Events Page\nSome real event content from Firecrawl',
+      metadata: { title: 'Events' },
+    });
+
+    const result = await fetchAndPreprocess('https://blocked403.com');
+
+    expect(mockScrapeMarkdown).toHaveBeenCalledWith('https://blocked403.com');
+    expect(result.text).toContain('Events Page');
+  });
+
+  it('calls firecrawl when primary fetch returns 200 with body < 500 chars and FIRECRAWL_FALLBACK=1', async () => {
+    process.env.FIRECRAWL_FALLBACK = '1';
+    // Body is under 500 chars (suspicious — likely a JS shell or redirect page)
+    const tinyHtml = '<html><body><p>Loading...</p></body></html>';
+    expect(tinyHtml.length).toBeLessThan(500);
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(tinyHtml, 200));
+    mockScrapeMarkdown.mockResolvedValue({
+      markdown: '# Real Event Content\nFull page scraped by Firecrawl',
+      metadata: {},
+    });
+
+    const result = await fetchAndPreprocess('https://tinyresponse.com');
+
+    expect(mockScrapeMarkdown).toHaveBeenCalledWith('https://tinyresponse.com');
+    expect(result.text).toContain('Real Event Content');
+  });
+
+  it('does NOT call firecrawl when primary succeeds normally but FIRECRAWL_FALLBACK is not set', async () => {
+    delete process.env.FIRECRAWL_FALLBACK;
+    const html = makeLongHtml('<main>Good content</main>');
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(html, 200));
+
+    const result = await fetchAndPreprocess('https://nofallbackneeded.com');
+
+    expect(mockScrapeMarkdown).not.toHaveBeenCalled();
+    expect(result.text).toContain('Good content');
+  });
+
+  it('propagates the firecrawl error when firecrawl itself throws', async () => {
+    process.env.FIRECRAWL_FALLBACK = '1';
+    const shortHtml = '<html><body>Blocked</body></html>';
+    global.fetch = jest.fn().mockResolvedValue(makeResponse(shortHtml, 403));
+    mockScrapeMarkdown.mockRejectedValue(
+      new Error('Firecrawl scrape failed for https://firecrawlerror.com: API quota exceeded')
+    );
+
+    await expect(fetchAndPreprocess('https://firecrawlerror.com')).rejects.toThrow(
+      /Firecrawl scrape failed/
+    );
   });
 });
