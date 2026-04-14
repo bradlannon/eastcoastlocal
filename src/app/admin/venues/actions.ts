@@ -1,10 +1,10 @@
 'use server';
 
-import { eq } from 'drizzle-orm';
+import { eq, count } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db/client';
-import { venues, scrape_sources } from '@/lib/db/schema';
+import { venues, events, scrape_sources } from '@/lib/db/schema';
 import { geocodeAddress } from '@/lib/scraper/geocoder';
 
 const VALID_PROVINCES = ['NB', 'NS', 'PEI', 'NL'] as const;
@@ -166,6 +166,51 @@ export async function addSource(
 
   revalidatePath(`/admin/venues/${venueId}`);
   redirect(`/admin/venues/${venueId}`);
+}
+
+export async function deleteVenue(
+  id: string
+): Promise<{ success: true } | { success: false; error: string }> {
+  const numericId = parseInt(id, 10);
+  if (isNaN(numericId)) {
+    return { success: false, error: 'Invalid venue ID.' };
+  }
+
+  // Check venue exists
+  const venueRows = await db.select().from(venues).where(eq(venues.id, numericId));
+  if (venueRows.length === 0) {
+    return { success: false, error: 'Venue not found.' };
+  }
+
+  // Count associated events
+  const eventCountRows = await db
+    .select({ count: count() })
+    .from(events)
+    .where(eq(events.venue_id, numericId));
+  const eventCount = Number(eventCountRows[0]?.count ?? 0);
+
+  // Count associated scrape_sources
+  const sourceCountRows = await db
+    .select({ count: count() })
+    .from(scrape_sources)
+    .where(eq(scrape_sources.venue_id, numericId));
+  const sourceCount = Number(sourceCountRows[0]?.count ?? 0);
+
+  // Guardrail: block if any events or sources exist
+  if (eventCount > 0 || sourceCount > 0) {
+    const parts: string[] = [];
+    if (eventCount > 0) parts.push(`${eventCount} event${eventCount === 1 ? '' : 's'}`);
+    if (sourceCount > 0) parts.push(`${sourceCount} source${sourceCount === 1 ? '' : 's'}`);
+    return {
+      success: false,
+      error: `Venue has ${parts.join(' and ')} — detach or archive them first.`,
+    };
+  }
+
+  // Safe to delete
+  await db.delete(venues).where(eq(venues.id, numericId));
+  revalidatePath('/admin/venues');
+  return { success: true };
 }
 
 export async function toggleSource(formData: FormData): Promise<void> {
