@@ -48,7 +48,7 @@ describe('geocodeAddress', () => {
     expect(result).toEqual({ lat: 46.1351, lng: -60.1831 });
   });
 
-  it('returns null when API returns APPROXIMATE precision', async () => {
+  it('returns lat/lng as fallback when API returns APPROXIMATE precision', async () => {
     mockGeocode({
       status: 'OK',
       results: [
@@ -62,7 +62,7 @@ describe('geocodeAddress', () => {
     });
 
     const result = await geocodeAddress('Somewhere, Nova Scotia');
-    expect(result).toBeNull();
+    expect(result).toEqual({ lat: 44.0, lng: -63.0 });
   });
 
   it('returns null when API returns ZERO_RESULTS', async () => {
