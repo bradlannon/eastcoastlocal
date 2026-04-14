@@ -1,4 +1,13 @@
 import * as cheerio from 'cheerio';
+import { scrapeMarkdown } from './firecrawl';
+
+// When FIRECRAWL_FALLBACK=1 is set, a failed or suspiciously-small primary fetch
+// is retried via Firecrawl (opt-in to preserve cost control — default off).
+const FIRECRAWL_FALLBACK_ENABLED = () => process.env.FIRECRAWL_FALLBACK === '1';
+
+// Minimum HTML body length below which we consider the response suspicious
+// (likely a JS shell or anti-bot redirect) and trigger Firecrawl fallback.
+const FIRECRAWL_FALLBACK_MIN_CHARS = 500;
 
 // Module-level per-domain rate limiting state
 const domainLastRequest = new Map<string, number>();
@@ -168,6 +177,63 @@ async function fetchPage(url: string): Promise<{ html: string; text: string }> {
   return { html, text };
 }
 
+/**
+ * Try primary fetch; if it fails (non-2xx, network error, or suspiciously small body)
+ * AND FIRECRAWL_FALLBACK=1 is set, fall back to Firecrawl scrapeMarkdown.
+ * Returns the same { text, rawHtml } shape as the primary path.
+ */
+async function fetchPageWithFirecrawlFallback(
+  url: string
+): Promise<{ html: string; text: string }> {
+  // First, attempt a raw fetch without the full fetchPage validation pipeline
+  // so we can inspect the status and body size before deciding to fall back.
+  if (FIRECRAWL_FALLBACK_ENABLED()) {
+    await applyDomainRateLimit(url);
+    let rawResult: { body: string; statusCode: number } | null = null;
+    try {
+      rawResult = await fetchWithRetry(url);
+    } catch {
+      // Network error — fall through to Firecrawl below
+    }
+
+    const needsFallback =
+      !rawResult ||
+      rawResult.statusCode < 200 ||
+      rawResult.statusCode >= 300 ||
+      rawResult.body.length < FIRECRAWL_FALLBACK_MIN_CHARS;
+
+    if (needsFallback) {
+      // Firecrawl fallback — throws if Firecrawl itself fails
+      const { markdown } = await scrapeMarkdown(url);
+      return { html: markdown, text: markdown };
+    }
+
+    // Primary succeeded — run the normal validation/parsing on the body
+    const html = rawResult.body;
+
+    if (html.length < 5000) {
+      throw new Error(`Page too short (${html.length} chars) — likely bot-blocked: ${url}`);
+    }
+    if (html.includes('Just a moment') || html.includes('Checking your browser')) {
+      throw new Error(`Bot-blocked (Cloudflare challenge detected): ${url}`);
+    }
+    if (html.includes('Enable JavaScript') && html.length < 10000) {
+      throw new Error(`JS-gated page detected: ${url}`);
+    }
+
+    const $ = cheerio.load(html);
+    $('script, style, nav, footer, header, aside, [class*="ad"], [id*="ad"]').remove();
+    let text: string;
+    const mainEl = $('main, article, [role="main"]');
+    text = mainEl.length > 0 ? mainEl.text() : $('body').text();
+    text = text.replace(/\s+/g, ' ').trim();
+    return { html, text };
+  }
+
+  // Fallback disabled — use standard path (preserves all existing behaviour)
+  return fetchPage(url);
+}
+
 export async function fetchAndPreprocess(
   url: string,
   options?: { maxPages?: number }
@@ -180,7 +246,7 @@ export async function fetchAndPreprocess(
 
   while (currentUrl && pageCount < maxPages) {
     if (pageCount > 0) await delay(500); // 500ms between pages within same source
-    const { html, text } = await fetchPage(currentUrl);
+    const { html, text } = await fetchPageWithFirecrawlFallback(currentUrl);
     if (pageCount === 0) firstHtml = html;
     allText += text;
     currentUrl = detectNextPageUrl(html, currentUrl);
