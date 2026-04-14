@@ -129,7 +129,7 @@ describe('searchCity', () => {
     expect(body3.pageToken).toBe('token-page-3');
   });
 
-  it('filters out non-venue types (restaurant, grocery_store)', async () => {
+  it('filters out non-venue types (grocery_store), but keeps restaurant (now in VENUE_PLACE_TYPES)', async () => {
     jest.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -143,8 +143,9 @@ describe('searchCity', () => {
     } as Response);
 
     const results = await searchCity('Halifax', 'NS');
-    expect(results).toHaveLength(2);
-    expect(results.map(r => r.id)).toEqual(['p1', 'p4']);
+    // restaurant is now in VENUE_PLACE_TYPES; grocery_store is still excluded
+    expect(results).toHaveLength(3);
+    expect(results.map(r => r.id)).toEqual(['p1', 'p3', 'p4']);
   });
 
   it('throws on non-2xx response', async () => {
@@ -241,37 +242,62 @@ describe('PLACES_CITIES', () => {
 });
 
 describe('VENUE_PLACE_TYPES', () => {
-  it('contains exactly 7 allowed types', () => {
-    expect(VENUE_PLACE_TYPES.size).toBe(7);
+  it('contains exactly 18 allowed types', () => {
+    expect(VENUE_PLACE_TYPES.size).toBe(18);
   });
 
-  it('contains bar, night_club, concert_hall, performing_arts_theater, comedy_club, community_center, stadium', () => {
+  it('contains core types: bar, night_club, concert_hall, performing_arts_theater, comedy_club, event_venue, cultural_center', () => {
     expect(VENUE_PLACE_TYPES.has('bar')).toBe(true);
     expect(VENUE_PLACE_TYPES.has('night_club')).toBe(true);
     expect(VENUE_PLACE_TYPES.has('concert_hall')).toBe(true);
     expect(VENUE_PLACE_TYPES.has('performing_arts_theater')).toBe(true);
     expect(VENUE_PLACE_TYPES.has('comedy_club')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('event_venue')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('cultural_center')).toBe(true);
+  });
+
+  it('contains secondary types: community_center, stadium, brewery, restaurant, cafe, banquet_hall, church, library, museum, art_gallery, park', () => {
     expect(VENUE_PLACE_TYPES.has('community_center')).toBe(true);
     expect(VENUE_PLACE_TYPES.has('stadium')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('brewery')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('restaurant')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('cafe')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('banquet_hall')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('church')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('library')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('museum')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('art_gallery')).toBe(true);
+    expect(VENUE_PLACE_TYPES.has('park')).toBe(true);
   });
 });
 
 describe('CORE_VENUE_TYPES', () => {
-  it('contains 5 core types', () => {
-    expect(CORE_VENUE_TYPES.size).toBe(5);
+  it('contains 7 core types', () => {
+    expect(CORE_VENUE_TYPES.size).toBe(7);
     expect(CORE_VENUE_TYPES.has('bar')).toBe(true);
     expect(CORE_VENUE_TYPES.has('night_club')).toBe(true);
     expect(CORE_VENUE_TYPES.has('concert_hall')).toBe(true);
     expect(CORE_VENUE_TYPES.has('performing_arts_theater')).toBe(true);
     expect(CORE_VENUE_TYPES.has('comedy_club')).toBe(true);
+    expect(CORE_VENUE_TYPES.has('event_venue')).toBe(true);
+    expect(CORE_VENUE_TYPES.has('cultural_center')).toBe(true);
   });
 });
 
 describe('SECONDARY_VENUE_TYPES', () => {
-  it('contains 2 secondary types', () => {
-    expect(SECONDARY_VENUE_TYPES.size).toBe(2);
+  it('contains 11 secondary types', () => {
+    expect(SECONDARY_VENUE_TYPES.size).toBe(11);
     expect(SECONDARY_VENUE_TYPES.has('community_center')).toBe(true);
     expect(SECONDARY_VENUE_TYPES.has('stadium')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('brewery')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('restaurant')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('cafe')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('banquet_hall')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('church')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('library')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('museum')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('art_gallery')).toBe(true);
+    expect(SECONDARY_VENUE_TYPES.has('park')).toBe(true);
   });
 });
 
@@ -290,8 +316,8 @@ describe('isVenueRelevant', () => {
     expect(isVenueRelevant(['bar', 'restaurant'])).toBe(true);
   });
 
-  it('returns false for restaurant and food only', () => {
-    expect(isVenueRelevant(['restaurant', 'food'])).toBe(false);
+  it('returns true for restaurant and food (restaurant added to VENUE_PLACE_TYPES)', () => {
+    expect(isVenueRelevant(['restaurant', 'food'])).toBe(true);
   });
 
   it('returns true for community_center', () => {
@@ -340,8 +366,8 @@ describe('scorePlacesCandidate', () => {
     expect(scorePlacesCandidate(['stadium'])).toBe(0.70);
   });
 
-  it('returns 0 for irrelevant types', () => {
-    expect(scorePlacesCandidate(['restaurant', 'food'])).toBe(0);
+  it('returns 0.70 for restaurant (now in SECONDARY_VENUE_TYPES)', () => {
+    expect(scorePlacesCandidate(['restaurant', 'food'])).toBe(0.70);
   });
 
   it('returns 0 for empty array', () => {
