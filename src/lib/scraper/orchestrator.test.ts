@@ -7,11 +7,15 @@ process.env.SCRAPE_STALE_HOURS = '4';
 jest.mock('@/lib/db/client', () => ({
   db: {
     query: {
-      scrape_sources: { findMany: jest.fn() },
+      scrape_sources: { findMany: jest.fn(), findFirst: jest.fn() },
       venues: { findMany: jest.fn(), findFirst: jest.fn() },
     },
     update: jest.fn(),
   },
+}));
+
+jest.mock('./firecrawl-events', () => ({
+  scrapeEventsWithFirecrawl: jest.fn(),
 }));
 
 jest.mock('./fetcher', () => ({
@@ -55,7 +59,8 @@ import { geocodeAddress } from './geocoder';
 import { scrapeEventbrite } from './eventbrite';
 import { scrapeBandsintown } from './bandsintown';
 import { scrapeTicketmaster } from './ticketmaster';
-import { runScrapeJob, runScrapeForProvince } from './orchestrator';
+import { scrapeEventsWithFirecrawl } from './firecrawl-events';
+import { runScrapeJob, runScrapeForProvince, scrapeOneSource } from './orchestrator';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 const mockDb = db as jest.Mocked<typeof db>;
@@ -67,6 +72,7 @@ const mockGeocodeAddress = geocodeAddress as jest.MockedFunction<typeof geocodeA
 const mockScrapeEventbrite = scrapeEventbrite as jest.MockedFunction<typeof scrapeEventbrite>;
 const mockScrapeBandsintown = scrapeBandsintown as jest.MockedFunction<typeof scrapeBandsintown>;
 const mockScrapeTicketmaster = scrapeTicketmaster as jest.MockedFunction<typeof scrapeTicketmaster>;
+const mockScrapeEventsWithFirecrawl = scrapeEventsWithFirecrawl as jest.MockedFunction<typeof scrapeEventsWithFirecrawl>;
 
 // Helper to build db.update mock chain
 function mockUpdateChain() {
@@ -193,6 +199,12 @@ beforeEach(() => {
   mockScrapeEventbrite.mockResolvedValue(undefined);
   mockScrapeBandsintown.mockResolvedValue(undefined);
   mockScrapeTicketmaster.mockResolvedValue(undefined);
+
+  // Default: firecrawl returns 2 events
+  mockScrapeEventsWithFirecrawl.mockResolvedValue([
+    { performer: 'FC Band A', event_date: '2026-05-01', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.95, event_category: 'other' },
+    { performer: 'FC Band B', event_date: '2026-05-02', event_time: null, price: null, ticket_link: null, description: null, cover_image_url: null, confidence: 0.85, event_category: 'other' },
+  ]);
 
   // Default: venues.findMany returns mock venue for NB
   (mockDb.query.venues.findMany as jest.MockedFunction<typeof mockDb.query.venues.findMany>).mockResolvedValue([mockVenue]);
@@ -393,5 +405,139 @@ describe('runScrapeJob — runs all provinces concurrently', () => {
 
     expect(results).toHaveLength(4);
     expect(results.map((r) => r.province)).toEqual(['NS', 'NB', 'PEI', 'NL']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// firecrawl_extract dispatch — runScrapeForProvince
+// ---------------------------------------------------------------------------
+
+const mockFirecrawlSource = {
+  id: 5,
+  url: 'https://testvenue.com/events',
+  venue_id: 10,
+  scrape_frequency: 'daily',
+  last_scraped_at: null,
+  last_scrape_status: 'pending',
+  source_type: 'firecrawl_extract',
+  enabled: true,
+  max_pages: 1,
+  last_event_count: null,
+  avg_confidence: null,
+  consecutive_failures: 0,
+  total_scrapes: 0,
+  total_events_extracted: 0,
+  created_at: new Date(),
+};
+
+describe('firecrawl_extract dispatch — runScrapeForProvince', () => {
+  beforeEach(() => {
+    (mockDb.query.scrape_sources.findMany as jest.MockedFunction<typeof mockDb.query.scrape_sources.findMany>).mockResolvedValue([mockFirecrawlSource]);
+  });
+
+  it('Test FC-1: calls scrapeEventsWithFirecrawl with source.url when FIRECRAWL_SCRAPE_ENABLED=1', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '1';
+    try {
+      const result = await runScrapeForProvince('NB');
+      expect(mockScrapeEventsWithFirecrawl).toHaveBeenCalledTimes(1);
+      expect(mockScrapeEventsWithFirecrawl).toHaveBeenCalledWith(mockFirecrawlSource.url);
+      expect(result.success).toBe(1);
+      expect(result.events).toBe(2);
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
+  });
+
+  it('Test FC-2: events from firecrawl flow through upsertEvent pipeline when enabled', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '1';
+    try {
+      await runScrapeForProvince('NB');
+      expect(mockUpsertEvent).toHaveBeenCalledTimes(2);
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
+  });
+
+  it('Test FC-3: does NOT call scrapeEventsWithFirecrawl when FIRECRAWL_SCRAPE_ENABLED is not set', async () => {
+    delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    const result = await runScrapeForProvince('NB');
+    expect(mockScrapeEventsWithFirecrawl).not.toHaveBeenCalled();
+    expect(result.events).toBe(0);
+    expect(result.success).toBe(1);
+  });
+
+  it('Test FC-4: does NOT call scrapeEventsWithFirecrawl when FIRECRAWL_SCRAPE_ENABLED=0', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '0';
+    try {
+      const result = await runScrapeForProvince('NB');
+      expect(mockScrapeEventsWithFirecrawl).not.toHaveBeenCalled();
+      expect(result.events).toBe(0);
+      expect(result.success).toBe(1);
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
+  });
+
+  it('Test FC-5: scrapeEventsWithFirecrawl throws — error is captured and source is marked failure', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '1';
+    try {
+      mockScrapeEventsWithFirecrawl.mockRejectedValue(new Error('Firecrawl API error'));
+      const result = await runScrapeForProvince('NB');
+      expect(result.failed).toBe(1);
+      expect(result.success).toBe(0);
+      // The failure DB write should set last_scrape_status='failure'
+      const setCall = (mockDb.update as jest.MockedFunction<typeof mockDb.update>).mock.results[0].value.set.mock.calls[0][0];
+      expect(setCall.last_scrape_status).toBe('failure');
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// firecrawl_extract dispatch — scrapeOneSource
+// ---------------------------------------------------------------------------
+
+describe('firecrawl_extract dispatch — scrapeOneSource', () => {
+  beforeEach(() => {
+    (mockDb.query.scrape_sources.findFirst as jest.MockedFunction<typeof mockDb.query.scrape_sources.findFirst>).mockResolvedValue(mockFirecrawlSource);
+    (mockDb.query.venues.findFirst as jest.MockedFunction<typeof mockDb.query.venues.findFirst>).mockResolvedValue(mockVenue);
+  });
+
+  it('Test FC-6: calls scrapeEventsWithFirecrawl with source.url when FIRECRAWL_SCRAPE_ENABLED=1', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '1';
+    try {
+      const result = await scrapeOneSource(5);
+      expect(mockScrapeEventsWithFirecrawl).toHaveBeenCalledTimes(1);
+      expect(mockScrapeEventsWithFirecrawl).toHaveBeenCalledWith(mockFirecrawlSource.url);
+      expect(result.success).toBe(true);
+      expect(result.events).toBe(2);
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
+  });
+
+  it('Test FC-7: does NOT call scrapeEventsWithFirecrawl when FIRECRAWL_SCRAPE_ENABLED is not set', async () => {
+    delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    const result = await scrapeOneSource(5);
+    expect(mockScrapeEventsWithFirecrawl).not.toHaveBeenCalled();
+    expect(result.success).toBe(true);
+    expect(result.events).toBe(0);
+  });
+
+  it('Test FC-8: scrapeEventsWithFirecrawl throws — error is captured, returns success=false', async () => {
+    process.env.FIRECRAWL_SCRAPE_ENABLED = '1';
+    try {
+      mockScrapeEventsWithFirecrawl.mockRejectedValue(new Error('Firecrawl API error'));
+      const result = await scrapeOneSource(5);
+      expect(result.success).toBe(false);
+      expect(result.events).toBe(0);
+      // The failure DB write should include last_scrape_error
+      const setCall = (mockDb.update as jest.MockedFunction<typeof mockDb.update>).mock.results[0].value.set.mock.calls[0][0];
+      expect(setCall.last_scrape_status).toBe('failure');
+      expect(setCall.last_scrape_error).toContain('Firecrawl API error');
+    } finally {
+      delete process.env.FIRECRAWL_SCRAPE_ENABLED;
+    }
   });
 });
