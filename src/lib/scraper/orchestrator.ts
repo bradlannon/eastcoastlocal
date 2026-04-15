@@ -11,6 +11,7 @@ import { scrapeBandsintown } from './bandsintown';
 import { scrapeTicketmaster } from './ticketmaster';
 import { tryFeedFallback, tryDiscoveredFeeds } from './feed-discovery';
 import { scrapeFacebookEvents } from './facebook';
+import { scrapeEventsWithFirecrawl } from './firecrawl-events';
 import type { ExtractedEvent } from '@/lib/schemas/extracted-event';
 
 // Delay between AI extraction requests to stay within Gemini rate limits.
@@ -187,6 +188,22 @@ export async function runScrapeForProvince(province: Province): Promise<ScrapeRe
         if (HTTP_THROTTLE_MS > 0) {
           await delay(HTTP_THROTTLE_MS);
         }
+      } else if (source.source_type === 'firecrawl_extract') {
+        if (process.env.FIRECRAWL_SCRAPE_ENABLED !== '1') {
+          console.log(`[${province}] Skipping firecrawl_extract source ${source.id} — FIRECRAWL_SCRAPE_ENABLED not set`);
+          // events = [] (sourceEventCount stays null, no upserts)
+        } else {
+          const fcEvents = await scrapeEventsWithFirecrawl(source.url);
+          sourceEventCount = fcEvents.length;
+          avgConf = sourceEventCount > 0
+            ? fcEvents.reduce((sum, e) => sum + (e.confidence ?? 0), 0) / sourceEventCount
+            : null;
+          for (const event of fcEvents) {
+            await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
+          }
+          eventCount += fcEvents.length;
+          console.log(`  ✓ [${province}] Firecrawl source ${source.id}: ${fcEvents.length} events`);
+        }
       } else {
         console.warn(`[${province}] Unknown source_type '${source.source_type}' for source ${source.id} — skipping`);
       }
@@ -325,6 +342,21 @@ export async function scrapeOneSource(sourceId: number): Promise<{
       await scrapeBandsintown(source);
     } else if (source.source_type === 'ticketmaster') {
       await scrapeTicketmaster(source);
+    } else if (source.source_type === 'firecrawl_extract') {
+      if (process.env.FIRECRAWL_SCRAPE_ENABLED !== '1') {
+        console.log(`Skipping firecrawl_extract source ${sourceId} — FIRECRAWL_SCRAPE_ENABLED not set`);
+        // sourceEventCount stays null, no upserts
+      } else {
+        const fcEvents = await scrapeEventsWithFirecrawl(source.url);
+        sourceEventCount = fcEvents.length;
+        avgConf = sourceEventCount > 0
+          ? fcEvents.reduce((sum, e) => sum + (e.confidence ?? 0), 0) / sourceEventCount
+          : null;
+        for (const event of fcEvents) {
+          await upsertEvent(source.venue_id, event, source.url, source.id, 'scrape');
+        }
+        console.log(`  ✓ ${venueName}: ${fcEvents.length} events (firecrawl_extract)`);
+      }
     }
 
     await db
