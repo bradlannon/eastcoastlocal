@@ -1,16 +1,26 @@
 # Firecrawl Integration — Follow-ups
 
-## 1. Orchestrator dispatch for `firecrawl-events`
+## 1. ✅ DONE — Orchestrator dispatch for `firecrawl-events` (commit 049018c)
 
-`scrapeEventsWithFirecrawl` in `src/lib/scraper/firecrawl-events.ts` is not yet
-wired into the orchestrator (`src/lib/scraper/orchestrator.ts`) because it requires:
+`scrapeEventsWithFirecrawl` is now wired into both `runScrapeForProvince` and
+`scrapeOneSource` in `src/lib/scraper/orchestrator.ts`.
 
-1. A new enum value in `scrape_sources.source_type` (e.g. `firecrawl_extract`) —
-   this is a DB schema migration.
-2. A new `else if (source.source_type === 'firecrawl_extract')` branch in both
-   `runScrapeForProvince` and `scrapeOneSource`.
-3. Cost guard: consider gating behind a per-source flag or a daily credit budget
-   check before enabling for bulk scraping.
+Notes:
+- `scrape_sources.source_type` is free-text (not an enum) — **no DB migration
+  was needed**. A row with `source_type = 'firecrawl_extract'` can be inserted
+  directly via SQL or a seed script.
+- Cost guard implemented: both dispatch sites check
+  `process.env.FIRECRAWL_SCRAPE_ENABLED === '1'` before calling Firecrawl.
+  If not set, the source is skipped with a log message and 0 events — no error.
+- Events flow through the standard `upsertEvent` pipeline identical to
+  `venue_website` and `facebook_page` sources.
+
+## 1b. Admin UI to create `firecrawl_extract` scrape_sources (future work)
+
+Currently, `firecrawl_extract` rows must be inserted via SQL or a seed script —
+there is no admin interface for creating sources with this type. A future task
+should add a UI form (or at minimum a seeding utility) to make it easy to onboard
+new Firecrawl-powered sources without direct DB access.
 
 ## 2. Firecrawl fallback in fetcher — rate limiting
 
