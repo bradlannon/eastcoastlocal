@@ -419,6 +419,7 @@ const mockFirecrawlSource = {
   scrape_frequency: 'daily',
   last_scraped_at: null,
   last_scrape_status: 'pending',
+  last_scrape_error: null,
   source_type: 'firecrawl_extract',
   enabled: true,
   max_pages: 1,
